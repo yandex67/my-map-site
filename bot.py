@@ -44,10 +44,13 @@ def init_db():
                      (id SERIAL PRIMARY KEY, title TEXT UNIQUE, address TEXT, lat REAL, lon REAL, 
                       available_count TEXT DEFAULT '?', dead_count TEXT DEFAULT '?', broken_count TEXT DEFAULT '?')''')
         
-        # ✅ ИСПРАВЛЕНО: Удаляем старые битые зоны и создаем таблицу с TEXT (вместо JSONB)
         c.execute("DROP TABLE IF EXISTS zones")
         c.execute('''CREATE TABLE zones
                      (id SERIAL PRIMARY KEY, coords TEXT, comment TEXT)''')
+        
+        # ✅ ВОССТАНОВЛЕНО: Таблица для бронирования (выездов)
+        c.execute('''CREATE TABLE IF NOT EXISTS departures
+                     (id SERIAL PRIMARY KEY, point_id INTEGER UNIQUE, point_title TEXT, person_name TEXT)''')
         
         conn.commit()
         conn.close()
@@ -224,7 +227,6 @@ def get_zones():
     zones = []
     for r in c.fetchall():
         try:
-            # ✅ Парсим строку обратно в массив Python
             coords_list = json.loads(r[1]) if r[1] else []
             zones.append({"id": r[0], "coords": coords_list, "comment": r[2] or ""})
         except:
@@ -239,7 +241,6 @@ def add_zone():
     comment = data.get('comment', '')
     conn = get_db_connection()
     c = conn.cursor()
-    # ✅ Сохраняем массив как JSON-строку в поле TEXT
     c.execute("INSERT INTO zones (coords, comment) VALUES (%s, %s)", (json.dumps(coords), comment))
     conn.commit()
     conn.close()
@@ -254,6 +255,52 @@ def delete_zone():
     conn.commit()
     conn.close()
     return jsonify({"success": True})
+
+# ✅ ВОССТАНОВЛЕНО: Эндпоинты для бронирования (выездов)
+@app.route('/get_departures')
+def get_departures():
+    try:
+        conn = get_db_connection()
+        c = conn.cursor()
+        c.execute("SELECT point_id, point_title, person_name FROM departures")
+        departures = [{"point_id": r[0], "point_title": r[1], "person_name": r[2]} for r in c.fetchall()]
+        conn.close()
+        return jsonify(departures)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/add_departure', methods=['POST'])
+def add_departure():
+    try:
+        data = request.json
+        conn = get_db_connection()
+        c = conn.cursor()
+        # ON CONFLICT позволяет обновить имя, если эта точка уже была забронирована
+        c.execute("""
+            INSERT INTO departures (point_id, point_title, person_name) 
+            VALUES (%s, %s, %s)
+            ON CONFLICT (point_id) DO UPDATE SET 
+            point_title = EXCLUDED.point_title, 
+            person_name = EXCLUDED.person_name
+        """, (data.get('point_id'), data.get('point_title'), data.get('person_name')))
+        conn.commit()
+        conn.close()
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"error": str(e), "success": False}), 500
+
+@app.route('/remove_departure', methods=['POST'])
+def remove_departure():
+    try:
+        data = request.json
+        conn = get_db_connection()
+        c = conn.cursor()
+        c.execute("DELETE FROM departures WHERE point_id = %s", (data.get('point_id'),))
+        conn.commit()
+        conn.close()
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"error": str(e), "success": False}), 500
 
 def run_bot():
     bot.polling(none_stop=True)
