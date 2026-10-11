@@ -25,12 +25,12 @@
         .modal-box button:active { background: #45a049; }
         .modal-box .btn-secondary { background: #9E9E9E; margin-top: 8px; }
         
-        .drawing-indicator { display: none; position: fixed; top: 80px; left: 50%; transform: translateX(-50%); background: #f44336; color: white; padding: 10px 20px; border-radius: 8px; font-size: 14px; font-weight: bold; z-index: 1500; box-shadow: 0 2px 8px rgba(0,0,0,0.3); min-width: 250px; max-width: 350px; align-items: center; gap: 8px; box-sizing: border-box; flex-direction: column; }
+        .drawing-indicator { display: none; position: fixed; top: 80px; left: 50%; transform: translateX(-50%); background: #f44336; color: white; padding: 10px 20px; border-radius: 8px; font-size: 14px; font-weight: bold; z-index: 1500; box-shadow: 0 2px 8px rgba(0,0,0,0.3); min-width: 250px; max-width: 350px; align-items: center; gap: 4px; box-sizing: border-box; flex-direction: column; }
         .drawing-indicator .mode-buttons { display: flex; flex-direction: column; gap: 8px; width: 100%; }
         .drawing-indicator button { background: white; color: #f44336; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 13px; width: 100%; }
         .drawing-indicator .btn-comment-active { background: white; color: #333; border: 2px solid #333; }
         .drawing-indicator .comment-input { display: none; width: 100%; padding: 8px; border: 2px solid #333; border-radius: 4px; text-align: center; font-size: 14px; box-sizing: border-box; margin-top: 5px; }
-        .drawing-indicator .action-buttons { display: flex; gap: 10px; width: 100%; margin-top: 5px; }
+        .drawing-indicator .action-buttons { display: flex; gap: 10px; width: 100%; margin-top: 2px; }
         .drawing-indicator .action-buttons button { background: white; color: #f44336; }
         .drawing-indicator .btn-ok-gray { background: white !important; color: #f44336 !important; display: none; }
 
@@ -54,7 +54,7 @@
     <div class="bottom-panel" id="bottomPanel" style="display: none;">
         <button class="close-btn" onclick="closeBottomPanel()">✕</button>
         <div id="bottomDeparturesList"></div>
-        <div id="deadInfo" class="departure-item" onclick="onDeadInfoClick()" style="cursor: pointer; font-weight: bold;">Севшие: <span id="deadCount">0</span></div>
+        <div id="deadInfo" class="departure-item" onclick="onDeadInfoClick()" style="cursor: pointer; font-weight: bold;">Севшие на парковке: <span id="deadCount">0</span></div>
     </div>
     
     <div class="modal-overlay" id="modalOverlay">
@@ -77,7 +77,7 @@
     </div>
 
     <div class="drawing-indicator" id="drawingIndicator">
-        <span class="indicator-text" id="indicatorText" style="display: block; width: 100%; text-align: center; margin-bottom: 5px;">Рисование...</span>
+        <span class="indicator-text" id="indicatorText" style="display: block; width: 100%; text-align: center; margin-bottom: 2px;">Рисование...</span>
         <div class="mode-buttons" id="modeButtonsContainer" style="display: none; width: 100%;">
             <button id="selectMode1Btn" onclick="selectDrawMode(1)">Режим 1</button>
             <button id="selectMode2Btn" onclick="selectDrawMode(2)">Режим 2</button>
@@ -778,7 +778,7 @@
                     document.getElementById('maxDeadText').textContent = bodyText;
                     document.getElementById('maxDeadModal').style.display = 'flex';
                 } else {
-                    document.getElementById('maxDeadTitle').textContent = 'Севшие';
+                    document.getElementById('maxDeadTitle').textContent = 'Севшие на парковке';
                     document.getElementById('maxDeadText').textContent = 'Нет парковок с 5 и более севшими самокатами';
                     document.getElementById('maxDeadModal').style.display = 'flex';
                 }
