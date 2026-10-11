@@ -136,6 +136,27 @@
         var BASE_URL = 'https://yandex67.github.io/my-map-site/';
         var ZOOM_THRESHOLD = window.innerWidth <= 768 ? 15 : 14.8;
 
+        // Функция для разбиения комментария на строки по 2 слова
+        function formatComment(text) {
+            if (!text) return '';
+            var words = text.split(' ');
+            var lines = [];
+            var currentLine = '';
+            for (var i = 0; i < words.length; i++) {
+                if (currentLine === '') {
+                    currentLine = words[i];
+                } else {
+                    currentLine += ' ' + words[i];
+                }
+                // Переносим строку каждые 2 слова или в конце
+                if ((i + 1) % 2 === 0 || i === words.length - 1) {
+                    lines.push(currentLine);
+                    currentLine = '';
+                }
+            }
+            return lines.join('<br>');
+        }
+
         ymaps.ready(init);
 
         function init() {
@@ -231,7 +252,7 @@
                         ];
                         var textPlacemark = new ymaps.Placemark(center, {}, {
                             iconLayout: ymaps.templateLayoutFactory.createClass(
-                                '<div style="color: #640000; font-weight: bold; font-size: 12px; text-align: center; white-space: nowrap; pointer-events: none; padding-left: 30px;">' + z.comment + '</div>'
+                                '<div style="color: #640000; font-weight: bold; font-size: 12px; text-align: center; pointer-events: none; line-height: 1.3;">' + formatComment(z.comment) + '</div>'
                             ),
                             iconOffset: [-100, -10],
                             iconShape: { type: 'Rectangle', coordinates: [[0, 0], [200, 20]] },
@@ -876,7 +897,6 @@
                 html += '<div class="departure-item">За ' + d.title + ' ым выехал ' + d.name + '</div>';
             }
             list.innerHTML = html;
-            // Панель всегда видна (пока есть парковки), крестик её скрывает
             panel.style.display = 'block';
         }
         function closeBottomPanel() { document.getElementById('bottomPanel').style.display = 'none'; }
