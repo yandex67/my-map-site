@@ -53,7 +53,7 @@
         <div class="info" onclick="onInfoClick()">Всего: <span id="pointCount">0</span></div>
     </div>
     <div class="bottom-panel" id="bottomPanel">
-        <button class="close-btn" onclick="closeBottomPanel()"></button>
+        <button class="close-btn" onclick="closeBottomPanel()">✕</button>
         <div id="bottomDeparturesList"></div>
         <div id="deadInfo" class="dead-info" onclick="onDeadInfoClick()">Севшие на парковке: <span id="deadCount">0</span></div>
     </div>
@@ -300,7 +300,7 @@
             document.getElementById('selectMode2Btn').style.display = 'none';
 
             if (willSaveZone) {
-                // Режим 3: показываем только Коммент, без текста инструкции и кнопки завершения зоны
+                // Режим 3: показываем только Коммент
                 isMode3SubMode = true;
                 document.getElementById('indicatorText').style.display = 'none';
                 document.getElementById('finishZoneBtn').style.display = 'none';
@@ -316,7 +316,7 @@
                 document.getElementById('commentInput').style.display = 'none';
                 document.getElementById('commentOkBtn').style.display = 'none';
                 
-                // Для Режима 2 скрываем кнопку "Ок" — зона создаётся автоматически при отпускании
+                // Для Режима 2 скрываем кнопку "Ок"
                 if (mode === 2) {
                     document.getElementById('finishZoneBtn').style.display = 'none';
                 } else {
@@ -360,7 +360,7 @@
             document.getElementById('indicatorText').textContent = drawMode === 1 ? 'Кликайте по карте' : 'Зажмите и ведите';
             document.getElementById('indicatorText').style.display = 'block';
             
-            // Для Режима 2 НЕ показываем кнопку "Ок" — зона создастся автоматически при отпускании
+            // Для Режима 2 не показываем кнопку "Ок" — зона создастся автоматически
             if (drawMode === 2) {
                 document.getElementById('finishZoneBtn').style.display = 'none';
             } else {
@@ -451,7 +451,7 @@
                 // Режим 3 + под-режим 2: сохраняем в БД
                 saveZoneToServer();
             } else {
-                // Обычный Режим 2: оставляем зону на карте (исчезнет после обновления)
+                // Обычный Режим 2: оставляем зону на карте
                 isDrawingZone = false;
                 drawMode = 1;
                 willSaveZone = false;
@@ -506,8 +506,10 @@
                 zonePointMarkers = [];
                 
                 if (willSaveZone) {
+                    // Режим 3 + под-режим 1: сохраняем в БД
                     saveZoneToServer();
                 } else {
+                    // Обычный Режим 1: оставляем зону на карте
                     isDrawingZone = false;
                     drawMode = 1;
                     willSaveZone = false;
