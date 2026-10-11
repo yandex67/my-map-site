@@ -50,7 +50,7 @@
     <div class="controls">
         <h3 onclick="onTasksHeaderClick()">Задачи на сегодня</h3>
         <div class="info" onclick="onInfoClick()">Всего: <span id="pointCount">0</span></div>
-        <div class="info" id="deadInfo" onclick="onDeadInfoClick()" style="margin-top: 4px;">Севшие на парковке: <span id="deadCount">0</span></div>
+        <div class="info" id="deadInfo" onclick="onDeadInfoClick()" style="margin-top: 4px;">Севшие: <span id="deadCount">0</span></div>
     </div>
     <div class="bottom-panel" id="bottomPanel" style="display: none;">
         <button class="close-btn" onclick="closeBottomPanel()">✕</button>
@@ -275,7 +275,7 @@
             document.getElementById('finishZoneBtn').style.display = 'block';
             document.getElementById('finishZoneBtn').textContent = 'Ок';
             document.getElementById('commentOkBtn').style.display = 'none';
-            document.getElementById('commentBtn').style.display = 'block';
+            document.getElementById('commentBtn').style.display = 'none';
             document.getElementById('commentDisplayBtn').style.display = 'none';
 
             if (mode === 3) {
@@ -299,20 +299,23 @@
             document.getElementById('selectMode2Btn').style.display = 'none';
 
             if (willSaveZone) {
+                // Режим 3: показываем только Коммент, без текста инструкции и кнопки завершения зоны
                 isMode3SubMode = true;
                 document.getElementById('indicatorText').style.display = 'none';
                 document.getElementById('finishZoneBtn').style.display = 'none';
+                document.getElementById('commentBtn').style.display = 'block';
+                document.getElementById('commentDisplayBtn').style.display = 'none';
             } else {
+                // Обычный Режим 1 или 2: показываем текст инструкции и кнопку завершения зоны, БЕЗ Коммента
                 isMode3SubMode = false;
                 document.getElementById('indicatorText').textContent = mode === 1 ? 'Кликайте по карте' : 'Зажмите и ведите';
                 document.getElementById('indicatorText').style.display = 'block';
                 document.getElementById('finishZoneBtn').style.display = 'block';
+                document.getElementById('commentBtn').style.display = 'none';
+                document.getElementById('commentDisplayBtn').style.display = 'none';
+                document.getElementById('commentInput').style.display = 'none';
+                document.getElementById('commentOkBtn').style.display = 'none';
             }
-
-            document.getElementById('commentBtn').style.display = 'block';
-            document.getElementById('commentDisplayBtn').style.display = 'none';
-            document.getElementById('commentInput').style.display = 'none';
-            document.getElementById('commentOkBtn').style.display = 'none';
 
             if (mode === 2) {
                 myMap.behaviors.disable('drag');
@@ -427,13 +430,16 @@
             myMap.geoObjects.add(zonePolygon);
             
             if (drawMode === 2) {
+                // Режим 2: сразу фиксируем
                 isZoneConfirmed = true;
                 zonePointMarkers.forEach(function(m) { myMap.geoObjects.remove(m); });
                 zonePointMarkers = [];
                 
                 if (willSaveZone) {
+                    // Режим 3 + способ 2: сохраняем в БД
                     saveZoneToServer();
                 } else {
+                    // Обычный Режим 2: оставляем зону на карте, завершаем рисование
                     isDrawingZone = false;
                     drawMode = 1;
                     willSaveZone = false;
@@ -444,8 +450,6 @@
                     zoneComment = "";
                     freehandStartPoint = null;
                     isDrawingFreehand = false;
-                    if (zonePolygon) { myMap.geoObjects.remove(zonePolygon); zonePolygon = null; }
-                    if (zonePolyline) { myMap.geoObjects.remove(zonePolyline); zonePolyline = null; }
                     myMap.behaviors.enable('drag');
                     myMap.behaviors.enable('multiTouch');
                     myMap.behaviors.enable('scrollZoom');
@@ -454,16 +458,32 @@
                     myMap.container.getElement().style.cursor = '';
                 }
             } else {
-                enableVertexEditing();
-                isZoneConfirmed = true;
-                document.getElementById('indicatorText').textContent = 'Точно всё?';
-                document.getElementById('indicatorText').style.display = 'block';
-                document.getElementById('finishZoneBtn').textContent = 'Ок';
-                document.getElementById('finishZoneBtn').style.display = 'block';
-                document.getElementById('commentBtn').style.display = 'none';
-                document.getElementById('commentDisplayBtn').style.display = 'none';
-                document.getElementById('commentInput').style.display = 'none';
-                document.getElementById('commentOkBtn').style.display = 'none';
+                // Режим 1
+                if (willSaveZone) {
+                    // Режим 3 + способ 1: показываем "Точно всё?" с перетаскиванием
+                    enableVertexEditing();
+                    isZoneConfirmed = true;
+                    document.getElementById('indicatorText').textContent = 'Точно всё?';
+                    document.getElementById('indicatorText').style.display = 'block';
+                    document.getElementById('finishZoneBtn').textContent = 'Ок';
+                    document.getElementById('finishZoneBtn').style.display = 'block';
+                    document.getElementById('commentBtn').style.display = 'none';
+                    document.getElementById('commentDisplayBtn').style.display = 'none';
+                    document.getElementById('commentInput').style.display = 'none';
+                    document.getElementById('commentOkBtn').style.display = 'none';
+                } else {
+                    // Обычный Режим 1: показываем "Точно всё?" с перетаскиванием
+                    enableVertexEditing();
+                    isZoneConfirmed = true;
+                    document.getElementById('indicatorText').textContent = 'Точно всё?';
+                    document.getElementById('indicatorText').style.display = 'block';
+                    document.getElementById('finishZoneBtn').textContent = 'Ок';
+                    document.getElementById('finishZoneBtn').style.display = 'block';
+                    document.getElementById('commentBtn').style.display = 'none';
+                    document.getElementById('commentDisplayBtn').style.display = 'none';
+                    document.getElementById('commentInput').style.display = 'none';
+                    document.getElementById('commentOkBtn').style.display = 'none';
+                }
             }
         }
 
@@ -485,6 +505,7 @@
                 myMap.geoObjects.add(zonePolygon);
                 
                 if (drawMode === 2) {
+                    // Режим 2: сразу фиксируем
                     isZoneConfirmed = true;
                     zonePointMarkers.forEach(function(m) { myMap.geoObjects.remove(m); });
                     zonePointMarkers = [];
@@ -492,6 +513,7 @@
                     if (willSaveZone) {
                         saveZoneToServer();
                     } else {
+                        // Обычный Режим 2: оставляем зону на карте
                         isDrawingZone = false;
                         drawMode = 1;
                         willSaveZone = false;
@@ -502,8 +524,6 @@
                         zoneComment = "";
                         freehandStartPoint = null;
                         isDrawingFreehand = false;
-                        if (zonePolygon) { myMap.geoObjects.remove(zonePolygon); zonePolygon = null; }
-                        if (zonePolyline) { myMap.geoObjects.remove(zonePolyline); zonePolyline = null; }
                         myMap.behaviors.enable('drag');
                         myMap.behaviors.enable('multiTouch');
                         myMap.behaviors.enable('scrollZoom');
@@ -512,25 +532,43 @@
                         myMap.container.getElement().style.cursor = '';
                     }
                 } else {
-                    enableVertexEditing();
-                    isZoneConfirmed = true;
-                    document.getElementById('indicatorText').textContent = 'Точно всё?';
-                    document.getElementById('indicatorText').style.display = 'block';
-                    document.getElementById('finishZoneBtn').textContent = 'Ок';
-                    document.getElementById('finishZoneBtn').style.display = 'block';
-                    document.getElementById('commentBtn').style.display = 'none';
-                    document.getElementById('commentDisplayBtn').style.display = 'none';
-                    document.getElementById('commentInput').style.display = 'none';
-                    document.getElementById('commentOkBtn').style.display = 'none';
+                    // Режим 1
+                    if (willSaveZone) {
+                        // Режим 3 + способ 1: показываем "Точно всё?" с перетаскиванием
+                        enableVertexEditing();
+                        isZoneConfirmed = true;
+                        document.getElementById('indicatorText').textContent = 'Точно всё?';
+                        document.getElementById('indicatorText').style.display = 'block';
+                        document.getElementById('finishZoneBtn').textContent = 'Ок';
+                        document.getElementById('finishZoneBtn').style.display = 'block';
+                        document.getElementById('commentBtn').style.display = 'none';
+                        document.getElementById('commentDisplayBtn').style.display = 'none';
+                        document.getElementById('commentInput').style.display = 'none';
+                        document.getElementById('commentOkBtn').style.display = 'none';
+                    } else {
+                        // Обычный Режим 1: показываем "Точно всё?" с перетаскиванием
+                        enableVertexEditing();
+                        isZoneConfirmed = true;
+                        document.getElementById('indicatorText').textContent = 'Точно всё?';
+                        document.getElementById('indicatorText').style.display = 'block';
+                        document.getElementById('finishZoneBtn').textContent = 'Ок';
+                        document.getElementById('finishZoneBtn').style.display = 'block';
+                        document.getElementById('commentBtn').style.display = 'none';
+                        document.getElementById('commentDisplayBtn').style.display = 'none';
+                        document.getElementById('commentInput').style.display = 'none';
+                        document.getElementById('commentOkBtn').style.display = 'none';
+                    }
                 }
                 
             } else {
+                // ВТОРОЕ НАЖАТИЕ ОК (только для Режима 3 + способ 1)
                 zonePointMarkers.forEach(function(m) { myMap.geoObjects.remove(m); });
                 zonePointMarkers = [];
                 
                 if (willSaveZone) {
                     saveZoneToServer();
                 } else {
+                    // Обычный Режим 1: фиксируем зону и оставляем на карте
                     isDrawingZone = false;
                     drawMode = 1;
                     willSaveZone = false;
@@ -541,8 +579,6 @@
                     zoneComment = "";
                     freehandStartPoint = null;
                     isDrawingFreehand = false;
-                    if (zonePolygon) { myMap.geoObjects.remove(zonePolygon); zonePolygon = null; }
-                    if (zonePolyline) { myMap.geoObjects.remove(zonePolyline); zonePolyline = null; }
                     myMap.behaviors.enable('drag');
                     myMap.behaviors.enable('multiTouch');
                     myMap.behaviors.enable('scrollZoom');
@@ -702,7 +738,7 @@
 
         function createParkingIcon() {
             return {
-                iconLayout: ymaps.templateLayoutFactory.createClass('<div style="width: 36px; height: 36px; font-size: 26px; text-align: center; line-height: 36px;">️</div>'),
+                iconLayout: ymaps.templateLayoutFactory.createClass('<div style="width: 36px; height: 36px; font-size: 26px; text-align: center; line-height: 36px;">🅿️</div>'),
                 iconShape: { type: 'Circle', coordinates: [18, 18], radius: 18 }
             };
         }
@@ -726,7 +762,6 @@
             parkingMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); parkingMarkers = [];
             parkingLabelMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); parkingLabelMarkers = [];
             fetch(API_URL + '/get_parkings').then(function(r) { return r.json(); }).then(function(data) {
-                // Подсчёт суммы севших и поиск максимума
                 var totalDead = 0;
                 var maxDead = 0;
                 var maxDeadParkings = [];
@@ -738,12 +773,10 @@
                     var pl = createParkingLabels(p.lat, p.lon, p.available, p.dead, p.broken, p.id);
                     myMap.geoObjects.add(pl); parkingLabelMarkers.push(pl);
                     
-                    // Считаем севшие (если '?' или не число — считаем как 0)
                     var deadNum = parseInt(p.dead, 10);
                     if (isNaN(deadNum)) deadNum = 0;
                     totalDead += deadNum;
                     
-                    // Ищем максимум (только если >= 5)
                     if (deadNum >= 5) {
                         if (deadNum > maxDead) {
                             maxDead = deadNum;
@@ -754,10 +787,7 @@
                     }
                 });
                 
-                // Обновляем счётчик севших
                 document.getElementById('deadCount').textContent = totalDead;
-                
-                // Сохраняем данные для модального окна
                 document.getElementById('deadInfo').data = {
                     maxDead: maxDead,
                     maxDeadParkings: maxDeadParkings
@@ -775,14 +805,12 @@
                 var data = document.getElementById('deadInfo').data || { maxDead: 0, maxDeadParkings: [] };
                 
                 if (data.maxDead >= 5 && data.maxDeadParkings.length > 0) {
-                    var titleText = '';
+                    var titleText = 'Больше всего севших';
                     var bodyText = '';
                     
                     if (data.maxDeadParkings.length === 1) {
-                        titleText = 'Больше всего севших';
                         bodyText = 'На парковке "' + data.maxDeadParkings[0] + '" — ' + data.maxDead + ' севших';
                     } else {
-                        titleText = 'Больше всего севших';
                         var namesList = data.maxDeadParkings.map(function(n) { return '"' + n + '"'; }).join(', ');
                         bodyText = 'На парковках ' + namesList + ' — по ' + data.maxDead + ' севших';
                     }
@@ -791,7 +819,6 @@
                     document.getElementById('maxDeadText').textContent = bodyText;
                     document.getElementById('maxDeadModal').style.display = 'flex';
                 } else {
-                    // Если нет парковок с 5+ севшими
                     document.getElementById('maxDeadTitle').textContent = 'Севшие';
                     document.getElementById('maxDeadText').textContent = 'Нет парковок с 5 и более севшими самокатами';
                     document.getElementById('maxDeadModal').style.display = 'flex';
