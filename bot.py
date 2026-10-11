@@ -350,7 +350,24 @@ def delete_zone():
     conn.commit()
     conn.close()
     return jsonify({"success": True})
-
+@app.route('/delete_last_5_zones', methods=['POST'])
+def delete_last_5_zones():
+    conn = get_db_connection()
+    c = conn.cursor()
+    # В PostgreSQL для DELETE с LIMIT нужен подзапрос с алиасом
+    c.execute("""
+        DELETE FROM zones 
+        WHERE id IN (
+            SELECT id FROM (
+                SELECT id FROM zones ORDER BY id DESC LIMIT 5
+            ) AS subquery
+        )
+    """)
+    conn.commit()
+    deleted_count = c.rowcount
+    conn.close()
+    return jsonify({"success": True, "deleted": deleted_count})
+    
 def run_bot():
     bot.polling(none_stop=True)
 
