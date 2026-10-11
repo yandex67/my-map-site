@@ -194,7 +194,9 @@
             });
         }
 
-        function loadZones() {
+        
+
+                function loadZones() {
             console.log('Загрузка зон с сервера...');
             zones.forEach(function(z) { myMap.geoObjects.remove(z.polygon); if(z.text) myMap.geoObjects.remove(z.text); });
             zones = []; zoneTextMarkers = [];
@@ -202,6 +204,13 @@
             fetch(API_URL + '/get_zones').then(function(r) { return r.json(); }).then(function(data) {
                 console.log('Получено зон с сервера:', data.length);
                 data.forEach(function(z) {
+                    // === ЗАЩИТА ОТ ОШИБКИ null ===
+                    if (!z.coords || !Array.isArray(z.coords) || z.coords.length === 0) {
+                        console.warn('⚠️ Пропущена битая зона ID:', z.id, 'Координаты:', z.coords);
+                        return; // Пропускаем эту зону, чтобы не ломать отрисовку карты
+                    }
+                    // ==============================
+                    
                     var polygon = new ymaps.Polygon([z.coords], {}, {
                         fillColor: '#FFB6C1', fillOpacity: 0.5,
                         strokeColor: '#ff3b30', strokeWidth: 3, strokeStyle: 'solid',
@@ -244,6 +253,8 @@
                     }
                     zones.push(zoneObj);
                 });
+            }).catch(function(err) {
+                console.error('Ошибка при загрузке зон:', err);
             });
         }
 
