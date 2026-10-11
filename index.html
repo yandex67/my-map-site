@@ -195,10 +195,12 @@
         }
 
         function loadZones() {
+            console.log('Загрузка зон с сервера...');
             zones.forEach(function(z) { myMap.geoObjects.remove(z.polygon); if(z.text) myMap.geoObjects.remove(z.text); });
             zones = []; zoneTextMarkers = [];
             
             fetch(API_URL + '/get_zones').then(function(r) { return r.json(); }).then(function(data) {
+                console.log('Получено зон с сервера:', data.length);
                 data.forEach(function(z) {
                     var polygon = new ymaps.Polygon([z.coords], {}, {
                         fillColor: '#FFB6C1', fillOpacity: 0.5,
@@ -300,14 +302,12 @@
             document.getElementById('selectMode2Btn').style.display = 'none';
 
             if (willSaveZone) {
-                // Режим 3: показываем только Коммент
                 isMode3SubMode = true;
                 document.getElementById('indicatorText').style.display = 'none';
                 document.getElementById('finishZoneBtn').style.display = 'none';
                 document.getElementById('commentBtn').style.display = 'block';
                 document.getElementById('commentDisplayBtn').style.display = 'none';
             } else {
-                // Обычный Режим 1 или 2
                 isMode3SubMode = false;
                 document.getElementById('indicatorText').textContent = mode === 1 ? 'Кликайте по карте' : 'Зажмите и ведите';
                 document.getElementById('indicatorText').style.display = 'block';
@@ -316,7 +316,6 @@
                 document.getElementById('commentInput').style.display = 'none';
                 document.getElementById('commentOkBtn').style.display = 'none';
                 
-                // Для Режима 2 скрываем кнопку "Ок"
                 if (mode === 2) {
                     document.getElementById('finishZoneBtn').style.display = 'none';
                 } else {
@@ -360,7 +359,6 @@
             document.getElementById('indicatorText').textContent = drawMode === 1 ? 'Кликайте по карте' : 'Зажмите и ведите';
             document.getElementById('indicatorText').style.display = 'block';
             
-            // Для Режима 2 не показываем кнопку "Ок" — зона создастся автоматически
             if (drawMode === 2) {
                 document.getElementById('finishZoneBtn').style.display = 'none';
             } else {
@@ -442,16 +440,14 @@
             
             myMap.geoObjects.add(zonePolygon);
             
-            // Режим 2: зона создаётся автоматически при отпускании
             isZoneConfirmed = true;
             zonePointMarkers.forEach(function(m) { myMap.geoObjects.remove(m); });
             zonePointMarkers = [];
             
             if (willSaveZone) {
-                // Режим 3 + под-режим 2: сохраняем в БД
+                console.log('Режим 3 + Режим 2: вызываем saveZoneToServer()');
                 saveZoneToServer();
             } else {
-                // Обычный Режим 2: оставляем зону на карте
                 isDrawingZone = false;
                 drawMode = 1;
                 willSaveZone = false;
@@ -488,7 +484,6 @@
                 
                 myMap.geoObjects.add(zonePolygon);
                 
-                // Режим 1: показываем "Точно всё?" с перетаскиванием
                 enableVertexEditing();
                 isZoneConfirmed = true;
                 document.getElementById('indicatorText').textContent = 'Точно всё?';
@@ -501,15 +496,13 @@
                 document.getElementById('commentOkBtn').style.display = 'none';
                 
             } else {
-                // ВТОРОЕ НАЖАТИЕ ОК (только для Режима 1)
                 zonePointMarkers.forEach(function(m) { myMap.geoObjects.remove(m); });
                 zonePointMarkers = [];
                 
                 if (willSaveZone) {
-                    // Режим 3 + под-режим 1: сохраняем в БД
+                    console.log('Режим 3 + Режим 1 (второй ОК): вызываем saveZoneToServer()');
                     saveZoneToServer();
                 } else {
-                    // Обычный Режим 1: оставляем зону на карте
                     isDrawingZone = false;
                     drawMode = 1;
                     willSaveZone = false;
@@ -542,15 +535,26 @@
             myMap.container.getElement().style.cursor = '';
         }
 
+        // === ФУНКЦИЯ С ОТЛАДКОЙ ===
         function saveZoneToServer() {
             var finalCoords = zonePolygon ? zonePolygon.geometry.getCoordinates()[0] : zonePoints;
+            
+            console.log('=== НАЧАЛО СОХРАНЕНИЯ ЗОНЫ ===');
+            console.log('Координаты:', finalCoords);
+            console.log('Комментарий:', zoneComment);
+            console.log('willSaveZone:', willSaveZone);
             
             fetch(API_URL + '/add_zone', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ coords: finalCoords, comment: zoneComment })
-            }).then(function(r) { return r.json(); }).then(function(data) {
+            }).then(function(r) { 
+                console.log('Статус ответа сервера:', r.status);
+                return r.json(); 
+            }).then(function(data) {
+                console.log('Ответ от сервера:', data);
                 if (data.success) {
+                    console.log('Зона успешно сохранена! Перезагружаем список зон.');
                     isDrawingZone = false; drawMode = 1; willSaveZone = false; isZoneConfirmed = false; drawModeSelected = false; isMode3SubMode = false;
                     zonePoints = []; zoneComment = "";
                     zonePointMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); zonePointMarkers = [];
@@ -560,7 +564,13 @@
                     document.getElementById('drawingIndicator').style.display = 'none';
                     myMap.container.getElement().style.cursor = '';
                     loadZones();
+                } else {
+                    console.error('Ошибка при сохранении зоны на сервере:', data);
+                    alert('Ошибка сохранения зоны на сервере!');
                 }
+            }).catch(function(err) {
+                console.error('Ошибка сети при сохранении зоны:', err);
+                alert('Ошибка сети при сохранении зоны! Проверьте консоль.');
             });
         }
 
