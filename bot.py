@@ -48,7 +48,6 @@ def init_db():
         c.execute('''CREATE TABLE zones
                      (id SERIAL PRIMARY KEY, coords TEXT, comment TEXT)''')
         
-        # ✅ ВОССТАНОВЛЕНО: Таблица для бронирования (выездов)
         c.execute('''CREATE TABLE IF NOT EXISTS departures
                      (id SERIAL PRIMARY KEY, point_id INTEGER UNIQUE, point_title TEXT, person_name TEXT)''')
         
@@ -84,55 +83,9 @@ def handle_message(message):
     text = message.text.strip()
     text_lower = text.lower()
 
-    if text_lower == 'все p off':
-        conn = get_db_connection()
-        c = conn.cursor()
-        c.execute("DELETE FROM parkings")
-        count = c.rowcount
-        conn.commit()
-        conn.close()
-        bot.reply_to(message, f"🗑️ Удалено всех парковок: {count}")
-        return
-
-    if text_lower == 'last p off':
-        conn = get_db_connection()
-        c = conn.cursor()
-        c.execute("DELETE FROM parkings WHERE id = (SELECT MAX(id) FROM parkings)")
-        if c.rowcount > 0:
-            bot.reply_to(message, "🗑️ Последняя парковка успешно удалена.")
-        else:
-            bot.reply_to(message, "❌ Парковок не найдено.")
-        conn.commit()
-        conn.close()
-        return
-
-    parking_match = re.match(r'^(.+?)\s+([ДдСсПп]\d+(?:\s+[ДдСсПп]\d+)*)$', text)
-    if parking_match:
-        title = parking_match.group(1).strip()
-        params_str = parking_match.group(2)
-        avail = dead = broken = None
-        for param_type, param_value in re.findall(r'([ДдСсПп])(\d+)', params_str):
-            if param_type.lower() == 'д': avail = param_value
-            elif param_type.lower() == 'с': dead = param_value
-            elif param_type.lower() == 'п': broken = param_value
-        
-        conn = get_db_connection()
-        c = conn.cursor()
-        c.execute("SELECT available_count, dead_count, broken_count FROM parkings WHERE title = %s", (title,))
-        row = c.fetchone()
-        if row:
-            new_avail = avail if avail else row[0]
-            new_dead = dead if dead else row[1]
-            new_broken = broken if broken else row[2]
-            c.execute("UPDATE parkings SET available_count = %s, dead_count = %s, broken_count = %s WHERE title = %s", 
-                     (new_avail, new_dead, new_broken, title))
-            conn.commit()
-            conn.close()
-            bot.reply_to(message, f"✅ '{title}' обновлена: Д:{new_avail or '?'}, С:{new_dead or '?'}, П:{new_broken or '?'}")
-        else:
-            bot.reply_to(message, f"❌ Парковка '{title}' не найдена.")
-        return
-
+    # ==========================================
+    # 1. СОЗДАНИЕ ПАРКОВКИ (старый проверенный формат)
+    # ==========================================
     if text_lower.endswith(' - p'):
         clean_text = text[:-4].strip()
         if '-' in clean_text:
@@ -155,6 +108,68 @@ def handle_message(message):
                 bot.reply_to(message, f"❌ Не найдено: '{location_part}'")
         return
 
+    # ==========================================
+    # 2. УПРАВЛЕНИЕ ПАРКОВКАМИ ЧЕРЕЗ ДЕФИС (Новое)
+    # ==========================================
+    if ' - ' in text:
+        parts = text.split(' - ', 1) # Разделяем только по первому ' - '
+        title = parts[0].strip()
+        action = parts[1].strip()
+        
+        # А) Удаление парковки
+        if action.lower() == 'удалить':
+            conn = get_db_connection()
+            c = conn.cursor()
+            c.execute("DELETE FROM parkings WHERE title = %s", (title,))
+            if c.rowcount > 0:
+                bot.reply_to(message, f"🗑️ Парковка '{title}' успешно удалена.")
+            else:
+                bot.reply_to(message, f"❌ Парковка '{title}' не найдена.")
+            conn.commit()
+            conn.close()
+            return
+        
+        # Б) Обновление статистики (С, Д, П)
+        # Ищем паттерны типа С5, д?, П12 (регистронезависимо)
+        params_match = re.findall(r'([СсДдПп])(\d+|\?)', action)
+        
+        if params_match:
+            avail = dead = broken = None
+            for param_type, param_value in params_match:
+                p_type = param_type.lower()
+                if p_type == 'с': dead = param_value
+                elif p_type == 'д': avail = param_value
+                elif p_type == 'п': broken = param_value
+            
+            conn = get_db_connection()
+            c = conn.cursor()
+            c.execute("SELECT available_count, dead_count, broken_count FROM parkings WHERE title = %s", (title,))
+            row = c.fetchone()
+            
+            if row:
+                # Если параметр не передан, оставляем старое значение из БД
+                new_avail = avail if avail is not None else row[0]
+                new_dead = dead if dead is not None else row[1]
+                new_broken = broken if broken is not None else row[2]
+                
+                c.execute("UPDATE parkings SET available_count = %s, dead_count = %s, broken_count = %s WHERE title = %s", 
+                         (new_avail, new_dead, new_broken, title))
+                conn.commit()
+                conn.close()
+                
+                response_parts = []
+                if avail is not None: response_parts.append(f"Д:{new_avail}")
+                if dead is not None: response_parts.append(f"С:{new_dead}")
+                if broken is not None: response_parts.append(f"П:{new_broken}")
+                
+                bot.reply_to(message, f"✅ '{title}' обновлена: {', '.join(response_parts)}")
+            else:
+                bot.reply_to(message, f"❌ Парковка '{title}' не найдена.")
+            return
+
+    # ==========================================
+    # 3. СОЗДАНИЕ ОБЫЧНОЙ ТОЧКИ (САМОКАТА)
+    # ==========================================
     if '-' in text:
         parts = text.rsplit('-', 1)
         location_part, title = parts[0].strip(), parts[1].strip()
@@ -174,7 +189,32 @@ def handle_message(message):
         else:
             bot.reply_to(message, f"❌ Не найдено: '{location_part}'")
 
-# --- API ЭНДПОИНТЫ ---
+    # ==========================================
+    # 4. КОМАНДЫ УДАЛЕНИЯ ВСЕХ / ПОСЛЕДНЕЙ ПАРКОВКИ
+    # ==========================================
+    if text_lower == 'все p off':
+        conn = get_db_connection()
+        c = conn.cursor()
+        c.execute("DELETE FROM parkings")
+        count = c.rowcount
+        conn.commit()
+        conn.close()
+        bot.reply_to(message, f"🗑️ Удалено всех парковок: {count}")
+        return
+
+    if text_lower == 'last p off':
+        conn = get_db_connection()
+        c = conn.cursor()
+        c.execute("DELETE FROM parkings WHERE id = (SELECT MAX(id) FROM parkings)")
+        if c.rowcount > 0:
+            bot.reply_to(message, "🗑️ Последняя парковка успешно удалена.")
+        else:
+            bot.reply_to(message, "❌ Парковок не найдено.")
+        conn.commit()
+        conn.close()
+        return
+
+# --- API ЭНДПОИНТЫ (Без изменений, всё работает) ---
 
 @app.route('/get_points')
 def get_points():
@@ -256,7 +296,6 @@ def delete_zone():
     conn.close()
     return jsonify({"success": True})
 
-# ✅ ВОССТАНОВЛЕНО: Эндпоинты для бронирования (выездов)
 @app.route('/get_departures')
 def get_departures():
     try:
@@ -275,7 +314,6 @@ def add_departure():
         data = request.json
         conn = get_db_connection()
         c = conn.cursor()
-        # ON CONFLICT позволяет обновить имя, если эта точка уже была забронирована
         c.execute("""
             INSERT INTO departures (point_id, point_title, person_name) 
             VALUES (%s, %s, %s)
