@@ -114,7 +114,9 @@
         var tasksHeaderClickCount = 0, tasksHeaderClickTimer = null;
         var infoClickCount = 0, infoClickTimer = null, isHybridMode = false;
         var BASE_URL = 'https://yandex67.github.io/my-map-site/';
-        var ZOOM_THRESHOLD = 15;
+        
+        // АВТОМАТИЧЕСКОЕ ОПРЕДЕЛЕНИЕ УСТРОЙСТВА: телефон (<=768px) или компьютер (>768px)
+        var ZOOM_THRESHOLD = window.innerWidth <= 768 ? 15 : 14.8;
 
         ymaps.ready(init);
 
@@ -212,7 +214,8 @@
                         ];
                         var textPlacemark = new ymaps.Placemark(center, {}, {
                             iconLayout: ymaps.templateLayoutFactory.createClass(
-                                '<div style="color: #640000; font-weight: bold; font-size: 12px; text-align: center; white-space: nowrap; pointer-events: none;">' + z.comment + '</div>'
+                                // ДОБАВЛЕНО: padding-left: 30px для сдвига текста вправо
+                                '<div style="color: #640000; font-weight: bold; font-size: 12px; text-align: center; white-space: nowrap; pointer-events: none; padding-left: 30px;">' + z.comment + '</div>'
                             ),
                             iconOffset: [-100, -10],
                             iconShape: { type: 'Rectangle', coordinates: [[0, 0], [200, 20]] },
