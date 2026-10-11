@@ -16,7 +16,6 @@
         .bottom-panel { position: fixed; bottom: 0; left: 0; right: 0; background: white; padding: 15px 45px 15px 15px; box-shadow: 0 -2px 10px rgba(0,0,0,0.2); z-index: 1000; max-height: 180px; overflow-y: auto; }
         .bottom-panel .close-btn { position: absolute; top: 8px; right: 10px; background: none; border: none; font-size: 20px; cursor: pointer; color: #333; padding: 0; width: auto; margin: 0; line-height: 1; }
         .departure-item { font-size: 15px; color: #333; text-align: center; margin: 4px 0; }
-        .dead-info { font-size: 15px; color: #333; text-align: center; margin: 4px 0; font-weight: bold; cursor: pointer; }
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.5); z-index: 2000; justify-content: center; align-items: center; }
         .modal-box { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); width: 80%; max-width: 300px; text-align: center; }
         .modal-box h4 { margin: 0 0 15px 0; font-size: 16px; color: #333; }
@@ -52,10 +51,10 @@
         <h3 onclick="onTasksHeaderClick()">Задачи на сегодня</h3>
         <div class="info" onclick="onInfoClick()">Всего: <span id="pointCount">0</span></div>
     </div>
-    <div class="bottom-panel" id="bottomPanel">
+    <div class="bottom-panel" id="bottomPanel" style="display: none;">
         <button class="close-btn" onclick="closeBottomPanel()">✕</button>
         <div id="bottomDeparturesList"></div>
-        <div id="deadInfo" class="dead-info" onclick="onDeadInfoClick()">Севшие на парковке: <span id="deadCount">0</span></div>
+        <div id="deadInfo" class="departure-item" onclick="onDeadInfoClick()" style="cursor: pointer; font-weight: bold;">Севшие на парковке: <span id="deadCount">0</span></div>
     </div>
     
     <div class="modal-overlay" id="modalOverlay">
@@ -194,21 +193,12 @@
             });
         }
 
-                function loadZones() {
-            console.log('Загрузка зон с сервера...');
+        function loadZones() {
             zones.forEach(function(z) { myMap.geoObjects.remove(z.polygon); if(z.text) myMap.geoObjects.remove(z.text); });
             zones = []; zoneTextMarkers = [];
             
             fetch(API_URL + '/get_zones').then(function(r) { return r.json(); }).then(function(data) {
-                console.log('Получено зон с сервера:', data.length);
                 data.forEach(function(z) {
-                    // === ЗАЩИТА ОТ ОШИБКИ null ===
-                    if (!z.coords || !Array.isArray(z.coords) || z.coords.length === 0) {
-                        console.warn('⚠️ Пропущена битая зона ID:', z.id, 'Координаты:', z.coords);
-                        return; // Пропускаем эту зону, чтобы не ломать отрисовку карты
-                    }
-                    // ==============================
-                    
                     var polygon = new ymaps.Polygon([z.coords], {}, {
                         fillColor: '#FFB6C1', fillOpacity: 0.5,
                         strokeColor: '#ff3b30', strokeWidth: 3, strokeStyle: 'solid',
@@ -251,8 +241,6 @@
                     }
                     zones.push(zoneObj);
                 });
-            }).catch(function(err) {
-                console.error('Ошибка при загрузке зон:', err);
             });
         }
 
@@ -320,16 +308,11 @@
                 isMode3SubMode = false;
                 document.getElementById('indicatorText').textContent = mode === 1 ? 'Кликайте по карте' : 'Зажмите и ведите';
                 document.getElementById('indicatorText').style.display = 'block';
+                document.getElementById('finishZoneBtn').style.display = 'block';
                 document.getElementById('commentBtn').style.display = 'none';
                 document.getElementById('commentDisplayBtn').style.display = 'none';
                 document.getElementById('commentInput').style.display = 'none';
                 document.getElementById('commentOkBtn').style.display = 'none';
-                
-                if (mode === 2) {
-                    document.getElementById('finishZoneBtn').style.display = 'none';
-                } else {
-                    document.getElementById('finishZoneBtn').style.display = 'block';
-                }
             }
 
             if (mode === 2) {
@@ -367,12 +350,7 @@
             
             document.getElementById('indicatorText').textContent = drawMode === 1 ? 'Кликайте по карте' : 'Зажмите и ведите';
             document.getElementById('indicatorText').style.display = 'block';
-            
-            if (drawMode === 2) {
-                document.getElementById('finishZoneBtn').style.display = 'none';
-            } else {
-                document.getElementById('finishZoneBtn').style.display = 'block';
-            }
+            document.getElementById('finishZoneBtn').style.display = 'block';
         }
 
         function addZonePoint(coords) {
@@ -449,30 +427,42 @@
             
             myMap.geoObjects.add(zonePolygon);
             
-            isZoneConfirmed = true;
-            zonePointMarkers.forEach(function(m) { myMap.geoObjects.remove(m); });
-            zonePointMarkers = [];
-            
-            if (willSaveZone) {
-                console.log('Режим 3 + Режим 2: вызываем saveZoneToServer()');
-                saveZoneToServer();
+            if (drawMode === 2) {
+                isZoneConfirmed = true;
+                zonePointMarkers.forEach(function(m) { myMap.geoObjects.remove(m); });
+                zonePointMarkers = [];
+                
+                if (willSaveZone) {
+                    saveZoneToServer();
+                } else {
+                    isDrawingZone = false;
+                    drawMode = 1;
+                    willSaveZone = false;
+                    isZoneConfirmed = false;
+                    drawModeSelected = false;
+                    isMode3SubMode = false;
+                    zonePoints = [];
+                    zoneComment = "";
+                    freehandStartPoint = null;
+                    isDrawingFreehand = false;
+                    myMap.behaviors.enable('drag');
+                    myMap.behaviors.enable('multiTouch');
+                    myMap.behaviors.enable('scrollZoom');
+                    myMap.behaviors.enable('dblClickZoom');
+                    document.getElementById('drawingIndicator').style.display = 'none';
+                    myMap.container.getElement().style.cursor = '';
+                }
             } else {
-                isDrawingZone = false;
-                drawMode = 1;
-                willSaveZone = false;
-                isZoneConfirmed = false;
-                drawModeSelected = false;
-                isMode3SubMode = false;
-                zonePoints = [];
-                zoneComment = "";
-                freehandStartPoint = null;
-                isDrawingFreehand = false;
-                myMap.behaviors.enable('drag');
-                myMap.behaviors.enable('multiTouch');
-                myMap.behaviors.enable('scrollZoom');
-                myMap.behaviors.enable('dblClickZoom');
-                document.getElementById('drawingIndicator').style.display = 'none';
-                myMap.container.getElement().style.cursor = '';
+                enableVertexEditing();
+                isZoneConfirmed = true;
+                document.getElementById('indicatorText').textContent = 'Точно всё?';
+                document.getElementById('indicatorText').style.display = 'block';
+                document.getElementById('finishZoneBtn').textContent = 'Ок';
+                document.getElementById('finishZoneBtn').style.display = 'block';
+                document.getElementById('commentBtn').style.display = 'none';
+                document.getElementById('commentDisplayBtn').style.display = 'none';
+                document.getElementById('commentInput').style.display = 'none';
+                document.getElementById('commentOkBtn').style.display = 'none';
             }
         }
 
@@ -493,23 +483,49 @@
                 
                 myMap.geoObjects.add(zonePolygon);
                 
-                enableVertexEditing();
-                isZoneConfirmed = true;
-                document.getElementById('indicatorText').textContent = 'Точно всё?';
-                document.getElementById('indicatorText').style.display = 'block';
-                document.getElementById('finishZoneBtn').textContent = 'Ок';
-                document.getElementById('finishZoneBtn').style.display = 'block';
-                document.getElementById('commentBtn').style.display = 'none';
-                document.getElementById('commentDisplayBtn').style.display = 'none';
-                document.getElementById('commentInput').style.display = 'none';
-                document.getElementById('commentOkBtn').style.display = 'none';
+                if (drawMode === 2) {
+                    isZoneConfirmed = true;
+                    zonePointMarkers.forEach(function(m) { myMap.geoObjects.remove(m); });
+                    zonePointMarkers = [];
+                    
+                    if (willSaveZone) {
+                        saveZoneToServer();
+                    } else {
+                        isDrawingZone = false;
+                        drawMode = 1;
+                        willSaveZone = false;
+                        isZoneConfirmed = false;
+                        drawModeSelected = false;
+                        isMode3SubMode = false;
+                        zonePoints = [];
+                        zoneComment = "";
+                        freehandStartPoint = null;
+                        isDrawingFreehand = false;
+                        myMap.behaviors.enable('drag');
+                        myMap.behaviors.enable('multiTouch');
+                        myMap.behaviors.enable('scrollZoom');
+                        myMap.behaviors.enable('dblClickZoom');
+                        document.getElementById('drawingIndicator').style.display = 'none';
+                        myMap.container.getElement().style.cursor = '';
+                    }
+                } else {
+                    enableVertexEditing();
+                    isZoneConfirmed = true;
+                    document.getElementById('indicatorText').textContent = 'Точно всё?';
+                    document.getElementById('indicatorText').style.display = 'block';
+                    document.getElementById('finishZoneBtn').textContent = 'Ок';
+                    document.getElementById('finishZoneBtn').style.display = 'block';
+                    document.getElementById('commentBtn').style.display = 'none';
+                    document.getElementById('commentDisplayBtn').style.display = 'none';
+                    document.getElementById('commentInput').style.display = 'none';
+                    document.getElementById('commentOkBtn').style.display = 'none';
+                }
                 
             } else {
                 zonePointMarkers.forEach(function(m) { myMap.geoObjects.remove(m); });
                 zonePointMarkers = [];
                 
                 if (willSaveZone) {
-                    console.log('Режим 3 + Режим 1 (второй ОК): вызываем saveZoneToServer()');
                     saveZoneToServer();
                 } else {
                     isDrawingZone = false;
@@ -544,26 +560,15 @@
             myMap.container.getElement().style.cursor = '';
         }
 
-        // === ФУНКЦИЯ С ОТЛАДКОЙ ===
         function saveZoneToServer() {
             var finalCoords = zonePolygon ? zonePolygon.geometry.getCoordinates()[0] : zonePoints;
-            
-            console.log('=== НАЧАЛО СОХРАНЕНИЯ ЗОНЫ ===');
-            console.log('Координаты:', finalCoords);
-            console.log('Комментарий:', zoneComment);
-            console.log('willSaveZone:', willSaveZone);
             
             fetch(API_URL + '/add_zone', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ coords: finalCoords, comment: zoneComment })
-            }).then(function(r) { 
-                console.log('Статус ответа сервера:', r.status);
-                return r.json(); 
-            }).then(function(data) {
-                console.log('Ответ от сервера:', data);
+            }).then(function(r) { return r.json(); }).then(function(data) {
                 if (data.success) {
-                    console.log('Зона успешно сохранена! Перезагружаем список зон.');
                     isDrawingZone = false; drawMode = 1; willSaveZone = false; isZoneConfirmed = false; drawModeSelected = false; isMode3SubMode = false;
                     zonePoints = []; zoneComment = "";
                     zonePointMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); zonePointMarkers = [];
@@ -573,13 +578,7 @@
                     document.getElementById('drawingIndicator').style.display = 'none';
                     myMap.container.getElement().style.cursor = '';
                     loadZones();
-                } else {
-                    console.error('Ошибка при сохранении зоны на сервере:', data);
-                    alert('Ошибка сохранения зоны на сервере!');
                 }
-            }).catch(function(err) {
-                console.error('Ошибка сети при сохранении зоны:', err);
-                alert('Ошибка сети при сохранении зоны! Проверьте консоль.');
             });
         }
 
@@ -870,12 +869,16 @@
             var panel = document.getElementById('bottomPanel');
             var list = document.getElementById('bottomDeparturesList');
             var keys = Object.keys(departures);
+            if (keys.length === 0) { 
+                panel.style.display = 'none'; 
+                return; 
+            }
             var html = '';
             for (var i = 0; i < keys.length; i++) {
                 var d = departures[keys[i]];
                 html += '<div class="departure-item">За ' + d.title + ' ым выехал ' + d.name + '</div>';
             }
-            list.innerHTML = html;
+            list.innerHTML = html; 
             panel.style.display = 'block';
         }
         function closeBottomPanel() { document.getElementById('bottomPanel').style.display = 'none'; }
