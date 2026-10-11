@@ -49,7 +49,7 @@
 <body>
     <div id="map"></div>
     <div class="controls">
-        <h3 onclick="deleteLast5ZonesTemp()" style="cursor: pointer;">Задачи на сегодня (ВРЕМЕННО: удалить 5 зон)</h3>
+        <h3 onclick="onTasksHeaderClick()">Задачи на сегодня</h3>
         <div class="info" onclick="onInfoClick()">Всего: <span id="pointCount">0</span></div>
     </div>
     <div class="bottom-panel" id="bottomPanel">
@@ -193,8 +193,6 @@
                 }
             });
         }
-
-        
 
                 function loadZones() {
             console.log('Загрузка зон с сервера...');
@@ -839,26 +837,11 @@
             }).then(function(r) { return r.json(); }).then(function(data) { if (data.success) loadParkings(); });
         }
 
-                function deleteLast5ZonesTemp() {
-            if (confirm("ВРЕМЕННО: Удалить последние 5 созданных зон с карты и из базы данных?")) {
-                console.log('Запрос на удаление последних 5 зон...');
-                fetch(API_URL + '/delete_last_5_zones', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' }
-                }).then(function(r) { 
-                    return r.json(); 
-                }).then(function(data) {
-                    if (data.success) {
-                        alert("✅ Успешно удалено зон: " + data.deleted);
-                        loadZones(); // Перерисовываем карту с обновленными данными
-                    } else {
-                        alert("❌ Ошибка при удалении зон на сервере.");
-                    }
-                }).catch(function(err) {
-                    console.error("Ошибка сети при удалении зон:", err);
-                    alert("❌ Ошибка сети. Проверьте консоль.");
-                });
-            }
+        function onTasksHeaderClick() {
+            tasksHeaderClickCount++;
+            if (tasksHeaderClickTimer) clearTimeout(tasksHeaderClickTimer);
+            tasksHeaderClickTimer = setTimeout(function() { tasksHeaderClickCount = 0; }, 1000);
+            if (tasksHeaderClickCount >= 3) { tasksHeaderClickCount = 0; openZoneModal(); }
         }
 
         function onInfoClick() {
