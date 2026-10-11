@@ -136,37 +136,6 @@
         var BASE_URL = 'https://yandex67.github.io/my-map-site/';
         var ZOOM_THRESHOLD = window.innerWidth <= 768 ? 15 : 14.8;
 
-                // Функция для разбиения комментария на строки по 3 слова
-        function formatComment(text) {
-            if (!text) return '';
-            
-            // 1. Очищаем текст: заменяем все переносы строк, табы и множественные пробелы на один обычный пробел
-            var cleanText = text.replace(/\s+/g, ' ').trim();
-            
-            // 2. Разбиваем на слова
-            var words = cleanText.split(' ');
-            var lines = [];
-            var currentLine = '';
-            
-            // 3. Собираем по 3 слова в строку
-            for (var i = 0; i < words.length; i++) {
-                if (currentLine === '') {
-                    currentLine = words[i];
-                } else {
-                    currentLine += ' ' + words[i];
-                }
-                
-                // Переносим строку каждые 3 слова или если это самое последнее слово
-                if ((i + 1) % 3 === 0 || i === words.length - 1) {
-                    lines.push(currentLine);
-                    currentLine = '';
-                }
-            }
-            
-            // 4. Соединяем строки через HTML-перенос <br>
-            return lines.join('<br>');
-        }
-
         ymaps.ready(init);
 
         function init() {
@@ -261,8 +230,9 @@
                             (bounds[0][1] + bounds[1][1]) / 2
                         ];
                         var textPlacemark = new ymaps.Placemark(center, {}, {
+                            // ВОЗВРАЩЕН ОРИГИНАЛЬНЫЙ СТИЛЬ (в одну строку)
                             iconLayout: ymaps.templateLayoutFactory.createClass(
-                                '<div style="color: #640000; font-weight: bold; font-size: 12px; text-align: center; pointer-events: none; line-height: 1.3;">' + formatComment(z.comment) + '</div>'
+                                '<div style="color: #640000; font-weight: bold; font-size: 12px; text-align: center; white-space: nowrap; pointer-events: none; padding-left: 30px;">' + z.comment + '</div>'
                             ),
                             iconOffset: [-100, -10],
                             iconShape: { type: 'Rectangle', coordinates: [[0, 0], [200, 20]] },
