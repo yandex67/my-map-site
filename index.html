@@ -136,48 +136,67 @@
         var BASE_URL = 'https://yandex67.github.io/my-map-site/';
         var ZOOM_THRESHOLD = window.innerWidth <= 768 ? 15 : 14.8;
 
+        // Глобальные настройки отображения
+        var appSettings = {
+            hide_empty_labels: false,
+            show_parkings: true,
+            show_labels: true
+        };
+
         ymaps.ready(init);
 
         function init() {
             loadDeparturesFromServer();
-            myMap = new ymaps.Map("map", { center: [54.7818, 32.0401], zoom: 12, type: 'yandex#map', controls: ['zoomControl', 'fullscreenControl'] });
-            myMap.behaviors.enable('drag'); myMap.behaviors.enable('multiTouch'); myMap.behaviors.enable('scrollZoom'); myMap.behaviors.enable('dblClickZoom');
-            
-            loadPoints();
-            loadParkings();
-            loadZones();
+            loadSettings().then(function() {
+                myMap = new ymaps.Map("map", { center: [54.7818, 32.0401], zoom: 12, type: 'yandex#map', controls: ['zoomControl', 'fullscreenControl'] });
+                myMap.behaviors.enable('drag'); myMap.behaviors.enable('multiTouch'); myMap.behaviors.enable('scrollZoom'); myMap.behaviors.enable('dblClickZoom');
+                
+                loadPoints();
+                loadParkings();
+                loadZones();
 
-            myMap.events.add('mousedown', function(e) {
-                if (isDrawingZone && drawMode === 2 && !isZoneConfirmed) { 
-                    if (!freehandStartPoint) {
-                        freehandStartPoint = e.get('coords');
-                        addZonePoint(freehandStartPoint);
+                myMap.events.add('mousedown', function(e) {
+                    if (isDrawingZone && drawMode === 2 && !isZoneConfirmed) { 
+                        if (!freehandStartPoint) {
+                            freehandStartPoint = e.get('coords');
+                            addZonePoint(freehandStartPoint);
+                        }
+                        isDrawingFreehand = true; 
                     }
-                    isDrawingFreehand = true; 
-                }
-            });
-            myMap.events.add('mousemove', function(e) {
-                if (isDrawingFreehand) { addZonePoint(e.get('coords')); }
-            });
-            myMap.events.add('mouseup', function(e) {
-                if (isDrawingFreehand) { 
-                    isDrawingFreehand = false; 
-                    closeFreehandZone();
-                }
-            });
-            document.addEventListener('mouseup', function(e) {
-                if (isDrawingFreehand) { 
-                    isDrawingFreehand = false; 
-                    closeFreehandZone();
-                }
-            });
+                });
+                myMap.events.add('mousemove', function(e) {
+                    if (isDrawingFreehand) { addZonePoint(e.get('coords')); }
+                });
+                myMap.events.add('mouseup', function(e) {
+                    if (isDrawingFreehand) { 
+                        isDrawingFreehand = false; 
+                        closeFreehandZone();
+                    }
+                });
+                document.addEventListener('mouseup', function(e) {
+                    if (isDrawingFreehand) { 
+                        isDrawingFreehand = false; 
+                        closeFreehandZone();
+                    }
+                });
 
-            myMap.events.add('click', function(e) { 
-                if (isDrawingZone && drawMode === 1 && !isZoneConfirmed) { addZonePoint(e.get('coords')); } 
-            });
+                myMap.events.add('click', function(e) { 
+                    if (isDrawingZone && drawMode === 1 && !isZoneConfirmed) { addZonePoint(e.get('coords')); } 
+                });
 
-            myMap.events.add('boundschange', function() {
-                updateZoneTextVisibility();
+                myMap.events.add('boundschange', function() {
+                    updateZoneTextVisibility();
+                });
+            });
+        }
+
+        function loadSettings() {
+            return fetch(API_URL + '/get_settings').then(function(r) { return r.json(); }).then(function(data) {
+                appSettings.hide_empty_labels = data.hide_empty_labels || false;
+                appSettings.show_parkings = data.show_parkings !== false;
+                appSettings.show_labels = data.show_labels !== false;
+            }).catch(function(err) {
+                console.error('Ошибка загрузки настроек:', err);
             });
         }
 
@@ -644,10 +663,14 @@
 
         function buildBalloonContent(point, isBooked) {
             var esc = point.title.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+            
+            var fzLink = point.url ? '<a href="' + point.url + '" target="_blank" style="color: #1976D2; text-decoration: underline; font-weight: bold; display: block; margin: 5px 0;">ПОСМОТРЕТЬ ФЗ</a>' : '';
+            var commentHtml = point.comment ? '<small style="color: #000; display: block; margin: 5px 0;">' + point.comment + '</small>' : '';
+            
             var h = '<div style="min-width: 200px; padding: 12px; box-sizing: border-box; text-align: center;">' +
                 '<b style="font-size: 16px; display: block;">' + point.title + '</b>' +
                 '<div style="color: #555; font-size: 14px; margin: 8px 0;">' + point.address + '</div>' +
-                '<small style="color: #999; display: block;">Статус: ' + point.status + '</small>' +
+                fzLink + commentHtml +
                 '<div style="display: flex; flex-direction: column; align-items: center; gap: 4px; margin-top: 10px;">' +
                 '<button onclick="event.stopPropagation(); updateStatus(' + point.id + ', \'found\')" style="background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Нашёл</button>' +
                 '<button onclick="event.stopPropagation(); updateStatus(' + point.id + ', \'not_found\')" style="background: #212121; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Не нашёл</button>' +
@@ -694,18 +717,22 @@
 
         function createParkingIcon() {
             return {
-                iconLayout: ymaps.templateLayoutFactory.createClass('<div style="width: 36px; height: 36px; font-size: 26px; text-align: center; line-height: 36px;">🅿️</div>'),
+                iconLayout: ymaps.templateLayoutFactory.createClass('<div style="width: 36px; height: 36px; text-align: center; line-height: 36px;"><img src="' + BASE_URL + 'p.png" style="width: 36px; height: 36px; display: block;"></div>'),
                 iconShape: { type: 'Circle', coordinates: [18, 18], radius: 18 }
             };
         }
 
         function createParkingLabels(lat, lon, available, dead, broken, pId) {
+            var availHtml = (appSettings.hide_empty_labels && available === '?') ? '' : '<div style="background: #4CAF50; color: white; font-size: 9px; font-weight: bold; padding: 2px 6px; border-radius: 3px; white-space: nowrap; margin-bottom: 2px;">В доступе: ' + available + '</div>';
+            var deadHtml = (appSettings.hide_empty_labels && dead === '?') ? '' : '<div style="background: #f44336; color: white; font-size: 9px; font-weight: bold; padding: 2px 6px; border-radius: 3px; white-space: nowrap; margin-bottom: 2px;">Севшие: ' + dead + '</div>';
+            var brokenHtml = (appSettings.hide_empty_labels && broken === '?') ? '' : '<div style="background: #7E0000; color: white; font-size: 9px; font-weight: bold; padding: 2px 6px; border-radius: 3px; white-space: nowrap; margin-bottom: 2px;">Поломки: ' + broken + '</div>';
+            
+            if (appSettings.hide_empty_labels && availHtml === '' && deadHtml === '' && brokenHtml === '') {
+                return null;
+            }
+
             var layout = ymaps.templateLayoutFactory.createClass(
-                '<div style="display: flex; flex-direction: column; align-items: center; gap: 2px; width: 100px;">' +
-                    '<div style="background: #4CAF50; color: white; font-size: 9px; font-weight: bold; padding: 2px 6px; border-radius: 3px; white-space: nowrap;">В доступе: ' + available + '</div>' +
-                    '<div style="background: #f44336; color: white; font-size: 9px; font-weight: bold; padding: 2px 6px; border-radius: 3px; white-space: nowrap;">Севшие: ' + dead + '</div>' +
-                    '<div style="background: #7E0000; color: white; font-size: 9px; font-weight: bold; padding: 2px 6px; border-radius: 3px; white-space: nowrap;">Поломки: ' + broken + '</div>' +
-                '</div>'
+                '<div style="display: flex; flex-direction: column; align-items: center; gap: 2px; width: 100px;">' + availHtml + deadHtml + brokenHtml + '</div>'
             );
             return new ymaps.Placemark([lat, lon], {}, {
                 iconLayout: layout,
@@ -741,11 +768,18 @@
                         if (p.broken === undefined) p.broken = '?';
                         
                         try {
-                            var pm = new ymaps.Placemark([p.lat, p.lon], { balloonContent: buildParkingBalloon(p) }, createParkingIcon());
-                            pm.properties.set('parkingData', p);
-                            myMap.geoObjects.add(pm); parkingMarkers.push(pm);
-                            var pl = createParkingLabels(p.lat, p.lon, p.available, p.dead, p.broken, p.id);
-                            myMap.geoObjects.add(pl); parkingLabelMarkers.push(pl);
+                            if (appSettings.show_parkings) {
+                                var pm = new ymaps.Placemark([p.lat, p.lon], { balloonContent: buildParkingBalloon(p) }, createParkingIcon());
+                                pm.properties.set('parkingData', p);
+                                myMap.geoObjects.add(pm); parkingMarkers.push(pm);
+                            }
+                            
+                            if (appSettings.show_labels) {
+                                var pl = createParkingLabels(p.lat, p.lon, p.available, p.dead, p.broken, p.id);
+                                if (pl) {
+                                    myMap.geoObjects.add(pl); parkingLabelMarkers.push(pl);
+                                }
+                            }
                             
                             var deadNum = parseInt(p.dead, 10);
                             if (isNaN(deadNum)) deadNum = 0;
@@ -774,6 +808,17 @@
                 .catch(function(err) {
                     console.error('❌ КРИТИЧЕСКАЯ ОШИБКА загрузки парковок:', err);
                 });
+        }
+
+        function toggleExtraVisibility() {
+            appSettings.hide_empty_labels = !appSettings.hide_empty_labels;
+            fetch(API_URL + '/update_setting', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ key: 'hide_empty_labels', value: appSettings.hide_empty_labels })
+            }).then(function() {
+                loadParkings();
+            });
         }
 
         function onDeadInfoClick() {
@@ -808,13 +853,19 @@
         }
 
         function buildParkingBalloon(p) {
+            var photoHtml = p.photo_url ? '<a href="' + p.photo_url + '" target="_blank" style="color: #1976D2; text-decoration: underline; font-weight: bold; display: block; margin-top: 10px;">ФОТО ПАРКОВКИ</a>' : '';
+            var btnText = appSettings.hide_empty_labels ? 'Вкл всё' : 'Выкл лишнее';
+            var btnColor = appSettings.hide_empty_labels ? '#4CAF50' : '#f44336';
+            
             return '<div style="min-width: 220px; padding: 15px; box-sizing: border-box; text-align: center;">' +
                 '<b style="font-size: 16px; display: block; margin-bottom: 15px;">' + p.title + '</b>' +
-                '<div style="display: flex; flex-direction: column; gap: 10px;">' +
+                photoHtml +
+                '<div style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px;">' +
                     '<div style="background: #4CAF50; color: white; padding: 10px; border-radius: 4px; font-weight: bold; font-size: 14px;">В доступе: ' + p.available + '</div>' +
                     '<div style="background: #f44336; color: white; padding: 10px; border-radius: 4px; font-weight: bold; font-size: 14px;">Севшие: ' + p.dead + '</div>' +
                     '<div style="background: #7E0000; color: white; padding: 10px; border-radius: 4px; font-weight: bold; font-size: 14px;">Поломки: ' + p.broken + '</div>' +
                     '<button onclick="event.stopPropagation(); startEditParking(' + p.id + ')" style="background: #9E9E9E; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px;">Изменить</button>' +
+                    '<button onclick="event.stopPropagation(); toggleExtraVisibility()" style="background: ' + btnColor + '; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px;">' + btnText + '</button>' +
                 '</div></div>';
         }
 
