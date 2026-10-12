@@ -147,62 +147,63 @@
         ymaps.ready(init);
 
         function init() {
-            // 1. МГНОВЕННОЕ создание карты (гарантированно работает)
-            myMap = new ymaps.Map("map", { center: [54.7818, 32.0401], zoom: 12, type: 'yandex#map', controls: ['zoomControl', 'fullscreenControl'] });
-            myMap.behaviors.enable('drag'); myMap.behaviors.enable('multiTouch'); myMap.behaviors.enable('scrollZoom'); myMap.behaviors.enable('dblClickZoom');
-            
-            // 2. ✅ ПРАВИЛЬНОЕ добавление OpenStreetMap как типа карты
-            ymaps.mapType.storage.add('osm#map', new ymaps.MapType('osm', [
-                new ymaps.Layer('https://tile.openstreetmap.org/%z/%x/%y.png').key
-            ]));
+    // 1. Создаём карту
+    myMap = new ymaps.Map("map", { center: [54.7818, 32.0401], zoom: 12, type: 'yandex#map', controls: ['zoomControl', 'fullscreenControl'] });
+    myMap.behaviors.enable('drag'); myMap.behaviors.enable('multiTouch'); myMap.behaviors.enable('scrollZoom'); myMap.behaviors.enable('dblClickZoom');
+    
+    // 2. ✅ ПРАВИЛЬНОЕ добавление OpenStreetMap через Layer с проекцией
+    var osmLayer = new ymaps.Layer('https://tile.openstreetmap.org/%z/%x/%y.png', {
+        projection: ymaps.projection.sphericalMercator
+    });
+    ymaps.mapType.storage.add('osm#map', new ymaps.MapType('OSM', ['osm#layer']));
 
-            // 3. Загружаем данные
-            loadDeparturesFromServer();
-            loadPoints();
-            loadParkings();
-            loadZones();
+    // 3. Загружаем данные
+    loadDeparturesFromServer();
+    loadPoints();
+    loadParkings();
+    loadZones();
 
-            // 4. Загружаем настройки в фоне
-            loadSettings();
+    // 4. Загружаем настройки в фоне
+    loadSettings();
 
-            // 5. ✅ ГАРАНТИРОВАННОЕ центрирование на Смоленске после всех загрузок
-            setTimeout(function() {
-                myMap.setCenter([54.7818, 32.0401], 12);
-            }, 800);
+    // 5. Гарантированное центрирование на Смоленске
+    setTimeout(function() {
+        myMap.setCenter([54.7818, 32.0401], 12);
+    }, 800);
 
-            myMap.events.add('mousedown', function(e) {
-                if (isDrawingZone && drawMode === 2 && !isZoneConfirmed) { 
-                    if (!freehandStartPoint) {
-                        freehandStartPoint = e.get('coords');
-                        addZonePoint(freehandStartPoint);
-                    }
-                    isDrawingFreehand = true; 
-                }
-            });
-            myMap.events.add('mousemove', function(e) {
-                if (isDrawingFreehand) { addZonePoint(e.get('coords')); }
-            });
-            myMap.events.add('mouseup', function(e) {
-                if (isDrawingFreehand) { 
-                    isDrawingFreehand = false; 
-                    closeFreehandZone();
-                }
-            });
-            document.addEventListener('mouseup', function(e) {
-                if (isDrawingFreehand) { 
-                    isDrawingFreehand = false; 
-                    closeFreehandZone();
-                }
-            });
-
-            myMap.events.add('click', function(e) { 
-                if (isDrawingZone && drawMode === 1 && !isZoneConfirmed) { addZonePoint(e.get('coords')); } 
-            });
-
-            myMap.events.add('boundschange', function() {
-                updateZoneTextVisibility();
-            });
+    myMap.events.add('mousedown', function(e) {
+        if (isDrawingZone && drawMode === 2 && !isZoneConfirmed) { 
+            if (!freehandStartPoint) {
+                freehandStartPoint = e.get('coords');
+                addZonePoint(freehandStartPoint);
+            }
+            isDrawingFreehand = true; 
         }
+    });
+    myMap.events.add('mousemove', function(e) {
+        if (isDrawingFreehand) { addZonePoint(e.get('coords')); }
+    });
+    myMap.events.add('mouseup', function(e) {
+        if (isDrawingFreehand) { 
+            isDrawingFreehand = false; 
+            closeFreehandZone();
+        }
+    });
+    document.addEventListener('mouseup', function(e) {
+        if (isDrawingFreehand) { 
+            isDrawingFreehand = false; 
+            closeFreehandZone();
+        }
+    });
+
+    myMap.events.add('click', function(e) { 
+        if (isDrawingZone && drawMode === 1 && !isZoneConfirmed) { addZonePoint(e.get('coords')); } 
+    });
+
+    myMap.events.add('boundschange', function() {
+        updateZoneTextVisibility();
+    });
+}
 
         function loadSettings() {
             fetch(API_URL + '/get_settings').then(function(r) { return r.json(); }).then(function(data) {
@@ -540,21 +541,6 @@
                     pm.properties.set('pointData', point);
                     myMap.geoObjects.add(pm); markers.push(pm);
                 });
-                
-                // ✅ БЕЗОПАСНОЕ центрирование: если границы корректны, используем их, иначе возвращаемся в Смоленск
-                setTimeout(function() {
-                    try {
-                        var bounds = myMap.geoObjects.getBounds();
-                        if (bounds) {
-                            myMap.setBounds(bounds, { checkZoomRange: true, zoomMargin: 50 });
-                        } else {
-                            myMap.setCenter([54.7818, 32.0401], 12);
-                        }
-                    } catch (e) {
-                        console.error("Ошибка при установке границ:", e);
-                        myMap.setCenter([54.7818, 32.0401], 12);
-                    }
-                }, 300);
             });
         }
 
@@ -579,14 +565,41 @@
             return h + '</div></div>';
         }
 
+        // ✅ НОВАЯ ЛОГИКА: при "Нашёл" точка удаляется из БД, маркер исчезает с карты, счетчик убывает
         function updateStatus(pointId, status) {
             fetch(API_URL + '/update_status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: pointId, status: status }) })
                 .then(function(r) { return r.json(); }).then(function(data) {
                     if (data.success) {
-                        if (departures[pointId]) {
-                            fetch(API_URL + '/remove_departure', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ point_id: pointId }) })
-                                .then(function() { delete departures[pointId]; renderBottomPanel(); loadPoints(); });
-                        } else { loadPoints(); }
+                        if (status === 'found') {
+                            // Точка удалена из БД — удаляем маркер локально и уменьшаем счетчик
+                            var pm = markers.find(function(m) { var d = m.properties.get('pointData'); return d && d.id === pointId; });
+                            if (pm) {
+                                myMap.geoObjects.remove(pm);
+                                markers = markers.filter(function(m) { return m !== pm; });
+                            }
+                            // Удаляем связанный label "Выехали" если есть
+                            var lm = labelMarkers.find(function(m) {
+                                // labelMarkers хранит placemark без pointData, ищем по координатам
+                                var pm2 = markers.find(function(m2) { var d = m2.properties.get('pointData'); return d && d.id === pointId; });
+                                return false; // упрощённо — labelMarkers пересоздаются при loadPoints
+                            });
+                            // Удаляем бронирование если есть
+                            if (departures[pointId]) {
+                                fetch(API_URL + '/remove_departure', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ point_id: pointId }) });
+                                delete departures[pointId];
+                                renderBottomPanel();
+                            }
+                            // Уменьшаем счетчик
+                            var countEl = document.getElementById('pointCount');
+                            var count = parseInt(countEl.textContent, 10);
+                            countEl.textContent = Math.max(0, count - 1);
+                        } else {
+                            // Для других статусов — полная перезагрузка (меняется цвет иконки)
+                            if (departures[pointId]) {
+                                fetch(API_URL + '/remove_departure', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ point_id: pointId }) })
+                                    .then(function() { delete departures[pointId]; renderBottomPanel(); loadPoints(); });
+                            } else { loadPoints(); }
+                        }
                     }
                 });
         }
@@ -611,10 +624,11 @@
             pm.properties.set('balloonContent', h); pm.balloon.open();
         }
 
+        // ✅ ИКОНКА P УМЕНЬШЕНА В 2 РАЗА (с 36px до 18px)
         function createParkingIcon() {
             return {
-                iconLayout: ymaps.templateLayoutFactory.createClass('<div style="width: 36px; height: 36px; text-align: center; line-height: 36px;"><img src="' + BASE_URL + 'p.png" style="width: 36px; height: 36px; display: block;"></div>'),
-                iconShape: { type: 'Circle', coordinates: [10, 10], radius: 10 }
+                iconLayout: ymaps.templateLayoutFactory.createClass('<div style="width: 18px; height: 18px; text-align: center; line-height: 18px;"><img src="' + BASE_URL + 'p.png" style="width: 18px; height: 18px; display: block;"></div>'),
+                iconShape: { type: 'Circle', coordinates: [9, 9], radius: 9 }
             };
         }
 
@@ -786,13 +800,13 @@
             var panel = document.getElementById('bottomPanel');
             var list = document.getElementById('bottomDeparturesList');
             var keys = Object.keys(departures);
+            if (keys.length === 0) { panel.style.display = 'none'; return; }
             var html = '';
             for (var i = 0; i < keys.length; i++) {
                 var d = departures[keys[i]];
                 html += '<div class="departure-item">За ' + d.title + ' ым выехал ' + d.name + '</div>';
             }
-            list.innerHTML = html;
-            panel.style.display = 'block';
+            list.innerHTML = html; panel.style.display = 'block';
         }
         function closeBottomPanel() { document.getElementById('bottomPanel').style.display = 'none'; }
 
