@@ -44,29 +44,27 @@ def init_db():
             c.execute("ALTER TABLE points ADD COLUMN comment TEXT")
             print("✅ Добавлена колонка comment в таблицу points")
         except psycopg.errors.DuplicateColumn:
-            pass  # Колонка уже существует
+            pass
         
         try:
             c.execute("ALTER TABLE points ADD COLUMN url TEXT")
             print("✅ Добавлена колонка url в таблицу points")
         except psycopg.errors.DuplicateColumn:
-            pass  # Колонка уже существует
+            pass
         
         # 2. Создаём таблицу parkings (если нет)
         c.execute('''CREATE TABLE IF NOT EXISTS parkings
                      (id SERIAL PRIMARY KEY, title TEXT UNIQUE, address TEXT, lat REAL, lon REAL, 
                       available_count TEXT DEFAULT '?', dead_count TEXT DEFAULT '?', broken_count TEXT DEFAULT '?')''')
         
-        # ✅ ДОБАВЛЯЕМ недостающую колонку photo_url в существующую таблицу parkings
         try:
             c.execute("ALTER TABLE parkings ADD COLUMN photo_url TEXT")
             print("✅ Добавлена колонка photo_url в таблицу parkings")
         except psycopg.errors.DuplicateColumn:
-            pass  # Колонка уже существует
+            pass
         
-        # 3. Пересоздаём таблицу zones (всегда чистая)
-        c.execute("DROP TABLE IF EXISTS zones")
-        c.execute('''CREATE TABLE zones
+        # 3. ✅ ИСПРАВЛЕНО: Больше НЕ удаляем таблицу zones при каждом запуске!
+        c.execute('''CREATE TABLE IF NOT EXISTS zones
                      (id SERIAL PRIMARY KEY, coords TEXT, comment TEXT)''')
         
         # 4. Создаём таблицу departures (если нет)
@@ -265,7 +263,6 @@ def handle_message(message):
             lat, lon = get_coordinates(location_part)
             
         if lat and lon:
-            # Парсинг правой части: [Title] [red?] [Comment] [URL?]
             url_match = re.search(r'(https?://\S+)', right_side)
             url = url_match.group(1) if url_match else ""
             if url:
@@ -294,7 +291,7 @@ def handle_message(message):
         return
 
     # ==========================================
-    # 5. КОМАНДЫ УДАЛЕНИЯ ВСЕХ / ПОСЛЕДНЕЙ ПАРКОВКИ
+    # 5. КОМАНДЫ УДАЛЕНИЯ ПАРКОВОК И ТОЧЕК
     # ==========================================
     if text_lower == 'все p off':
         conn = get_db_connection(); c = conn.cursor()
@@ -302,6 +299,17 @@ def handle_message(message):
         count = c.rowcount
         conn.commit(); conn.close()
         bot.reply_to(message, f"🗑️ Удалено всех парковок: {count}")
+        return
+
+    # ✅ НОВАЯ КОМАНДА: Удалить все самокаты (точки)
+    if text_lower == 'все с off':
+        conn = get_db_connection(); c = conn.cursor()
+        c.execute("DELETE FROM points")
+        count = c.rowcount
+        # Также удаляем все связанные выезды
+        c.execute("DELETE FROM departures")
+        conn.commit(); conn.close()
+        bot.reply_to(message, f"🗑️ Удалено всех самокатов: {count}")
         return
 
     if text_lower == 'last p off':
