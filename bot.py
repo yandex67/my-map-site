@@ -42,13 +42,11 @@ def init_db():
         # ✅ ДОБАВЛЯЕМ недостающие колонки в существующую таблицу points
         try:
             c.execute("ALTER TABLE points ADD COLUMN comment TEXT")
-            print("✅ Добавлена колонка comment в таблицу points")
         except psycopg.errors.DuplicateColumn:
             pass
         
         try:
             c.execute("ALTER TABLE points ADD COLUMN url TEXT")
-            print("✅ Добавлена колонка url в таблицу points")
         except psycopg.errors.DuplicateColumn:
             pass
         
@@ -59,7 +57,6 @@ def init_db():
         
         try:
             c.execute("ALTER TABLE parkings ADD COLUMN photo_url TEXT")
-            print("✅ Добавлена колонка photo_url в таблицу parkings")
         except psycopg.errors.DuplicateColumn:
             pass
         
@@ -113,7 +110,7 @@ def handle_message(message):
     text_lower = text.lower()
 
     # ==========================================
-    # 0. ГЛОБАЛЬНЫЕ НАСТРОЙКИ ОТОБРАЖЕНИЯ
+    # 0. ГЛОБАЛЬНЫЕ НАСТРОЙКИ ОТОБРАЖЕНИЯ И СБРОС
     # ==========================================
     if text_lower == 'off лишнее':
         conn = get_db_connection(); c = conn.cursor()
@@ -121,35 +118,54 @@ def handle_message(message):
         conn.commit(); conn.close()
         bot.reply_to(message, "✅ Лишние плашки (со знаком '?') теперь скрыты.")
         return
+        
     if text_lower == 'вкл всё':
         conn = get_db_connection(); c = conn.cursor()
         c.execute("UPDATE settings SET value = 'false' WHERE key = 'hide_empty_labels'")
         conn.commit(); conn.close()
         bot.reply_to(message, "✅ Все плашки теперь видны.")
         return
+        
     if text_lower == 'off видимость парковок':
         conn = get_db_connection(); c = conn.cursor()
         c.execute("UPDATE settings SET value = 'false' WHERE key = 'show_parkings'")
         conn.commit(); conn.close()
         bot.reply_to(message, "✅ Парковки скрыты с карты.")
         return
+        
     if text_lower == 'вкл видимость парковок':
         conn = get_db_connection(); c = conn.cursor()
         c.execute("UPDATE settings SET value = 'true' WHERE key = 'show_parkings'")
         conn.commit(); conn.close()
         bot.reply_to(message, "✅ Парковки отображаются на карте.")
         return
+        
     if text_lower == 'off плашки':
         conn = get_db_connection(); c = conn.cursor()
         c.execute("UPDATE settings SET value = 'false' WHERE key = 'show_labels'")
         conn.commit(); conn.close()
         bot.reply_to(message, "✅ Плашки над парковками скрыты.")
         return
+        
     if text_lower == 'вкл плашки':
         conn = get_db_connection(); c = conn.cursor()
         c.execute("UPDATE settings SET value = 'true' WHERE key = 'show_labels'")
         conn.commit(); conn.close()
         bot.reply_to(message, "✅ Плашки над парковками отображаются.")
+        return
+
+    # ✅ НОВАЯ КОМАНДА: Сброс статистики всех парковок на '?'
+    if text_lower == 'сброс парковок':
+        try:
+            conn = get_db_connection()
+            c = conn.cursor()
+            c.execute("UPDATE parkings SET available_count = '?', dead_count = '?', broken_count = '?'")
+            count = c.rowcount
+            conn.commit()
+            conn.close()
+            bot.reply_to(message, f"✅ Статистика всех парковок ({count} шт.) успешно сброшена на '?'")
+        except Exception as e:
+            bot.reply_to(message, f"❌ Ошибка при сбросе: {e}")
         return
 
     # ==========================================
@@ -291,7 +307,7 @@ def handle_message(message):
         return
 
     # ==========================================
-    # 5. КОМАНДЫ УДАЛЕНИЯ ПАРКОВОК И ТОЧЕК
+    # 5. КОМАНДЫ УДАЛЕНИЯ ВСЕХ / ПОСЛЕДНЕЙ ЗАПИСИ
     # ==========================================
     if text_lower == 'все p off':
         conn = get_db_connection(); c = conn.cursor()
@@ -301,12 +317,10 @@ def handle_message(message):
         bot.reply_to(message, f"🗑️ Удалено всех парковок: {count}")
         return
 
-    # ✅ НОВАЯ КОМАНДА: Удалить все самокаты (точки)
     if text_lower == 'все с off':
         conn = get_db_connection(); c = conn.cursor()
         c.execute("DELETE FROM points")
         count = c.rowcount
-        # Также удаляем все связанные выезды
         c.execute("DELETE FROM departures")
         conn.commit(); conn.close()
         bot.reply_to(message, f"🗑️ Удалено всех самокатов: {count}")
