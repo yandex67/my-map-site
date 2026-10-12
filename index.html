@@ -5,16 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <title>Моя карта</title>
-    <link href="https://yastatic.net/s3/home/fonts/ys/2/text-medium.css" rel="stylesheet">
-    <!-- Leaflet CSS для OSM -->
+    <!-- Leaflet CSS для OpenStreetMap -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link href="https://yastatic.net/s3/home/fonts/ys/2/text-medium.css" rel="stylesheet">
     <script src="https://api-maps.yandex.ru/2.1/?apikey=5f79475c-6c30-45f6-b5ff-cd85e9d9c70e&lang=ru_RU&load=package.full" type="text/javascript"></script>
-    <!-- Leaflet JS для OSM -->
+    <!-- Leaflet JS для OpenStreetMap -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
         body, html { margin: 0; padding: 0; height: 100%; font-family: Arial, sans-serif; }
         #map { width: 100%; height: 100vh; }
-        #osmMap { width: 100%; height: 100vh; display: none; }
+        #osmMap { width: 100%; height: 100vh; display: none; } /* Скрыт по умолчанию */
         .controls { position: absolute; top: 15px; left: 50%; transform: translateX(-50%); z-index: 1000; background: white; padding: 12px 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); min-width: 250px; max-width: 350px; }
         .controls h3 { margin: 0 0 5px 0; text-align: center; font-size: 15px; cursor: pointer; user-select: none; }
         .info { font-size: 13px; color: #666; text-align: center; margin-bottom: 0; cursor: pointer; user-select: none; }
@@ -52,8 +52,10 @@
     </style>
 </head>
 <body>
+    <!-- Два отдельных контейнера для карт -->
     <div id="map"></div>
     <div id="osmMap"></div>
+
     <div class="controls">
         <h3 onclick="onTasksHeaderClick()">Задачи на сегодня</h3>
         <div class="info" onclick="onInfoClick()">Всего: <span id="pointCount">0</span></div>
@@ -121,9 +123,8 @@
 
     <script>
         var myMap;
-        var osmMap;
+        var osmMap; // Переменная для карты Leaflet (OSM)
         var markers = [], labelMarkers = [], parkingMarkers = [], parkingLabelMarkers = [];
-        var osmMarkers = [], osmParkingMarkers = [], osmLabelMarkers = [];
         var zones = [], zoneTextMarkers = [];
         var API_URL = 'https://mapbot-api.onrender.com';
         var departures = {};
@@ -159,17 +160,17 @@
             myMap = new ymaps.Map("map", { center: [54.7818, 32.0401], zoom: 12, type: 'yandex#map', controls: ['zoomControl', 'fullscreenControl'] });
             myMap.behaviors.enable('drag'); myMap.behaviors.enable('multiTouch'); myMap.behaviors.enable('scrollZoom'); myMap.behaviors.enable('dblClickZoom');
             
-            // 2. Создаём Leaflet OSM карту (но не показываем)
+            // 2. Создаём Leaflet OSM карту (она будет скрыта, но инициализирована)
             osmMap = L.map('osmMap', {
                 center: [54.7818, 32.0401],
                 zoom: 12,
-                zoomControl: false
+                zoomControl: false // Отключаем стандартный зум, добавим свой или оставим чистым
             });
-            L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '© OpenStreetMap contributors'
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap contributors',
+                maxZoom: 19
             }).addTo(osmMap);
             L.control.zoom({ position: 'topright' }).addTo(osmMap);
-            L.control.fullscreen({ position: 'topright' }).addTo(osmMap);
 
             // 3. Загружаем данные
             loadDeparturesFromServer();
@@ -226,7 +227,7 @@
                 appSettings.show_labels = data.show_labels !== false;
                 loadParkings();
             }).catch(function(err) {
-                console.error('Ошибка загрузки настроек (карта продолжит работать):', err);
+                console.error('Ошибка загрузки настроек:', err);
             });
         }
 
@@ -243,9 +244,534 @@
             });
         }
 
-        // ... остальные функции остаются без изменений ...
-        // (loadZones, startZoneDrawing, selectDrawMode, activateCommentInput, finishComment, addZonePoint, updateZonePreview, enableVertexEditing, closeFreehandZone, finishZone, resetDrawingState, cancelZoneDrawing, saveZoneToServer, cancelDeleteZone, confirmDeleteZone, closeMaxDeadModal, getScooterImage, createScooterIcon, loadPoints, buildBalloonContent, updateStatus, showChoiceMenu, createParkingIcon, createParkingLabels, loadParkings, toggleExtraVisibility, onDeadInfoClick, buildParkingBalloon, startEditParking, activateInput, saveParking, onTasksHeaderClick)
+        function loadZones() {
+            zones.forEach(function(z) { myMap.geoObjects.remove(z.polygon); if(z.text) myMap.geoObjects.remove(z.text); });
+            zones = []; zoneTextMarkers = [];
+            
+            fetch(API_URL + '/get_zones').then(function(r) { return r.json(); }).then(function(data) {
+                data.forEach(function(z) {
+                    if (!z.coords || !Array.isArray(z.coords) || z.coords.length === 0) return;
+                    
+                    var polygon = new ymaps.Polygon([z.coords], {}, {
+                        fillColor: '#FFB6C1', fillOpacity: 0.5,
+                        strokeColor: '#ff3b30', strokeWidth: 3, strokeStyle: 'solid',
+                        draggable: false
+                    });
+                    
+                    var zoneObj = { id: z.id, polygon: polygon, text: null };
+                    
+                    polygon.events.add('click', function(e) {
+                        e.stopImmediatePropagation();
+                        zoneClickCount++;
+                        if (zoneClickTimer) clearTimeout(zoneClickTimer);
+                        zoneClickTimer = setTimeout(function() { zoneClickCount = 0; }, 600);
+                        if (zoneClickCount >= 3) {
+                            zoneClickCount = 0;
+                            zoneToDeleteId = z.id;
+                            document.getElementById('deleteZoneModal').style.display = 'flex';
+                        }
+                    });
 
+                    myMap.geoObjects.add(polygon);
+                    
+                    if (z.comment && z.comment.trim() !== '') {
+                        var bounds = polygon.geometry.getBounds();
+                        var center = [(bounds[0][0] + bounds[1][0]) / 2, (bounds[0][1] + bounds[1][1]) / 2];
+                        var textPlacemark = new ymaps.Placemark(center, {}, {
+                            iconLayout: ymaps.templateLayoutFactory.createClass(
+                                '<div style="color: #640000; font-weight: bold; font-size: 12px; text-align: center; white-space: nowrap; pointer-events: none; padding-left: 30px;">' + z.comment + '</div>'
+                            ),
+                            iconOffset: [-100, -10],
+                            iconShape: { type: 'Rectangle', coordinates: [[0, 0], [200, 20]] },
+                            visible: myMap.getZoom() >= ZOOM_THRESHOLD
+                        });
+                        myMap.geoObjects.add(textPlacemark);
+                        zoneObj.text = textPlacemark;
+                    }
+                    zones.push(zoneObj);
+                });
+            });
+        }
+
+        function startZoneDrawing(mode) {
+            closeZoneModal();
+            isDrawingZone = true;
+            drawMode = mode;
+            willSaveZone = (mode === 3);
+            isZoneConfirmed = false;
+            drawModeSelected = false;
+            isMode3SubMode = false;
+            zonePoints = [];
+            zonePointMarkers.forEach(function(m) { myMap.geoObjects.remove(m); });
+            zonePointMarkers = [];
+            if (zonePolygon) { myMap.geoObjects.remove(zonePolygon); zonePolygon = null; }
+            if (zonePolyline) { myMap.geoObjects.remove(zonePolyline); zonePolyline = null; }
+            zoneComment = "";
+            freehandStartPoint = null;
+            isDrawingFreehand = false;
+
+            myMap.behaviors.disable('drag'); myMap.behaviors.disable('multiTouch'); myMap.behaviors.disable('scrollZoom'); myMap.behaviors.disable('dblClickZoom');
+            
+            var indicator = document.getElementById('drawingIndicator');
+            indicator.style.display = 'flex';
+            myMap.container.getElement().style.cursor = 'crosshair';
+            document.getElementById('modeButtonsContainer').style.display = 'flex';
+
+            document.getElementById('indicatorText').style.display = 'block';
+            document.getElementById('finishZoneBtn').style.display = 'block';
+            document.getElementById('finishZoneBtn').textContent = 'Ок';
+            document.getElementById('commentOkBtn').style.display = 'none';
+            document.getElementById('commentBtn').style.display = 'none';
+            document.getElementById('commentDisplayBtn').style.display = 'none';
+
+            if (mode === 3) {
+                document.getElementById('indicatorText').textContent = 'Выберите способ рисования:';
+                document.getElementById('selectMode1Btn').style.display = 'block';
+                document.getElementById('selectMode2Btn').style.display = 'block';
+                document.getElementById('commentBtn').style.display = 'block';
+                document.getElementById('commentDisplayBtn').style.display = 'none';
+                document.getElementById('commentInput').style.display = 'none';
+                document.getElementById('finishZoneBtn').style.display = 'none';
+            } else {
+                selectDrawMode(mode);
+            }
+        }
+
+        function selectDrawMode(mode) {
+            drawMode = mode;
+            drawModeSelected = true;
+            document.getElementById('selectMode1Btn').style.display = 'none';
+            document.getElementById('selectMode2Btn').style.display = 'none';
+
+            if (willSaveZone) {
+                isMode3SubMode = true;
+                document.getElementById('indicatorText').style.display = 'none';
+                document.getElementById('finishZoneBtn').style.display = 'none';
+                document.getElementById('commentBtn').style.display = 'block';
+                document.getElementById('commentDisplayBtn').style.display = 'none';
+            } else {
+                isMode3SubMode = false;
+                document.getElementById('indicatorText').textContent = mode === 1 ? 'Кликайте по карте' : 'Зажмите и ведите';
+                document.getElementById('indicatorText').style.display = 'block';
+                document.getElementById('commentBtn').style.display = 'none';
+                document.getElementById('commentDisplayBtn').style.display = 'none';
+                document.getElementById('commentInput').style.display = 'none';
+                document.getElementById('commentOkBtn').style.display = 'none';
+                document.getElementById('finishZoneBtn').style.display = (mode === 2) ? 'none' : 'block';
+            }
+            if (mode === 2) myMap.behaviors.disable('drag');
+        }
+
+        function activateCommentInput() {
+            if (!drawModeSelected) {
+                document.getElementById('indicatorText').textContent = 'Сначала выберите способ рисования:';
+                document.getElementById('indicatorText').style.display = 'block';
+                return;
+            }
+            document.getElementById('indicatorText').style.display = 'none';
+            document.getElementById('finishZoneBtn').style.display = 'none';
+            document.getElementById('commentBtn').style.display = 'none';
+            document.getElementById('commentDisplayBtn').style.display = 'none';
+            document.getElementById('commentInput').style.display = 'block';
+            document.getElementById('commentInput').value = '';
+            document.getElementById('commentInput').focus();
+            document.getElementById('commentOkBtn').style.display = 'block';
+        }
+
+        function finishComment() {
+            zoneComment = document.getElementById('commentInput').value.trim();
+            document.getElementById('commentInput').style.display = 'none';
+            document.getElementById('commentOkBtn').style.display = 'none';
+            document.getElementById('commentDisplayBtn').textContent = zoneComment || 'Коммент';
+            document.getElementById('commentDisplayBtn').style.display = 'block';
+            document.getElementById('commentBtn').style.display = 'none';
+            document.getElementById('indicatorText').textContent = drawMode === 1 ? 'Кликайте по карте' : 'Зажмите и ведите';
+            document.getElementById('indicatorText').style.display = 'block';
+            document.getElementById('finishZoneBtn').style.display = (drawMode === 2) ? 'none' : 'block';
+        }
+
+        function addZonePoint(coords) {
+            if (drawMode === 2 && zonePoints.length > 0) {
+                var last = zonePoints[zonePoints.length - 1];
+                if (ymaps.coordSystem.geo.getDistance(last, coords) < 5) return;
+            }
+            zonePoints.push(coords);
+            if (drawMode === 1) {
+                var pointMarker = new ymaps.Placemark(coords, {}, {
+                    iconLayout: ymaps.templateLayoutFactory.createClass('<div style="width: 12px; height: 12px; background: #ff3b30; border: 2px solid white; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,0.4); cursor: move;"></div>'),
+                    iconShape: { type: 'Circle', coordinates: [6, 6], radius: 6 }
+                });
+                myMap.geoObjects.add(pointMarker);
+                zonePointMarkers.push(pointMarker);
+            }
+            updateZonePreview();
+        }
+
+        function updateZonePreview() {
+            if (zonePolygon) { myMap.geoObjects.remove(zonePolygon); zonePolygon = null; }
+            if (zonePolyline) { myMap.geoObjects.remove(zonePolyline); zonePolyline = null; }
+            if (zonePoints.length < 2) return;
+            zonePolyline = new ymaps.Polyline(zonePoints, {}, { strokeColor: '#ff3b30', strokeWidth: 3, strokeStyle: 'solid' });
+            myMap.geoObjects.add(zonePolyline);
+        }
+
+        function enableVertexEditing() {
+            zonePointMarkers.forEach(function(m) { myMap.geoObjects.remove(m); });
+            zonePointMarkers = [];
+            for (var i = 0; i < zonePoints.length; i++) {
+                (function(index) {
+                    var marker = new ymaps.Placemark(zonePoints[index], {}, {
+                        draggable: true,
+                        iconLayout: ymaps.templateLayoutFactory.createClass('<div style="width: 14px; height: 14px; background: #ff3b30; border: 2px solid white; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,0.4); cursor: move;"></div>'),
+                        iconShape: { type: 'Circle', coordinates: [7, 7], radius: 7 }
+                    });
+                    marker.events.add('drag', function(e) {
+                        zonePoints[index] = e.get('target').geometry.getCoordinates();
+                        if (zonePolygon) zonePolygon.geometry.setCoordinates([zonePoints]);
+                    });
+                    myMap.geoObjects.add(marker);
+                    zonePointMarkers.push(marker);
+                })(i);
+            }
+        }
+
+        function closeFreehandZone() {
+            if (zonePoints.length < 3) { cancelZoneDrawing(); return; }
+            if (zonePolyline) { myMap.geoObjects.remove(zonePolyline); zonePolyline = null; }
+            zonePolygon = new ymaps.Polygon([zonePoints], {}, { fillColor: '#FFB6C1', fillOpacity: 0.5, strokeColor: '#ff3b30', strokeWidth: 3, strokeStyle: 'solid', draggable: false });
+            myMap.geoObjects.add(zonePolygon);
+            isZoneConfirmed = true;
+            zonePointMarkers.forEach(function(m) { myMap.geoObjects.remove(m); });
+            zonePointMarkers = [];
+            if (willSaveZone) { saveZoneToServer(); }
+            else { resetDrawingState(); }
+        }
+
+        function finishZone() {
+            if (!isZoneConfirmed) {
+                if (drawMode === 1 && zonePoints.length < 3) { alert('Нужно минимум 3 точки!'); return; }
+                if (zonePolyline) { myMap.geoObjects.remove(zonePolyline); zonePolyline = null; }
+                zonePolygon = new ymaps.Polygon([zonePoints], {}, { fillColor: '#FFB6C1', fillOpacity: 0.5, strokeColor: '#ff3b30', strokeWidth: 3, strokeStyle: 'solid', draggable: false });
+                myMap.geoObjects.add(zonePolygon);
+                enableVertexEditing();
+                isZoneConfirmed = true;
+                document.getElementById('indicatorText').textContent = 'Точно всё?';
+                document.getElementById('indicatorText').style.display = 'block';
+                document.getElementById('finishZoneBtn').textContent = 'Ок';
+                document.getElementById('finishZoneBtn').style.display = 'block';
+                document.getElementById('commentBtn').style.display = 'none';
+                document.getElementById('commentDisplayBtn').style.display = 'none';
+                document.getElementById('commentInput').style.display = 'none';
+                document.getElementById('commentOkBtn').style.display = 'none';
+            } else {
+                zonePointMarkers.forEach(function(m) { myMap.geoObjects.remove(m); });
+                zonePointMarkers = [];
+                if (willSaveZone) { saveZoneToServer(); }
+                else { resetDrawingState(); }
+            }
+        }
+
+        function resetDrawingState() {
+            isDrawingZone = false; drawMode = 1; willSaveZone = false; isZoneConfirmed = false;
+            drawModeSelected = false; isMode3SubMode = false; zonePoints = []; zoneComment = "";
+            freehandStartPoint = null; isDrawingFreehand = false;
+            zonePointMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); zonePointMarkers = [];
+            if (zonePolygon) { myMap.geoObjects.remove(zonePolygon); zonePolygon = null; }
+            if (zonePolyline) { myMap.geoObjects.remove(zonePolyline); zonePolyline = null; }
+            myMap.behaviors.enable('drag'); myMap.behaviors.enable('multiTouch'); myMap.behaviors.enable('scrollZoom'); myMap.behaviors.enable('dblClickZoom');
+            document.getElementById('drawingIndicator').style.display = 'none';
+            myMap.container.getElement().style.cursor = '';
+        }
+
+        function cancelZoneDrawing() { resetDrawingState(); }
+
+        function saveZoneToServer() {
+            var finalCoords = zonePolygon ? zonePolygon.geometry.getCoordinates()[0] : zonePoints;
+            fetch(API_URL + '/add_zone', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ coords: finalCoords, comment: zoneComment })
+            }).then(function(r) { return r.json(); }).then(function(data) {
+                if (data.success) {
+                    resetDrawingState();
+                    loadZones();
+                } else {
+                    alert('Ошибка сохранения зоны на сервере!');
+                }
+            }).catch(function(err) {
+                console.error('Ошибка сети при сохранении зоны:', err);
+                alert('Ошибка сети при сохранении зоны!');
+            });
+        }
+
+        function cancelDeleteZone() {
+            zoneToDeleteId = null;
+            document.getElementById('deleteZoneModal').style.display = 'none';
+        }
+
+        function confirmDeleteZone() {
+            if (!zoneToDeleteId) return;
+            fetch(API_URL + '/delete_zone', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: zoneToDeleteId })
+            }).then(function(r) { return r.json(); }).then(function(data) {
+                if (data.success) { cancelDeleteZone(); loadZones(); }
+            });
+        }
+
+        function closeMaxDeadModal() { document.getElementById('maxDeadModal').style.display = 'none'; }
+
+        function getScooterImage(status) {
+            if (status === 'red') return BASE_URL + 'red.png';
+            if (status === 'not_found') return BASE_URL + 'black.png';
+            if (status === 'rented') return BASE_URL + 'ser.png';
+            return BASE_URL + 'green.png';
+        }
+
+        function createScooterIcon(status, taskNumber) {
+            var imgUrl = getScooterImage(status);
+            var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="50" viewBox="0 0 36 50">' +
+                '<image href="' + imgUrl + '" x="0" y="0" width="36" height="36" preserveAspectRatio="xMidYMid meet"/>' +
+                '<text x="18" y="48" font-family="YS Text, Arial, sans-serif" font-size="11" font-weight="bold" fill="black" text-anchor="middle">' + taskNumber + '</text>' +
+                '</svg>';
+            return {
+                iconLayout: ymaps.templateLayoutFactory.createClass('<div style="width:36px; height:50px;">' + svg + '</div>'),
+                iconShape: { type: 'Circle', coordinates: [18, 18], radius: 18 }
+            };
+        }
+
+        function loadPoints() {
+            labelMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); labelMarkers = [];
+            fetch(API_URL + '/get_points').then(function(r) { return r.json(); }).then(function(data) {
+                markers.forEach(function(m) { myMap.geoObjects.remove(m); }); markers = [];
+                document.getElementById('pointCount').textContent = data.length;
+                data.forEach(function(point) {
+                    var iconOptions = createScooterIcon(point.status, point.title.trim());
+                    var isBooked = departures[point.id] !== undefined;
+                    if (isBooked) {
+                        var labelLayout = ymaps.templateLayoutFactory.createClass('<div style="background: black; color: white; font-size: 8px; font-weight: bold; padding: 3px 4px; border-radius: 3px; text-align: center; width: 44px; box-sizing: border-box; line-height: 1.2;">Выехали</div>');
+                        var lp = new ymaps.Placemark([point.lat, point.lon], {}, { iconLayout: labelLayout, iconOffset: [-4, -18], iconShape: { type: 'Rectangle', coordinates: [[0, 0], [44, 16]] } });
+                        myMap.geoObjects.add(lp); labelMarkers.push(lp);
+                    }
+                    var pm = new ymaps.Placemark([point.lat, point.lon], { balloonContent: buildBalloonContent(point, isBooked) }, iconOptions);
+                    pm.properties.set('pointData', point);
+                    myMap.geoObjects.add(pm); markers.push(pm);
+                });
+            });
+        }
+
+        function buildBalloonContent(point, isBooked) {
+            var esc = point.title.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+            var fzLink = point.url ? '<a href="' + point.url + '" target="_blank" style="color: #1976D2; text-decoration: underline; font-weight: bold; display: block; margin: 5px 0;">ПОСМОТРЕТЬ ФЗ</a>' : '';
+            var commentHtml = point.comment ? '<small style="color: #000; display: block; margin: 5px 0;">' + point.comment + '</small>' : '';
+            
+            var h = '<div style="min-width: 200px; padding: 12px; box-sizing: border-box; text-align: center;">' +
+                '<b style="font-size: 16px; display: block;">' + point.title + '</b>' +
+                '<div style="color: #555; font-size: 14px; margin: 8px 0;">' + point.address + '</div>' +
+                fzLink + commentHtml +
+                '<div style="display: flex; flex-direction: column; align-items: center; gap: 4px; margin-top: 10px;">' +
+                '<button onclick="event.stopPropagation(); updateStatus(' + point.id + ', \'found\')" style="background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Нашёл</button>' +
+                '<button onclick="event.stopPropagation(); updateStatus(' + point.id + ', \'not_found\')" style="background: #212121; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Не нашёл</button>' +
+                '<button onclick="event.stopPropagation(); updateStatus(' + point.id + ', \'rented\')" style="background: #9E9E9E; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Уехал в аренду</button>';
+            if (isBooked) {
+                h += '<button onclick="event.stopPropagation(); resetDeparture(' + point.id + ')" style="background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Выехал ' + departures[point.id].name + '</button>';
+            } else {
+                h += '<button onclick="event.stopPropagation(); showChoiceMenu(' + point.id + ', \'' + esc + '\')" style="background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Забронировать</button>';
+            }
+            return h + '</div></div>';
+        }
+
+        function updateStatus(pointId, status) {
+            fetch(API_URL + '/update_status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: pointId, status: status }) })
+                .then(function(r) { return r.json(); }).then(function(data) {
+                    if (data.success) {
+                        if (status === 'found') {
+                            var pm = markers.find(function(m) { var d = m.properties.get('pointData'); return d && d.id === pointId; });
+                            if (pm) {
+                                myMap.geoObjects.remove(pm);
+                                markers = markers.filter(function(m) { return m !== pm; });
+                            }
+                            if (departures[pointId]) {
+                                fetch(API_URL + '/remove_departure', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ point_id: pointId }) });
+                                delete departures[pointId];
+                                renderBottomPanel();
+                            }
+                            var countEl = document.getElementById('pointCount');
+                            var count = parseInt(countEl.textContent, 10);
+                            countEl.textContent = Math.max(0, count - 1);
+                        } else {
+                            if (departures[pointId]) {
+                                fetch(API_URL + '/remove_departure', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ point_id: pointId }) })
+                                    .then(function() { delete departures[pointId]; renderBottomPanel(); loadPoints(); });
+                            } else { loadPoints(); }
+                        }
+                    }
+                });
+        }
+
+        function showChoiceMenu(pointId, pointTitle) {
+            var pm = markers.find(function(m) { var d = m.properties.get('pointData'); return d && d.id === pointId; });
+            if (!pm) return;
+            var point = pm.properties.get('pointData');
+            var esc = pointTitle.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+            var h = '<div style="min-width: 200px; padding: 12px; box-sizing: border-box; text-align: center;">' +
+                '<b style="font-size: 16px; display: block;">' + point.title + '</b>' +
+                '<div style="color: #555; font-size: 14px; margin: 8px 0;">' + point.address + '</div>' +
+                '<small style="color: #999; display: block;">Статус: ' + point.status + '</small>' +
+                '<div style="display: flex; flex-direction: column; align-items: center; gap: 4px; margin-top: 10px;">' +
+                '<button disabled style="background: #f44336; color: white; border: none; border-radius: 4px; cursor: not-allowed; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px; opacity: 0.7;">Кто вы?</button>' +
+                '<button onclick="event.stopPropagation(); selectName(' + point.id + ', \'' + esc + '\', \'Андрей\')" style="background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Андрей</button>' +
+                '<button onclick="event.stopPropagation(); selectName(' + point.id + ', \'' + esc + '\', \'Миша\')" style="background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Миша</button>' +
+                '<button onclick="event.stopPropagation(); selectName(' + point.id + ', \'' + esc + '\', \'Илья\')" style="background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Илья</button>' +
+                '<button onclick="event.stopPropagation(); selectName(' + point.id + ', \'' + esc + '\', \'Саша\')" style="background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Саша</button>' +
+                '<button onclick="event.stopPropagation(); openCustomInputModal(' + point.id + ', \'' + esc + '\')" style="background: #9E9E9E; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Ввести своё</button>' +
+                '</div></div>';
+            pm.properties.set('balloonContent', h); pm.balloon.open();
+        }
+
+        function createParkingIcon() {
+            return {
+                iconLayout: ymaps.templateLayoutFactory.createClass('<div style="width: 18px; height: 18px; text-align: center; line-height: 18px;"><img src="' + BASE_URL + 'p.png" style="width: 18px; height: 18px; display: block;"></div>'),
+                iconShape: { type: 'Circle', coordinates: [9, 9], radius: 9 }
+            };
+        }
+
+        function createParkingLabels(lat, lon, available, dead, broken, pId) {
+            var availHtml = (appSettings.hide_empty_labels && available === '?') ? '' : '<div style="background: #4CAF50; color: white; font-size: 9px; font-weight: bold; padding: 2px 6px; border-radius: 3px; white-space: nowrap; margin-bottom: 2px;">В доступе: ' + available + '</div>';
+            var deadHtml = (appSettings.hide_empty_labels && dead === '?') ? '' : '<div style="background: #f44336; color: white; font-size: 9px; font-weight: bold; padding: 2px 6px; border-radius: 3px; white-space: nowrap; margin-bottom: 2px;">Севшие: ' + dead + '</div>';
+            var brokenHtml = (appSettings.hide_empty_labels && broken === '?') ? '' : '<div style="background: #7E0000; color: white; font-size: 9px; font-weight: bold; padding: 2px 6px; border-radius: 3px; white-space: nowrap; margin-bottom: 2px;">Поломки: ' + broken + '</div>';
+            
+            if (appSettings.hide_empty_labels && availHtml === '' && deadHtml === '' && brokenHtml === '') return null;
+
+            var layout = ymaps.templateLayoutFactory.createClass('<div style="display: flex; flex-direction: column; align-items: center; gap: 2px; width: 100px;">' + availHtml + deadHtml + brokenHtml + '</div>');
+            return new ymaps.Placemark([lat, lon], {}, {
+                iconLayout: layout, iconOffset: [-38, -55], iconShape: { type: 'Rectangle', coordinates: [[0, 0], [100, 52]] }
+            });
+        }
+
+        function loadParkings() {
+            parkingMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); parkingMarkers = [];
+            parkingLabelMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); parkingLabelMarkers = [];
+            
+            fetch(API_URL + '/get_parkings').then(function(r) { return r.json(); }).then(function(data) {
+                var totalDead = 0, maxDead = 0, maxDeadParkings = [];
+                data.forEach(function(p) {
+                    if (!p.lat || !p.lon) return;
+                    if (p.available === undefined) p.available = '?';
+                    if (p.dead === undefined) p.dead = '?';
+                    if (p.broken === undefined) p.broken = '?';
+                    
+                    try {
+                        if (appSettings.show_parkings) {
+                            var pm = new ymaps.Placemark([p.lat, p.lon], { balloonContent: buildParkingBalloon(p) }, createParkingIcon());
+                            pm.properties.set('parkingData', p);
+                            myMap.geoObjects.add(pm); parkingMarkers.push(pm);
+                        }
+                        if (appSettings.show_labels) {
+                            var pl = createParkingLabels(p.lat, p.lon, p.available, p.dead, p.broken, p.id);
+                            if (pl) { myMap.geoObjects.add(pl); parkingLabelMarkers.push(pl); }
+                        }
+                        var deadNum = parseInt(p.dead, 10); if (isNaN(deadNum)) deadNum = 0;
+                        totalDead += deadNum;
+                        if (deadNum >= 5) {
+                            if (deadNum > maxDead) { maxDead = deadNum; maxDeadParkings = [p.title]; }
+                            else if (deadNum === maxDead) { maxDeadParkings.push(p.title); }
+                        }
+                    } catch (err) { console.error('Ошибка парковки ID:', p.id, err); }
+                });
+                document.getElementById('deadCount').textContent = totalDead;
+                document.getElementById('deadInfo').data = { maxDead: maxDead, maxDeadParkings: maxDeadParkings };
+            });
+        }
+
+        function toggleExtraVisibility() {
+            appSettings.hide_empty_labels = !appSettings.hide_empty_labels;
+            fetch(API_URL + '/update_setting', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ key: 'hide_empty_labels', value: appSettings.hide_empty_labels })
+            }).then(function() { loadParkings(); });
+        }
+
+        function onDeadInfoClick() {
+            deadClickCount++;
+            if (deadClickTimer) clearTimeout(deadClickTimer);
+            deadClickTimer = setTimeout(function() { deadClickCount = 0; }, 600);
+            if (deadClickCount >= 3) {
+                deadClickCount = 0;
+                var data = document.getElementById('deadInfo').data || { maxDead: 0, maxDeadParkings: [] };
+                if (data.maxDead >= 5 && data.maxDeadParkings.length > 0) {
+                    var bodyText = data.maxDeadParkings.length === 1 ? 'На парковке "' + data.maxDeadParkings[0] + '" — ' + data.maxDead + ' севших' : 'На парковках ' + data.maxDeadParkings.map(function(n) { return '"' + n + '"'; }).join(', ') + ' — по ' + data.maxDead + ' севших';
+                    document.getElementById('maxDeadTitle').textContent = 'Больше всего севших';
+                    document.getElementById('maxDeadText').textContent = bodyText;
+                } else {
+                    document.getElementById('maxDeadTitle').textContent = 'Севшие на парковке';
+                    document.getElementById('maxDeadText').textContent = 'Нет парковок с 5 и более севшими самокатами';
+                }
+                document.getElementById('maxDeadModal').style.display = 'flex';
+            }
+        }
+
+        function buildParkingBalloon(p) {
+            var photoHtml = p.photo_url ? '<a href="' + p.photo_url + '" target="_blank" style="color: #1976D2; text-decoration: underline; font-weight: bold; display: block; margin-top: 10px;">ФОТО ПАРКОВКИ</a>' : '';
+            var btnText = appSettings.hide_empty_labels ? 'Вкл всё' : 'Выкл лишнее';
+            var btnColor = appSettings.hide_empty_labels ? '#4CAF50' : '#f44336';
+            return '<div style="min-width: 220px; padding: 15px; box-sizing: border-box; text-align: center;">' +
+                '<b style="font-size: 16px; display: block; margin-bottom: 15px;">' + p.title + '</b>' + photoHtml +
+                '<div style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px;">' +
+                    '<div style="background: #4CAF50; color: white; padding: 10px; border-radius: 4px; font-weight: bold; font-size: 14px;">В доступе: ' + p.available + '</div>' +
+                    '<div style="background: #f44336; color: white; padding: 10px; border-radius: 4px; font-weight: bold; font-size: 14px;">Севшие: ' + p.dead + '</div>' +
+                    '<div style="background: #7E0000; color: white; padding: 10px; border-radius: 4px; font-weight: bold; font-size: 14px;">Поломки: ' + p.broken + '</div>' +
+                    '<button onclick="event.stopPropagation(); startEditParking(' + p.id + ')" style="background: #9E9E9E; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px;">Изменить</button>' +
+                    '<button onclick="event.stopPropagation(); toggleExtraVisibility()" style="background: ' + btnColor + '; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px;">' + btnText + '</button>' +
+                '</div></div>';
+        }
+
+        function startEditParking(id) {
+            var pm = parkingMarkers.find(function(m) { var d = m.properties.get('parkingData'); return d && d.id === id; });
+            if (!pm) return;
+            var p = pm.properties.get('parkingData');
+            var html = '<div style="min-width: 220px; padding: 15px; box-sizing: border-box; text-align: center;">' +
+                '<b style="font-size: 16px; display: block; margin-bottom: 15px;">' + p.title + '</b>' +
+                '<div style="display: flex; flex-direction: column; gap: 10px;">' +
+                    '<div><button id="btn_avail_' + id + '" onclick="activateInput(\'avail\', ' + id + ')" style="background: white; color: #333; border: 2px solid #333; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%; font-size: 14px;">В доступе</button>' +
+                    '<input id="inp_avail_' + id + '" type="number" style="display: none; width: 100%; padding: 10px; border: 2px solid #333; border-radius: 4px; text-align: center; font-size: 16px; box-sizing: border-box;"></div>' +
+                    '<div><button id="btn_dead_' + id + '" onclick="activateInput(\'dead\', ' + id + ')" style="background: white; color: #333; border: 2px solid #333; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%; font-size: 14px;">Севшие</button>' +
+                    '<input id="inp_dead_' + id + '" type="number" style="display: none; width: 100%; padding: 10px; border: 2px solid #333; border-radius: 4px; text-align: center; font-size: 16px; box-sizing: border-box;"></div>' +
+                    '<div><button id="btn_broken_' + id + '" onclick="activateInput(\'broken\', ' + id + ')" style="background: white; color: #333; border: 2px solid #333; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%; font-size: 14px;">Поломки</button>' +
+                    '<input id="inp_broken_' + id + '" type="number" style="display: none; width: 100%; padding: 10px; border: 2px solid #333; border-radius: 4px; text-align: center; font-size: 16px; box-sizing: border-box;"></div>' +
+                    '<button onclick="saveParking(' + id + ')" style="background: #4CAF50; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%; font-size: 14px;">ОК</button>' +
+                '</div></div>';
+            pm.properties.set('balloonContent', html); pm.balloon.open();
+        }
+
+        function activateInput(type, id) {
+            document.getElementById('btn_' + type + '_' + id).style.display = 'none';
+            var inp = document.getElementById('inp_' + type + '_' + id);
+            inp.style.display = 'block'; inp.value = ''; inp.focus();
+        }
+
+        function saveParking(id) {
+            var inpAvail = document.getElementById('inp_avail_' + id);
+            var inpDead = document.getElementById('inp_dead_' + id);
+            var inpBroken = document.getElementById('inp_broken_' + id);
+            var pm = parkingMarkers.find(function(m) { var d = m.properties.get('parkingData'); return d && d.id === id; });
+            var oldData = pm ? pm.properties.get('parkingData') : {available: '?', dead: '?', broken: '?'};
+            var newAvail = inpAvail.style.display !== 'none' && inpAvail.value.trim() !== '' ? inpAvail.value.trim() : oldData.available;
+            var newDead = inpDead.style.display !== 'none' && inpDead.value.trim() !== '' ? inpDead.value.trim() : oldData.dead;
+            var newBroken = inpBroken.style.display !== 'none' && inpBroken.value.trim() !== '' ? inpBroken.value.trim() : oldData.broken;
+            fetch(API_URL + '/update_parking', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: id, available: newAvail, dead: newDead, broken: newBroken })
+            }).then(function(r) { return r.json(); }).then(function(data) { if (data.success) loadParkings(); });
+        }
+
+        function onTasksHeaderClick() {
+            tasksHeaderClickCount++;
+            if (tasksHeaderClickTimer) clearTimeout(tasksHeaderClickTimer);
+            tasksHeaderClickTimer = setTimeout(function() { tasksHeaderClickCount = 0; }, 1000);
+            if (tasksHeaderClickCount >= 3) { tasksHeaderClickCount = 0; openZoneModal(); }
+        }
+
+        // ✅ ИСПРАВЛЕННАЯ ЛОГИКА ПЕРЕКЛЮЧЕНИЯ КАРТ
         function onInfoClick() {
             infoClickCount++;
             if (infoClickTimer) clearTimeout(infoClickTimer);
@@ -254,26 +780,99 @@
                 infoClickCount = 0;
                 mapMode = (mapMode + 1) % 3;
                 
-                if (mapMode === 0 || mapMode === 1) {
-                    // Показываем Яндекс, скрываем OSM
+                if (mapMode === 0) {
+                    // Яндекс Схема
                     document.getElementById('map').style.display = 'block';
                     document.getElementById('osmMap').style.display = 'none';
-                    
-                    if (mapMode === 0) {
-                        myMap.setType('yandex#map');
-                    } else {
-                        myMap.setType('yandex#hybrid');
-                    }
-                } else {
-                    // Показываем OSM, скрываем Яндекс
+                    myMap.setType('yandex#map');
+                } else if (mapMode === 1) {
+                    // Яндекс Гибрид
+                    document.getElementById('map').style.display = 'block';
+                    document.getElementById('osmMap').style.display = 'none';
+                    myMap.setType('yandex#hybrid');
+                } else if (mapMode === 2) {
+                    // OpenStreetMap (Leaflet)
                     document.getElementById('map').style.display = 'none';
                     document.getElementById('osmMap').style.display = 'block';
-                    osmMap.invalidateSize();
+                    // Критически важно: сообщаем Leaflet, что размер контейнера изменился
+                    setTimeout(function() {
+                        osmMap.invalidateSize();
+                    }, 50);
                 }
             }
         }
 
-        // ... остальные функции (openZoneModal, closeZoneModal, loadDeparturesFromServer, renderBottomPanel, closeBottomPanel, openCustomInputModal, confirmModalInput, selectName, resetDeparture) ...
+        function openZoneModal() { document.getElementById('zoneModalOverlay').style.display = 'flex'; }
+        function closeZoneModal() { document.getElementById('zoneModalOverlay').style.display = 'none'; }
+
+        function loadDeparturesFromServer() {
+            fetch(API_URL + '/get_departures').then(function(r) { return r.json(); }).then(function(data) {
+                departures = {};
+                data.forEach(function(d) { departures[d.point_id] = { title: d.point_title, name: d.person_name }; });
+                renderBottomPanel();
+            });
+        }
+
+        function renderBottomPanel() {
+            var panel = document.getElementById('bottomPanel');
+            var list = document.getElementById('bottomDeparturesList');
+            var keys = Object.keys(departures);
+            if (keys.length === 0) { panel.style.display = 'none'; return; }
+            var html = '';
+            for (var i = 0; i < keys.length; i++) {
+                var d = departures[keys[i]];
+                html += '<div class="departure-item">За ' + d.title + ' ым выехал ' + d.name + '</div>';
+            }
+            list.innerHTML = html; panel.style.display = 'block';
+        }
+        function closeBottomPanel() { document.getElementById('bottomPanel').style.display = 'none'; }
+
+        function openCustomInputModal(pointId, pointTitle) {
+            currentModalPointId = pointId; currentModalPointTitle = pointTitle;
+            var modal = document.getElementById('modalOverlay');
+            var input = document.getElementById('modalInput');
+            input.value = ''; modal.style.display = 'flex';
+            setTimeout(function() { input.focus(); }, 100);
+        }
+
+        function confirmModalInput() {
+            var input = document.getElementById('modalInput');
+            var name = input.value.trim();
+            if (!name) { input.style.borderColor = '#f44336'; setTimeout(function() { input.style.borderColor = '#ddd'; }, 1000); return; }
+            document.getElementById('modalOverlay').style.display = 'none';
+            selectName(currentModalPointId, currentModalPointTitle, name);
+            currentModalPointId = null; currentModalPointTitle = null;
+        }
+
+        document.addEventListener('click', function(e) { 
+            if (e.target.id === 'modalOverlay') document.getElementById('modalOverlay').style.display = 'none';
+            if (e.target.id === 'deleteZoneModal') cancelDeleteZone();
+            if (e.target.id === 'maxDeadModal') closeMaxDeadModal();
+        });
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('modalInput').addEventListener('keypress', function(e) { if (e.key === 'Enter') { e.preventDefault(); confirmModalInput(); } });
+        });
+
+        function selectName(pointId, pointTitle, name) {
+            fetch(API_URL + '/add_departure', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ point_id: pointId, point_title: pointTitle, person_name: name }) })
+                .then(function(r) { return r.json(); }).then(function(data) {
+                    if (data.success) {
+                        departures[pointId] = { title: pointTitle, name: name };
+                        renderBottomPanel(); loadPoints();
+                        setTimeout(function() { var pm = markers.find(function(m) { var d = m.properties.get('pointData'); return d && d.id === pointId; }); if (pm) pm.balloon.open(); }, 300);
+                    }
+                });
+        }
+
+        function resetDeparture(pointId) {
+            fetch(API_URL + '/remove_departure', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ point_id: pointId }) })
+                .then(function(r) { return r.json(); }).then(function(data) {
+                    if (data.success) {
+                        delete departures[pointId]; renderBottomPanel(); loadPoints();
+                        setTimeout(function() { var pm = markers.find(function(m) { var d = m.properties.get('pointData'); return d && d.id === pointId; }); if (pm) pm.balloon.open(); }, 300);
+                    }
+                });
+        }
     </script>
 </body>
 </html>
