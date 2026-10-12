@@ -151,12 +151,10 @@
             myMap = new ymaps.Map("map", { center: [54.7818, 32.0401], zoom: 12, type: 'yandex#map', controls: ['zoomControl', 'fullscreenControl'] });
             myMap.behaviors.enable('drag'); myMap.behaviors.enable('multiTouch'); myMap.behaviors.enable('scrollZoom'); myMap.behaviors.enable('dblClickZoom');
             
-            // 2. Добавляем бесплатную OpenStreetMap как резервный вариант
-            var osmLayer = new ymaps.Layer('https://tile.openstreetmap.org/%z/%x/%y.png', {
-                projection: ymaps.projection.sphericalMercator
-            });
-            var osmMapType = new ymaps.MapType('OSM', [osmLayer.key]);
-            myMap.types.add('osm#map', osmMapType);
+            // 2. ✅ ПРАВИЛЬНОЕ добавление OpenStreetMap как типа карты
+            ymaps.mapType.storage.add('osm#map', new ymaps.MapType('osm', [
+                new ymaps.Layer('https://tile.openstreetmap.org/%z/%x/%y.png').key
+            ]));
 
             // 3. Загружаем данные
             loadDeparturesFromServer();
@@ -164,8 +162,13 @@
             loadParkings();
             loadZones();
 
-            // 4. Загружаем настройки в фоне, не блокируя карту
+            // 4. Загружаем настройки в фоне
             loadSettings();
+
+            // 5. ✅ ГАРАНТИРОВАННОЕ центрирование на Смоленске после всех загрузок
+            setTimeout(function() {
+                myMap.setCenter([54.7818, 32.0401], 12);
+            }, 800);
 
             myMap.events.add('mousedown', function(e) {
                 if (isDrawingZone && drawMode === 2 && !isZoneConfirmed) { 
@@ -206,7 +209,6 @@
                 appSettings.hide_empty_labels = data.hide_empty_labels || false;
                 appSettings.show_parkings = data.show_parkings !== false;
                 appSettings.show_labels = data.show_labels !== false;
-                // Перерисовываем парковки с новыми настройками
                 loadParkings();
             }).catch(function(err) {
                 console.error('Ошибка загрузки настроек (карта продолжит работать):', err);
@@ -538,7 +540,21 @@
                     pm.properties.set('pointData', point);
                     myMap.geoObjects.add(pm); markers.push(pm);
                 });
-                if (data.length > 0) myMap.setBounds(myMap.geoObjects.getBounds(), { checkZoomRange: true, zoomMargin: 50 });
+                
+                // ✅ БЕЗОПАСНОЕ центрирование: если границы корректны, используем их, иначе возвращаемся в Смоленск
+                setTimeout(function() {
+                    try {
+                        var bounds = myMap.geoObjects.getBounds();
+                        if (bounds) {
+                            myMap.setBounds(bounds, { checkZoomRange: true, zoomMargin: 50 });
+                        } else {
+                            myMap.setCenter([54.7818, 32.0401], 12);
+                        }
+                    } catch (e) {
+                        console.error("Ошибка при установке границ:", e);
+                        myMap.setCenter([54.7818, 32.0401], 12);
+                    }
+                }, 300);
             });
         }
 
@@ -744,15 +760,14 @@
             infoClickTimer = setTimeout(function() { infoClickCount = 0; }, 1000);
             if (infoClickCount >= 3) {
                 infoClickCount = 0;
-                // Циклическое переключение: 0 (Яндекс) -> 1 (Гибрид) -> 2 (OSM) -> 0 (Яндекс)
+                var center = myMap.getCenter();
+                var zoom = myMap.getZoom();
                 mapMode = (mapMode + 1) % 3;
-                if (mapMode === 0) {
-                    myMap.setType('yandex#map');
-                } else if (mapMode === 1) {
-                    myMap.setType('yandex#hybrid');
-                } else if (mapMode === 2) {
-                    myMap.setType('osm#map');
-                }
+                if (mapMode === 0) myMap.setType('yandex#map');
+                else if (mapMode === 1) myMap.setType('yandex#hybrid');
+                else if (mapMode === 2) myMap.setType('osm#map');
+                myMap.setCenter(center);
+                myMap.setZoom(zoom);
             }
         }
 
