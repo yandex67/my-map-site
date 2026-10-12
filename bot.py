@@ -35,21 +35,45 @@ def init_db():
         conn = get_db_connection()
         c = conn.cursor()
         
+        # 1. Создаём таблицу points (если нет)
         c.execute('''CREATE TABLE IF NOT EXISTS points
-                     (id SERIAL PRIMARY KEY, title TEXT, address TEXT, lat REAL, lon REAL, status TEXT DEFAULT 'active', comment TEXT, url TEXT)''')
+                     (id SERIAL PRIMARY KEY, title TEXT, address TEXT, lat REAL, lon REAL, status TEXT DEFAULT 'active')''')
         
+        # ✅ ДОБАВЛЯЕМ недостающие колонки в существующую таблицу points
+        try:
+            c.execute("ALTER TABLE points ADD COLUMN comment TEXT")
+            print("✅ Добавлена колонка comment в таблицу points")
+        except psycopg.errors.DuplicateColumn:
+            pass  # Колонка уже существует
+        
+        try:
+            c.execute("ALTER TABLE points ADD COLUMN url TEXT")
+            print("✅ Добавлена колонка url в таблицу points")
+        except psycopg.errors.DuplicateColumn:
+            pass  # Колонка уже существует
+        
+        # 2. Создаём таблицу parkings (если нет)
         c.execute('''CREATE TABLE IF NOT EXISTS parkings
                      (id SERIAL PRIMARY KEY, title TEXT UNIQUE, address TEXT, lat REAL, lon REAL, 
-                      available_count TEXT DEFAULT '?', dead_count TEXT DEFAULT '?', broken_count TEXT DEFAULT '?', photo_url TEXT)''')
+                      available_count TEXT DEFAULT '?', dead_count TEXT DEFAULT '?', broken_count TEXT DEFAULT '?')''')
         
+        # ✅ ДОБАВЛЯЕМ недостающую колонку photo_url в существующую таблицу parkings
+        try:
+            c.execute("ALTER TABLE parkings ADD COLUMN photo_url TEXT")
+            print("✅ Добавлена колонка photo_url в таблицу parkings")
+        except psycopg.errors.DuplicateColumn:
+            pass  # Колонка уже существует
+        
+        # 3. Пересоздаём таблицу zones (всегда чистая)
         c.execute("DROP TABLE IF EXISTS zones")
         c.execute('''CREATE TABLE zones
                      (id SERIAL PRIMARY KEY, coords TEXT, comment TEXT)''')
         
+        # 4. Создаём таблицу departures (если нет)
         c.execute('''CREATE TABLE IF NOT EXISTS departures
                      (id SERIAL PRIMARY KEY, point_id INTEGER UNIQUE, point_title TEXT, person_name TEXT)''')
         
-        # Таблица для глобальных настроек отображения
+        # 5. Создаём таблицу settings (если нет)
         c.execute('''CREATE TABLE IF NOT EXISTS settings
                      (key TEXT PRIMARY KEY, value TEXT)''')
         
@@ -134,7 +158,7 @@ def handle_message(message):
     # 1. ФОТО ПАРКОВКИ (Добавление / Удаление)
     # ==========================================
     if text_lower.endswith(' off ссылку'):
-        name = text[:-11].strip() # " off ссылку" = 11 символов
+        name = text[:-11].strip()
         conn = get_db_connection(); c = conn.cursor()
         c.execute("UPDATE parkings SET photo_url = NULL WHERE title = %s", (name,))
         conn.commit(); conn.close()
