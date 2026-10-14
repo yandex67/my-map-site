@@ -34,7 +34,6 @@ def init_db():
         conn = get_db_connection()
         c = conn.cursor()
         
-        # ЕДИНАЯ ТАБЛИЦА ДЛЯ ВСЕХ ТОЧЕК (самокаты + доп инфа)
         c.execute('''CREATE TABLE IF NOT EXISTS points
                      (id SERIAL PRIMARY KEY, title TEXT, address TEXT, lat REAL, lon REAL, status TEXT DEFAULT 'active')''')
         try:
@@ -98,7 +97,7 @@ def handle_message(message):
     text = message.text.strip()
     text_lower = text.lower()
 
-    # --- Настройки ---
+    # --- Глобальные настройки ---
     if text_lower == 'off лишнее':
         conn = get_db_connection(); c = conn.cursor()
         c.execute("UPDATE settings SET value = 'true' WHERE key = 'hide_empty_labels'")
@@ -183,7 +182,7 @@ def handle_message(message):
                 conn.commit(); conn.close()
                 bot.reply_to(message, f"✅ Парковка '{title}' добавлена!")
             else:
-                bot.reply_to(message, f"❌ Не найдено: '{location_part}'")
+                bot.reply_to(message, f" Не найдено: '{location_part}'")
         return
 
     if ' - ' in text:
@@ -195,9 +194,9 @@ def handle_message(message):
             conn = get_db_connection(); c = conn.cursor()
             c.execute("DELETE FROM parkings WHERE title = %s", (title,))
             if c.rowcount > 0:
-                bot.reply_to(message, f"🗑️ Парковка '{title}' удалена.")
+                bot.reply_to(message, f"️ Парковка '{title}' удалена.")
             else:
-                bot.reply_to(message, f"❌ Парковка '{title}' не найдена.")
+                bot.reply_to(message, f" Парковка '{title}' не найдена.")
             conn.commit(); conn.close()
             return
         
@@ -228,7 +227,7 @@ def handle_message(message):
                 bot.reply_to(message, f"❌ Парковка '{title}' не найдена.")
             return
 
-    # --- ДОП ИНФА (теперь просто точка со статусом info) ---
+    # --- Доп инфа ---
     if text_lower.endswith(' - доп инфа'):
         clean_text = text[:-10].strip()
         if ' - ' in clean_text:
@@ -248,16 +247,15 @@ def handle_message(message):
         
         if lat and lon:
             conn = get_db_connection(); c = conn.cursor()
-            # СОЗДАЕМ В ОБЫЧНУЮ ТАБЛИЦУ POINTS СО СТАТУСОМ INFO
             c.execute("INSERT INTO points (title, address, lat, lon, status, comment) VALUES (%s, %s, %s, %s, 'info', %s)", 
                      ("ДОП ИНФА", location_part, lat, lon, comment))
             conn.commit(); conn.close()
             bot.reply_to(message, f"✅ Доп инфа добавлена!")
         else:
-            bot.reply_to(message, f"❌ Не найдено: '{location_part}'")
+            bot.reply_to(message, f" Не найдено: '{location_part}'")
         return
 
-    # --- Самокаты (обычные точки) ---
+    # --- Самокаты (с поддержкой red и sev) ---
     if '-' in text:
         parts = text.rsplit('-', 1)
         location_part = parts[0].strip()
@@ -267,7 +265,7 @@ def handle_message(message):
         if coord_match:
             lat, lon = float(coord_match.group(1)), float(coord_match.group(2))
         else:
-            bot.reply_to(message, f"⏳ Ищу '{location_part}'...")
+            bot.reply_to(message, f" Ищу '{location_part}'...")
             lat, lon = get_coordinates(location_part)
             
         if lat and lon:
@@ -280,6 +278,9 @@ def handle_message(message):
             if re.search(r'\bred\b', right_side, re.IGNORECASE):
                 status = 'red'
                 right_side = re.sub(r'\bred\b', '', right_side, flags=re.IGNORECASE).strip()
+            elif re.search(r'\bsev\b', right_side, re.IGNORECASE):
+                status = 'sev'
+                right_side = re.sub(r'\bsev\b', '', right_side, flags=re.IGNORECASE).strip()
                 
             remaining_parts = right_side.split()
             if len(remaining_parts) > 0:
@@ -312,7 +313,7 @@ def handle_message(message):
         count = c.rowcount
         c.execute("DELETE FROM departures")
         conn.commit(); conn.close()
-        bot.reply_to(message, f"️ Удалено точек: {count}")
+        bot.reply_to(message, f"🗑️ Удалено точек: {count}")
         return
     if text_lower == 'last p off':
         conn = get_db_connection(); c = conn.cursor()
@@ -345,7 +346,6 @@ def update_setting():
 @app.route('/get_points')
 def get_points():
     conn = get_db_connection(); c = conn.cursor()
-    # ПОЛУЧАЕМ ВСЕ ТОЧКИ (и самокаты, и доп инфу)
     c.execute("SELECT id, title, address, lat, lon, status, comment, url FROM points WHERE status != 'found'")
     points = [{"id": r[0], "title": r[1], "address": r[2], "lat": r[3], "lon": r[4], "status": r[5], "comment": r[6] or "", "url": r[7] or ""} for r in c.fetchall()]
     conn.close()
