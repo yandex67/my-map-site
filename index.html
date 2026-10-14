@@ -408,6 +408,7 @@
             }
         }
 
+        // ✅ ИСПРАВЛЕНО: зона остаётся на карте в режимах 1 и 2
         function closeFreehandZone() {
             if (zonePoints.length < 3) { cancelZoneDrawing(); return; }
             if (zonePolyline) { myMap.geoObjects.remove(zonePolyline); zonePolyline = null; }
@@ -415,7 +416,8 @@
             myMap.geoObjects.add(zonePolygon);
             isZoneConfirmed = true;
             zonePointMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); zonePointMarkers = [];
-            if (willSaveZone) { saveZoneToServer(); } else { resetDrawingState(); }
+            if (willSaveZone) { saveZoneToServer(); } 
+            else { exitDrawingModeKeepPolygon(); } // ✅ Не удаляем полигон!
         }
 
         function finishZone() {
@@ -435,8 +437,21 @@
                 document.getElementById('commentOkBtn').style.display = 'none';
             } else {
                 zonePointMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); zonePointMarkers = [];
-                if (willSaveZone) { saveZoneToServer(); } else { resetDrawingState(); }
+                if (willSaveZone) { saveZoneToServer(); } 
+                else { exitDrawingModeKeepPolygon(); } // ✅ Не удаляем полигон!
             }
+        }
+
+        // ✅ НОВАЯ ФУНКЦИЯ: выход из режима рисования БЕЗ удаления полигона
+        function exitDrawingModeKeepPolygon() {
+            isDrawingZone = false; drawMode = 1; willSaveZone = false; isZoneConfirmed = false;
+            drawModeSelected = false; isMode3SubMode = false; zonePoints = []; zoneComment = "";
+            freehandStartPoint = null; isDrawingFreehand = false;
+            zonePointMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); zonePointMarkers = [];
+            // НЕ удаляем zonePolygon и zonePolyline — они остаются на карте!
+            myMap.behaviors.enable('drag'); myMap.behaviors.enable('multiTouch'); myMap.behaviors.enable('scrollZoom'); myMap.behaviors.enable('dblClickZoom');
+            document.getElementById('drawingIndicator').style.display = 'none';
+            myMap.container.getElement().style.cursor = '';
         }
 
         function resetDrawingState() {
@@ -635,7 +650,6 @@
             });
         }
 
-        // ✅ НОВАЯ ФУНКЦИЯ: собирает плашки так, что заполненные данными оказываются внизу
         function buildLabelsHtml(available, dead, broken) {
             var items = [
                 { value: available, label: 'В доступе', color: '#4CAF50' },
@@ -643,7 +657,6 @@
                 { value: dead, label: 'Севшие', color: '#f44336' }
             ];
             
-            // Сортировка: сначала "?" (пустые), потом заполненные
             items.sort(function(a, b) {
                 var aEmpty = (a.value === '?' || a.value === undefined || a.value === '');
                 var bEmpty = (b.value === '?' || b.value === undefined || b.value === '');
@@ -741,7 +754,6 @@
             }).then(function() { loadParkings(); });
         }
 
-        // ✅ НОВАЯ ФУНКЦИЯ: обнуляет все показатели парковки до "?"
         function resetParking(id) {
             fetch(API_URL + '/update_parking', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -774,7 +786,6 @@
             }
         }
 
-        // ✅ ДОБАВЛЕНА КНОПКА "ЗАРЯДИЛ" В САМЫЙ ВЕРХ КАРТОЧКИ
         function buildParkingBalloon(p) {
             var photoHtml = p.photo_url ? '<a href="' + p.photo_url + '" target="_blank" style="color: #1976D2; text-decoration: underline; font-weight: bold; display: block; margin-top: 10px;">ФОТО ПАРКОВКИ</a>' : '';
             var btnText = appSettings.hide_empty_labels ? 'Вкл всё' : 'Выкл лишнее';
@@ -837,6 +848,7 @@
             if (tasksHeaderClickCount >= 3) { tasksHeaderClickCount = 0; openZoneModal(); }
         }
 
+        // ✅ ИСПРАВЛЕНО: при переключении на OSM происходит перерисовка
         function onInfoClick() {
             infoClickCount++;
             if (infoClickTimer) clearTimeout(infoClickTimer);
@@ -856,7 +868,13 @@
                 } else if (mapMode === 2) {
                     document.getElementById('map').style.display = 'none';
                     document.getElementById('osmMap').style.display = 'block';
-                    setTimeout(function() { osmMap.invalidateSize(); }, 50);
+                    setTimeout(function() { 
+                        osmMap.invalidateSize();
+                        // Перерисовываем всё на OSM
+                        loadPoints();
+                        loadParkings();
+                        loadZones();
+                    }, 200);
                 }
             }
         }
