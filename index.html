@@ -69,7 +69,6 @@
         <div id="deadInfo" class="dead-info" onclick="onDeadInfoClick()">Севшие на парковке: <span id="deadCount">0</span></div>
     </div>
     
-    <!-- Модальные окна -->
     <div class="modal-overlay" id="modalOverlay">
         <div class="modal-box">
             <h4>Введите имя</h4>
@@ -97,7 +96,7 @@
             <h4>Создать самокат</h4>
             <input type="text" id="scooterNumber" placeholder="Номер самоката" autocomplete="off">
             <input type="text" id="scooterComment" placeholder="Комментарий" autocomplete="off">
-            <input type="text" id="scooterRed" placeholder="Red? (Да/Нет)" autocomplete="off">
+            <input type="text" id="scooterRed" placeholder="red или sev?" autocomplete="off">
             <div style="display: flex; gap: 10px; margin-top: 12px;">
                 <button class="btn-cancel" onclick="closeCreateScooterModal()" style="flex: 1;">Отмена</button>
                 <button onclick="confirmCreateScooter()" style="flex: 1;">Ок</button>
@@ -126,8 +125,6 @@
             </div>
         </div>
     </div>
-
-    <!-- ✅ УДАЛИЛ МОДАЛЬНОЕ ОКНО УДАЛЕНИЯ ДОП ИНФЫ (теперь удаляем через кнопку в карточке) -->
 
     <div class="modal-overlay" id="zoneModalOverlay">
         <div class="modal-box">
@@ -180,14 +177,14 @@
         var myMap, osmMap;
         var markers = [], labelMarkers = [], parkingMarkers = [], parkingLabelMarkers = [];
         var osmMarkers = [], osmLabelMarkers = [], osmParkingMarkers = [], osmParkingLabelMarkers = [];
-        var infoMarkers = [], osmInfoMarkers = []; // Для доп инфы
+        var infoMarkers = [], osmInfoMarkers = [];
         var zones = [], zoneTextMarkers = [];
         var osmZones = [];
         var API_URL = 'https://mapbot-api.onrender.com';
         var departures = {};
         var currentModalPointId = null, currentModalPointTitle = null;
         var currentCommentPointId = null;
-        var currentCommentType = null; // 'scooter' или 'info'
+        var currentCommentType = null;
         var currentInfoPointId = null;
         var rightClickCoords = null;
         
@@ -232,7 +229,7 @@
             L.control.zoom({ position: 'topright' }).addTo(osmMap);
 
             loadDeparturesFromServer();
-            loadPoints(); // Теперь здесь загружаются и самокаты, и доп инфа
+            loadPoints();
             loadParkings();
             loadZones();
             loadSettings();
@@ -241,7 +238,6 @@
                 myMap.setCenter([54.7818, 32.0401], 12);
             }, 800);
 
-            // Правый клик
             myMap.events.add('contextmenu', function(e) {
                 e.get('domEvent').preventDefault();
                 rightClickCoords = e.get('coords');
@@ -313,14 +309,12 @@
         function loadZones() {
             zones.forEach(function(z) { myMap.geoObjects.remove(z.polygon); if(z.text) myMap.geoObjects.remove(z.text); });
             zones = []; zoneTextMarkers = [];
-            
             osmZones.forEach(function(z) { osmMap.removeLayer(z.layer); if(z.text) osmMap.removeLayer(z.text); });
             osmZones = [];
             
             fetch(API_URL + '/get_zones').then(function(r) { return r.json(); }).then(function(data) {
                 data.forEach(function(z) {
                     if (!z.coords || !Array.isArray(z.coords) || z.coords.length === 0) return;
-                    
                     var polygon = new ymaps.Polygon([z.coords], {}, {
                         fillColor: '#FFB6C1', fillOpacity: 0.5,
                         strokeColor: '#ff3b30', strokeWidth: 3, strokeStyle: 'solid', draggable: false
@@ -334,7 +328,6 @@
                         if (zoneClickCount >= 3) { zoneClickCount = 0; zoneToDeleteId = z.id; document.getElementById('deleteZoneModal').style.display = 'flex'; }
                     });
                     myMap.geoObjects.add(polygon);
-                    
                     if (z.comment && z.comment.trim() !== '') {
                         var bounds = polygon.geometry.getBounds();
                         var center = [(bounds[0][0] + bounds[1][0]) / 2, (bounds[0][1] + bounds[1][1]) / 2];
@@ -352,7 +345,6 @@
                         color: '#ff3b30', weight: 3, fillColor: '#FFB6C1', fillOpacity: 0.5
                     }).addTo(osmMap);
                     var osmZoneObj = { id: z.id, layer: osmPolygon, text: null };
-                    
                     if (z.comment && z.comment.trim() !== '') {
                         var osmBounds = osmPolygon.getBounds();
                         var osmCenter = osmBounds.getCenter();
@@ -382,7 +374,6 @@
             zoneComment = ""; freehandStartPoint = null; isDrawingFreehand = false;
 
             myMap.behaviors.disable('drag'); myMap.behaviors.disable('multiTouch'); myMap.behaviors.disable('scrollZoom'); myMap.behaviors.disable('dblClickZoom');
-            
             var indicator = document.getElementById('drawingIndicator');
             indicator.style.display = 'flex';
             myMap.container.getElement().style.cursor = 'crosshair';
@@ -581,6 +572,7 @@
 
         function getScooterImage(status) {
             if (status === 'red') return BASE_URL + 'red.png';
+            if (status === 'sev') return BASE_URL + 'sev.png';
             if (status === 'not_found') return BASE_URL + 'black.png';
             if (status === 'rented') return BASE_URL + 'ser.png';
             return BASE_URL + 'green.png';
@@ -610,7 +602,6 @@
             });
         }
 
-        // ✅ ЗАГРУЗКА ТОЧЕК (САМОКАТЫ + ДОП ИНФА)
         function loadPoints() {
             labelMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); labelMarkers = [];
             osmLabelMarkers.forEach(function(m) { osmMap.removeLayer(m); }); osmLabelMarkers = [];
@@ -624,16 +615,13 @@
                 var scooterCount = 0;
                 
                 data.forEach(function(point) {
-                    // РАЗДЕЛЯЕМ НА САМОКАТЫ И ДОП ИНФУ
                     if (point.status === 'info') {
-                        // === ДОП ИНФА ===
                         var infoIcon = {
                             iconLayout: ymaps.templateLayoutFactory.createClass('<div style="width: 18px; height: 18px; text-align: center; line-height: 18px;"><img src="' + BASE_URL + 'info.png" style="width: 18px; height: 18px; display: block;"></div>'),
                             iconShape: { type: 'Circle', coordinates: [9, 9], radius: 9 }
                         };
                         var pm = new ymaps.Placemark([point.lat, point.lon], { balloonContent: buildInfoBalloonContent(point) }, infoIcon);
                         pm.properties.set('infoData', point);
-                        // ✅ УБРАЛ ОБРАБОТЧИК ДВОЙНОГО КЛИКА ДЛЯ УДАЛЕНИЯ
                         myMap.geoObjects.add(pm); infoMarkers.push(pm);
 
                         var osmInfoIcon = L.divIcon({
@@ -645,13 +633,10 @@
                         var popup = L.popup({ closeOnClick: false, autoClose: false }).setContent(buildInfoBalloonContent(point));
                         osmPm.bindPopup(popup);
                         osmPm.infoData = point;
-                        // ✅ УБРАЛ ОБРАБОТЧИК ДВОЙНОГО КЛИКА ДЛЯ OSM
                         osmInfoMarkers.push(osmPm);
                     } else {
-                        // === САМОКАТ ===
                         scooterCount++;
                         var isBooked = departures[point.id] !== undefined;
-                        
                         var iconOptions = createScooterIcon(point.status, point.title.trim());
                         if (isBooked) {
                             var labelLayout = ymaps.templateLayoutFactory.createClass('<div style="background: black; color: white; font-size: 8px; font-weight: bold; padding: 3px 4px; border-radius: 3px; text-align: center; width: 44px; box-sizing: border-box; line-height: 1.2;">Выехали</div>');
@@ -686,7 +671,6 @@
             });
         }
 
-        // Карточка для доп инфы
         function buildInfoBalloonContent(info) {
             var h = '<div style="min-width: 200px; padding: 12px; box-sizing: border-box; text-align: center;" onclick="event.stopPropagation()">';
             h += '<b style="font-size: 16px; display: block; font-weight: bold;">ДОП ИНФА</b>';
@@ -696,7 +680,6 @@
             }
             h += '<div style="display: flex; flex-direction: column; align-items: center; gap: 4px; margin-top: 10px;">';
             h += '<button onclick="event.stopPropagation(); openInfoCommentModal(' + info.id + ')" style="background: #707070; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Комментарий</button>';
-            // ✅ НОВАЯ КНОПКА УДАЛЕНИЯ В КАТОЧКЕ
             h += '<button onclick="event.stopPropagation(); deleteInfoPoint(' + info.id + ')" style="background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Удалить</button>';
             h += '</div></div>';
             return h;
@@ -712,17 +695,15 @@
             setTimeout(function() { input.focus(); }, 100);
         }
 
-        // ✅ ФУНКЦИЯ УДАЛЕНИЯ ДОП ИНФЫ ЧЕРЕЗ КНОПКУ В ПОПАПЕ
         function deleteInfoPoint(id) {
             if (!confirm('Удалить эту доп инфу?')) return;
-            
             fetch(API_URL + '/update_status', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: id, status: 'found' }) // found удаляет точку из БД
+                body: JSON.stringify({ id: id, status: 'found' })
             }).then(function(r) { return r.json(); }).then(function(data) {
                 if (data.success) {
-                    loadPoints(); // Перезагружаем карту, точка исчезнет
+                    loadPoints();
                 } else {
                     alert('Ошибка удаления: ' + (data.error || 'неизвестно'));
                 }
@@ -735,7 +716,6 @@
             var esc = point.title.replace(/'/g, "\\'").replace(/"/g, '&quot;');
             var fzLink = point.url ? '<a href="' + point.url + '" target="_blank" style="color: #1976D2; text-decoration: underline; font-weight: bold; display: block; margin: 5px 0;">ПОСМОТРЕТЬ ФЗ</a>' : '';
             var commentHtml = point.comment ? '<small style="color: #000; display: block; margin: 5px 0;">' + point.comment + '</small>' : '';
-            
             var h = '<div style="min-width: 200px; padding: 12px; box-sizing: border-box; text-align: center;" onclick="event.stopPropagation()">';
             h += '<b style="font-size: 16px; display: block;">' + point.title + '</b>';
             h += '<div style="color: #555; font-size: 14px; margin: 8px 0;">' + point.address + '</div>';
@@ -801,7 +781,6 @@
                 pm.balloon.open();
                 return;
             }
-
             var osmPm = osmMarkers.find(function(m) { return m.pointData && m.pointData.id === pointId; });
             if (osmPm) {
                 var point = osmPm.pointData;
@@ -844,7 +823,6 @@
                 { value: broken, label: 'Поломки', color: '#7E0000' },
                 { value: dead, label: 'Севшие', color: '#f44336' }
             ];
-            
             items.sort(function(a, b) {
                 var aEmpty = (a.value === '?' || a.value === undefined || a.value === '');
                 var bEmpty = (b.value === '?' || b.value === undefined || b.value === '');
@@ -852,7 +830,6 @@
                 if (!aEmpty && bEmpty) return 1;
                 return 0;
             });
-            
             var html = '';
             var hasVisible = false;
             items.forEach(function(item) {
@@ -861,22 +838,18 @@
                 hasVisible = true;
                 html += '<div style="background: ' + item.color + '; color: white; font-size: 9px; font-weight: bold; padding: 2px 6px; border-radius: 3px; white-space: nowrap; margin-bottom: 2px;">' + item.label + ': ' + (item.value || '?') + '</div>';
             });
-            
             return hasVisible ? html : null;
         }
 
         function createParkingLabels(lat, lon, available, dead, broken, pId) {
             var html = buildLabelsHtml(available, dead, broken);
             if (!html) return null;
-
             var visibleCount = 0;
             [available, broken, dead].forEach(function(v) {
                 var isEmpty = (v === '?' || v === undefined || v === '');
                 if (!(appSettings.hide_empty_labels && isEmpty)) visibleCount++;
             });
-            
             var offset = visibleCount * 17 + 5;
-
             var layout = ymaps.templateLayoutFactory.createClass('<div style="display: flex; flex-direction: column; align-items: center; gap: 2px; width: 100px;">' + html + '</div>');
             return new ymaps.Placemark([lat, lon], {}, {
                 iconLayout: layout, iconOffset: [-41, -offset], iconShape: { type: 'Rectangle', coordinates: [[0, 0], [100, offset]] }
@@ -886,16 +859,13 @@
         function createOsmParkingLabels(available, dead, broken) {
             var html = buildLabelsHtml(available, dead, broken);
             if (!html) return null;
-
             var visibleCount = 0;
             [available, broken, dead].forEach(function(v) {
                 var isEmpty = (v === '?' || v === undefined || v === '');
                 if (!(appSettings.hide_empty_labels && isEmpty)) visibleCount++;
             });
-            
             var totalHeight = visibleCount * 17;
             var extraOffset = 22;
-
             return L.divIcon({
                 className: 'custom-div-icon',
                 html: '<div style="display: flex; flex-direction: column; align-items: center; gap: 2px; width: 100px;">' + html + '</div>',
@@ -916,13 +886,11 @@
                     if (p.available === undefined) p.available = '?';
                     if (p.dead === undefined) p.dead = '?';
                     if (p.broken === undefined) p.broken = '?';
-                    
                     try {
                         if (appSettings.show_parkings) {
                             var pm = new ymaps.Placemark([p.lat, p.lon], { balloonContent: buildParkingBalloon(p) }, createParkingIcon());
                             pm.properties.set('parkingData', p);
                             myMap.geoObjects.add(pm); parkingMarkers.push(pm);
-
                             var osmPm = L.marker([p.lat, p.lon], { icon: createOsmParkingIcon() }).addTo(osmMap);
                             var popup = L.popup({ closeOnClick: false, autoClose: false }).setContent(buildParkingBalloon(p));
                             osmPm.bindPopup(popup);
@@ -932,7 +900,6 @@
                         if (appSettings.show_labels) {
                             var pl = createParkingLabels(p.lat, p.lon, p.available, p.dead, p.broken, p.id);
                             if (pl) { myMap.geoObjects.add(pl); parkingLabelMarkers.push(pl); }
-
                             var osmPl = createOsmParkingLabels(p.available, p.dead, p.broken);
                             if (osmPl) {
                                 var osmLabel = L.marker([p.lat, p.lon], { icon: osmPl, interactive: false }).addTo(osmMap);
@@ -1028,7 +995,6 @@
                 pm.balloon.open();
                 return;
             }
-
             var osmPm = osmParkingMarkers.find(function(m) { return m.parkingData && m.parkingData.id === id; });
             if (osmPm) {
                 var p = osmPm.parkingData;
@@ -1104,7 +1070,6 @@
             if (infoClickCount >= 3) {
                 infoClickCount = 0;
                 mapMode = (mapMode + 1) % 3;
-                
                 if (mapMode === 0) {
                     document.getElementById('map').style.display = 'block';
                     document.getElementById('osmMap').style.display = 'none';
@@ -1195,15 +1160,13 @@
             var input = document.getElementById('commentModalInput');
             var commentText = input.value.trim();
             if (!currentCommentPointId) return;
-
-            // ✅ ИСПРАВЛЕНО: теперь всегда используем /update_comment
             fetch(API_URL + '/update_comment', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ point_id: currentCommentPointId, comment: commentText })
             }).then(function(r) { return r.json(); }).then(function(data) {
                 if (data.success) {
-                    loadPoints(); // Перезагружаем все точки
+                    loadPoints();
                     closeCommentModal();
                 } else {
                     alert('Ошибка: ' + (data.error || 'неизвестно'));
@@ -1229,19 +1192,21 @@
         function confirmCreateScooter() {
             var number = document.getElementById('scooterNumber').value.trim();
             var comment = document.getElementById('scooterComment').value.trim();
-            var red = document.getElementById('scooterRed').value.trim().toLowerCase();
+            var redInput = document.getElementById('scooterRed').value.trim().toLowerCase();
             
             if (!number) {
                 alert('Заполните номер самоката!');
                 return;
             }
-            
             if (!rightClickCoords) {
                 alert('Координаты не захвачены! Попробуй еще раз.');
                 return;
             }
             
-            var status = (red === 'да') ? 'red' : 'active';
+            var status = 'active';
+            if (redInput === 'red') status = 'red';
+            else if (redInput === 'sev') status = 'sev';
+            
             var address = rightClickCoords.join(', ');
             var lat = rightClickCoords[0];
             var lon = rightClickCoords[1];
@@ -1275,21 +1240,17 @@
 
         function confirmCreateParking() {
             var name = document.getElementById('parkingName').value.trim();
-            
             if (!name) {
                 alert('Заполните название!');
                 return;
             }
-            
             if (!rightClickCoords) {
                 alert('Координаты не захвачены! Попробуй еще раз.');
                 return;
             }
-            
             var address = rightClickCoords.join(', ');
             var lat = rightClickCoords[0];
             var lon = rightClickCoords[1];
-            
             fetch(API_URL + '/create_parking', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -1319,22 +1280,17 @@
 
         function confirmCreateInfo() {
             var comment = document.getElementById('infoComment').value.trim();
-            
             if (!comment) {
                 alert('Заполните комментарий!');
                 return;
             }
-            
             if (!rightClickCoords) {
                 alert('Координаты не захвачены! Попробуй еще раз.');
                 return;
             }
-            
             var address = rightClickCoords.join(', ');
             var lat = rightClickCoords[0];
             var lon = rightClickCoords[1];
-            
-            // ✅ ТЕПЕРЬ СОЗДАЕМ КАК ОБЫЧНУЮ ТОЧКУ СО СТАТУСОМ INFO
             fetch(API_URL + '/create_scooter', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -1362,7 +1318,6 @@
             if (e.target.id === 'modalOverlay') closeCustomInputModal();
             if (e.target.id === 'commentModalOverlay') closeCommentModal();
             if (e.target.id === 'deleteZoneModal') cancelDeleteZone();
-            // ✅ УБРАЛ ОБРАБОТЧИК ДЛЯ deleteInfoModal, так как модалка удалена
             if (e.target.id === 'maxDeadModal') closeMaxDeadModal();
         });
         document.addEventListener('DOMContentLoaded', function() {
