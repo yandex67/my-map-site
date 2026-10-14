@@ -127,15 +127,7 @@
         </div>
     </div>
 
-    <div class="modal-overlay delete-zone-modal" id="deleteInfoModal">
-        <div class="modal-box">
-            <h4>Удалить доп инфу?</h4>
-            <div class="modal-actions">
-                <button class="btn-secondary" onclick="cancelDeleteInfo()">Отмена</button>
-                <button onclick="confirmDeleteInfo()">Ок</button>
-            </div>
-        </div>
-    </div>
+    <!-- ✅ УДАЛИЛ МОДАЛЬНОЕ ОКНО УДАЛЕНИЯ ДОП ИНФЫ (теперь удаляем через кнопку в карточке) -->
 
     <div class="modal-overlay" id="zoneModalOverlay">
         <div class="modal-box">
@@ -641,16 +633,7 @@
                         };
                         var pm = new ymaps.Placemark([point.lat, point.lon], { balloonContent: buildInfoBalloonContent(point) }, infoIcon);
                         pm.properties.set('infoData', point);
-                        pm.events.add('click', function() {
-                            infoClickCount++;
-                            if (infoClickTimer) clearTimeout(infoClickTimer);
-                            infoClickTimer = setTimeout(function() { infoClickCount = 0; }, 600);
-                            if (infoClickCount >= 2) {
-                                infoClickCount = 0;
-                                currentInfoPointId = point.id;
-                                document.getElementById('deleteInfoModal').style.display = 'flex';
-                            }
-                        });
+                        // ✅ УБРАЛ ОБРАБОТЧИК ДВОЙНОГО КЛИКА ДЛЯ УДАЛЕНИЯ
                         myMap.geoObjects.add(pm); infoMarkers.push(pm);
 
                         var osmInfoIcon = L.divIcon({
@@ -662,16 +645,7 @@
                         var popup = L.popup({ closeOnClick: false, autoClose: false }).setContent(buildInfoBalloonContent(point));
                         osmPm.bindPopup(popup);
                         osmPm.infoData = point;
-                        osmPm.on('click', function() {
-                            infoClickCount++;
-                            if (infoClickTimer) clearTimeout(infoClickTimer);
-                            infoClickTimer = setTimeout(function() { infoClickCount = 0; }, 600);
-                            if (infoClickCount >= 2) {
-                                infoClickCount = 0;
-                                currentInfoPointId = point.id;
-                                document.getElementById('deleteInfoModal').style.display = 'flex';
-                            }
-                        });
+                        // ✅ УБРАЛ ОБРАБОТЧИК ДВОЙНОГО КЛИКА ДЛЯ OSM
                         osmInfoMarkers.push(osmPm);
                     } else {
                         // === САМОКАТ ===
@@ -722,6 +696,8 @@
             }
             h += '<div style="display: flex; flex-direction: column; align-items: center; gap: 4px; margin-top: 10px;">';
             h += '<button onclick="event.stopPropagation(); openInfoCommentModal(' + info.id + ')" style="background: #707070; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Комментарий</button>';
+            // ✅ НОВАЯ КНОПКА УДАЛЕНИЯ В КАТОЧКЕ
+            h += '<button onclick="event.stopPropagation(); deleteInfoPoint(' + info.id + ')" style="background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Удалить</button>';
             h += '</div></div>';
             return h;
         }
@@ -736,23 +712,22 @@
             setTimeout(function() { input.focus(); }, 100);
         }
 
-        function cancelDeleteInfo() { 
-            currentInfoPointId = null;
-            document.getElementById('deleteInfoModal').style.display = 'none'; 
-        }
-
-        function confirmDeleteInfo() {
-            if (!currentInfoPointId) return;
-            // Удаляем как обычную точку
+        // ✅ ФУНКЦИЯ УДАЛЕНИЯ ДОП ИНФЫ ЧЕРЕЗ КНОПКУ В ПОПАПЕ
+        function deleteInfoPoint(id) {
+            if (!confirm('Удалить эту доп инфу?')) return;
+            
             fetch(API_URL + '/update_status', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: currentInfoPointId, status: 'found' }) // found удаляет точку
+                body: JSON.stringify({ id: id, status: 'found' }) // found удаляет точку из БД
             }).then(function(r) { return r.json(); }).then(function(data) {
                 if (data.success) {
-                    cancelDeleteInfo();
-                    loadPoints();
+                    loadPoints(); // Перезагружаем карту, точка исчезнет
+                } else {
+                    alert('Ошибка удаления: ' + (data.error || 'неизвестно'));
                 }
+            }).catch(function(err) {
+                alert('Ошибка сети: ' + err);
             });
         }
 
@@ -1217,26 +1192,26 @@
         }
 
         function confirmCommentModal() {
-    var input = document.getElementById('commentModalInput');
-    var commentText = input.value.trim();
-    if (!currentCommentPointId) return;
+            var input = document.getElementById('commentModalInput');
+            var commentText = input.value.trim();
+            if (!currentCommentPointId) return;
 
-    // ✅ ИСПРАВЛЕНО: теперь всегда используем /update_comment, так как доп инфа — это обычная точка
-    fetch(API_URL + '/update_comment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ point_id: currentCommentPointId, comment: commentText })
-    }).then(function(r) { return r.json(); }).then(function(data) {
-        if (data.success) {
-            loadPoints(); // Перезагружаем все точки
-            closeCommentModal();
-        } else {
-            alert('Ошибка: ' + (data.error || 'неизвестно'));
+            // ✅ ИСПРАВЛЕНО: теперь всегда используем /update_comment
+            fetch(API_URL + '/update_comment', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ point_id: currentCommentPointId, comment: commentText })
+            }).then(function(r) { return r.json(); }).then(function(data) {
+                if (data.success) {
+                    loadPoints(); // Перезагружаем все точки
+                    closeCommentModal();
+                } else {
+                    alert('Ошибка: ' + (data.error || 'неизвестно'));
+                }
+            }).catch(function(err) {
+                alert('Ошибка сети: ' + err);
+            });
         }
-    }).catch(function(err) {
-        alert('Ошибка сети: ' + err);
-    });
-}
 
         function openCreateScooterModal() {
             closeContextMenu();
@@ -1387,7 +1362,7 @@
             if (e.target.id === 'modalOverlay') closeCustomInputModal();
             if (e.target.id === 'commentModalOverlay') closeCommentModal();
             if (e.target.id === 'deleteZoneModal') cancelDeleteZone();
-            if (e.target.id === 'deleteInfoModal') cancelDeleteInfo();
+            // ✅ УБРАЛ ОБРАБОТЧИК ДЛЯ deleteInfoModal, так как модалка удалена
             if (e.target.id === 'maxDeadModal') closeMaxDeadModal();
         });
         document.addEventListener('DOMContentLoaded', function() {
