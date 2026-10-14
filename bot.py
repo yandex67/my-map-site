@@ -56,7 +56,6 @@ def init_db():
         except psycopg.errors.DuplicateColumn:
             pass
         
-        # ✅ НОВАЯ ТАБЛИЦА ДЛЯ ДОП ИНФЫ
         c.execute('''CREATE TABLE IF NOT EXISTS info_points
                      (id SERIAL PRIMARY KEY, address TEXT, lat REAL, lon REAL, comment TEXT)''')
         
@@ -165,7 +164,7 @@ def handle_message(message):
         conn = get_db_connection(); c = conn.cursor()
         c.execute("UPDATE parkings SET photo_url = NULL WHERE title = %s", (name,))
         conn.commit(); conn.close()
-        bot.reply_to(message, f"🗑️ Ссылка на фото для '{name}' удалена.")
+        bot.reply_to(message, f"️ Ссылка на фото для '{name}' удалена.")
         return
 
     if ' http' in text or text.startswith('http'):
@@ -246,7 +245,6 @@ def handle_message(message):
                 bot.reply_to(message, f"❌ Парковка '{title}' не найдена.")
             return
 
-    # ✅ НОВАЯ КОМАНДА ДЛЯ СОЗДАНИЯ ДОП ИНФЫ
     if ' - доп инфа - ' in text_lower:
         parts = text.split(' - ', 2)
         if len(parts) == 3:
@@ -315,7 +313,7 @@ def handle_message(message):
         c.execute("DELETE FROM parkings")
         count = c.rowcount
         conn.commit(); conn.close()
-        bot.reply_to(message, f"🗑️ Удалено всех парковок: {count}")
+        bot.reply_to(message, f"️ Удалено всех парковок: {count}")
         return
 
     if text_lower == 'все с off':
@@ -324,7 +322,7 @@ def handle_message(message):
         count = c.rowcount
         c.execute("DELETE FROM departures")
         conn.commit(); conn.close()
-        bot.reply_to(message, f"🗑️ Удалено всех самокатов: {count}")
+        bot.reply_to(message, f"️ Удалено всех самокатов: {count}")
         return
 
     if text_lower == 'last p off':
@@ -363,7 +361,6 @@ def get_points():
     conn.close()
     return jsonify(points)
 
-# ✅ НОВЫЙ ЭНДПОИНТ ДЛЯ ДОП ИНФЫ
 @app.route('/get_info_points')
 def get_info_points():
     conn = get_db_connection(); c = conn.cursor()
@@ -402,6 +399,32 @@ def update_info_comment():
         conn = get_db_connection(); c = conn.cursor()
         c.execute("UPDATE info_points SET comment = %s WHERE id = %s", 
                  (data.get('comment', ''), data.get('id')))
+        conn.commit(); conn.close()
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"error": str(e), "success": False}), 500
+
+# ✅ НОВЫЙ ЭНДПОИНТ: Создание самоката через правый клик
+@app.route('/create_scooter', methods=['POST'])
+def create_scooter():
+    try:
+        data = request.json
+        conn = get_db_connection(); c = conn.cursor()
+        c.execute("INSERT INTO points (title, address, lat, lon, status, comment) VALUES (%s, %s, %s, %s, %s, %s)", 
+                 (data.get('number', ''), data.get('address', ''), data.get('lat'), data.get('lon'), data.get('status', 'active'), data.get('comment', '')))
+        conn.commit(); conn.close()
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"error": str(e), "success": False}), 500
+
+# ✅ НОВЫЙ ЭНДПОИНТ: Создание парковки через правый клик
+@app.route('/create_parking', methods=['POST'])
+def create_parking():
+    try:
+        data = request.json
+        conn = get_db_connection(); c = conn.cursor()
+        c.execute("INSERT INTO parkings (title, address, lat, lon) VALUES (%s, %s, %s, %s)", 
+                 (data.get('title', ''), data.get('address', ''), data.get('lat'), data.get('lon')))
         conn.commit(); conn.close()
         return jsonify({"success": True})
     except Exception as e:
