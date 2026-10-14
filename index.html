@@ -80,7 +80,36 @@
         </div>
     </div>
 
-    <div
+    <div class="modal-overlay" id="commentModalOverlay">
+        <div class="modal-box">
+            <h4>Введите комментарий</h4>
+            <input type="text" id="commentModalInput" autocomplete="off">
+            <div style="display: flex; gap: 10px; margin-top: 12px;">
+                <button class="btn-cancel" onclick="closeCommentModal()" style="flex: 1;">Отмена</button>
+                <button onclick="confirmCommentModal()" style="flex: 1;">Ок</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="createScooterModal">
+        <div class="modal-box">
+            <h4>Создать самокат</h4>
+            <input type="text" id="scooterNumber" placeholder="Номер самоката" autocomplete="off">
+            <input type="text" id="scooterComment" placeholder="Комментарий" autocomplete="off">
+            <input type="text" id="scooterRed" placeholder="Red? (Да/Нет)" autocomplete="off">
+            <div style="display: flex; gap: 10px; margin-top: 12px;">
+                <button class="btn-cancel" onclick="closeCreateScooterModal()" style="flex: 1;">Отмена</button>
+                <button onclick="confirmCreateScooter()" style="flex: 1;">Ок</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="createParkingModal">
+        <div class="modal-box">
+            <h4>Создать парковку</h4>
+            <input type="text" id="parkingName" placeholder="Название парковки" autocomplete="off">
+            <div style="display: flex; gap: 10px; margin-top: 12px;">
+                <button class="btn-cancel" onclick="closeCreateParkingModal()" style="flex: 1;">Отмена</button>
                 <button onclick="confirmCreateParking()" style="flex: 1;">Ок</button>
             </div>
         </div>
