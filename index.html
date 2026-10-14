@@ -91,11 +91,9 @@
         </div>
     </div>
 
-    <!-- ✅ НОВОЕ МОДАЛЬНОЕ ОКНО: СОЗДАТЬ САМОКАТ -->
     <div class="modal-overlay" id="createScooterModal">
         <div class="modal-box">
             <h4>Создать самокат</h4>
-            <input type="text" id="scooterName" placeholder="Название самоката" autocomplete="off">
             <input type="text" id="scooterNumber" placeholder="Номер самоката" autocomplete="off">
             <input type="text" id="scooterComment" placeholder="Комментарий" autocomplete="off">
             <input type="text" id="scooterRed" placeholder="Red? (Да/Нет)" autocomplete="off">
@@ -106,7 +104,6 @@
         </div>
     </div>
 
-    <!-- ✅ НОВОЕ МОДАЛЬНОЕ ОКНО: СОЗДАТЬ ПАРКОВКУ -->
     <div class="modal-overlay" id="createParkingModal">
         <div class="modal-box">
             <h4>Создать парковку</h4>
@@ -118,7 +115,6 @@
         </div>
     </div>
 
-    <!-- ✅ НОВОЕ МОДАЛЬНОЕ ОКНО: СОЗДАТЬ ДОП ИНФУ -->
     <div class="modal-overlay" id="createInfoModal">
         <div class="modal-box">
             <h4>Создать доп инфу</h4>
@@ -130,7 +126,6 @@
         </div>
     </div>
 
-    <!-- ✅ НОВОЕ МОДАЛЬНОЕ ОКНО: УДАЛИТЬ ДОП ИНФУ -->
     <div class="modal-overlay delete-zone-modal" id="deleteInfoModal">
         <div class="modal-box">
             <h4>Удалить доп инфу?</h4>
@@ -199,6 +194,7 @@
         var departures = {};
         var currentModalPointId = null, currentModalPointTitle = null;
         var currentCommentPointId = null;
+        var currentCommentType = null; // 'scooter' или 'info'
         var currentInfoPointId = null;
         var rightClickCoords = null;
         
@@ -253,15 +249,18 @@
                 myMap.setCenter([54.7818, 32.0401], 12);
             }, 800);
 
-            // ✅ ПРАВЫЙ КЛИК ДЛЯ КОНТЕКСТНОГО МЕНЮ
+            // ✅ ПРАВЫЙ КЛИК ДЛЯ ЯНДЕКС КАРТЫ
             myMap.events.add('contextmenu', function(e) {
                 e.get('domEvent').preventDefault();
                 rightClickCoords = e.get('coords');
+                console.log('Правый клик Яндекс:', rightClickCoords);
                 showContextMenu();
             });
 
+            // ✅ ПРАВЫЙ КЛИК ДЛЯ OSM
             osmMap.on('contextmenu', function(e) {
                 rightClickCoords = [e.latlng.lat, e.latlng.lng];
+                console.log('Правый клик OSM:', rightClickCoords);
                 showContextMenu();
             });
 
@@ -287,13 +286,14 @@
         }
 
         function showContextMenu() {
+            console.log('Показываем контекстное меню, координаты:', rightClickCoords);
             var menu = document.createElement('div');
             menu.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); z-index: 3000; min-width: 250px;';
             menu.innerHTML = `
                 <h4 style="margin: 0 0 15px 0; text-align: center; font-size: 16px;">Создать</h4>
-                <button onclick="openCreateScooterModal()" style="width: 100%; padding: 10px; background: #0140ff; color: white; border: none; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; margin-bottom: 8px;">СОЗДАТЬ САМОКАТ</button>
-                <button onclick="openCreateParkingModal()" style="width: 100%; padding: 10px; background: #0140ff; color: white; border: none; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; margin-bottom: 8px;">СОЗДАТЬ ПАРКОВКУ</button>
-                <button onclick="openCreateInfoModal()" style="width: 100%; padding: 10px; background: #0140ff; color: white; border: none; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; margin-bottom: 8px;">СОЗДАТЬ ДОП ИНФУ</button>
+                <button onclick="openCreateScooterModal()" style="width: 100%; padding: 10px; background: #0140ff; color: white; border: none; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; margin-bottom: 8px;">Создать самокат</button>
+                <button onclick="openCreateParkingModal()" style="width: 100%; padding: 10px; background: #0140ff; color: white; border: none; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; margin-bottom: 8px;">Создать парковку</button>
+                <button onclick="openCreateInfoModal()" style="width: 100%; padding: 10px; background: #0140ff; color: white; border: none; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; margin-bottom: 8px;">Создать доп инфу</button>
                 <button onclick="closeContextMenu()" style="width: 100%; padding: 10px; background: #9E9E9E; color: white; border: none; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer;">Отмена</button>
             `;
             document.body.appendChild(menu);
@@ -666,14 +666,12 @@
             });
         }
 
-        // ✅ ЗАГРУЗКА ДОП ИНФЫ
         function loadInfoPoints() {
             infoMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); infoMarkers = [];
             osmInfoMarkers.forEach(function(m) { osmMap.removeLayer(m); }); osmInfoMarkers = [];
             
             fetch(API_URL + '/get_info_points').then(function(r) { return r.json(); }).then(function(data) {
                 data.forEach(function(info) {
-                    // Яндекс
                     var infoIcon = {
                         iconLayout: ymaps.templateLayoutFactory.createClass('<div style="width: 18px; height: 18px; text-align: center; line-height: 18px;"><img src="' + BASE_URL + 'info.png" style="width: 18px; height: 18px; display: block;"></div>'),
                         iconShape: { type: 'Circle', coordinates: [9, 9], radius: 9 }
@@ -692,7 +690,6 @@
                     });
                     myMap.geoObjects.add(pm); infoMarkers.push(pm);
 
-                    // OSM
                     var osmInfoIcon = L.divIcon({
                         className: 'custom-div-icon',
                         html: '<img src="' + BASE_URL + 'info.png" style="width: 18px; height: 18px; display: block;">',
@@ -732,28 +729,12 @@
 
         function openInfoCommentModal(infoId) {
             currentCommentPointId = infoId;
+            currentCommentType = 'info';
             var modal = document.getElementById('commentModalOverlay');
             var input = document.getElementById('commentModalInput');
             input.value = ''; 
             modal.style.display = 'flex';
             setTimeout(function() { input.focus(); }, 100);
-        }
-
-        function confirmCommentModal() {
-            var input = document.getElementById('commentModalInput');
-            var commentText = input.value.trim();
-            if (!currentCommentPointId) return;
-
-            fetch(API_URL + '/update_info_comment', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: currentCommentPointId, comment: commentText })
-            }).then(function(r) { return r.json(); }).then(function(data) {
-                if (data.success) {
-                    loadInfoPoints();
-                    closeCommentModal();
-                }
-            });
         }
 
         function cancelDeleteInfo() { 
@@ -1222,6 +1203,7 @@
 
         function openCommentModal(pointId) {
             currentCommentPointId = pointId;
+            currentCommentType = 'scooter';
             var modal = document.getElementById('commentModalOverlay');
             var input = document.getElementById('commentModalInput');
             input.value = ''; 
@@ -1232,53 +1214,101 @@
         function closeCommentModal() {
             document.getElementById('commentModalOverlay').style.display = 'none';
             currentCommentPointId = null;
+            currentCommentType = null;
         }
 
-        // ✅ ФУНКЦИИ ДЛЯ СОЗДАНИЯ ЧЕРЕЗ ПРАВЫЙ КЛИК
+        // ✅ ИСПРАВЛЕННАЯ ФУНКЦИЯ: правильный эндпоинт в зависимости от типа
+        function confirmCommentModal() {
+            var input = document.getElementById('commentModalInput');
+            var commentText = input.value.trim();
+            if (!currentCommentPointId) return;
+
+            console.log('Сохранение комментария:', currentCommentType, currentCommentPointId, commentText);
+
+            var url = currentCommentType === 'info' ? '/update_info_comment' : '/update_comment';
+            var body = currentCommentType === 'info' 
+                ? { id: currentCommentPointId, comment: commentText }
+                : { point_id: currentCommentPointId, comment: commentText };
+
+            fetch(API_URL + url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            }).then(function(r) { return r.json(); }).then(function(data) {
+                console.log('Ответ сервера:', data);
+                if (data.success) {
+                    if (currentCommentType === 'info') {
+                        loadInfoPoints();
+                    } else {
+                        loadPoints();
+                    }
+                    closeCommentModal();
+                } else {
+                    alert('Ошибка: ' + (data.error || 'неизвестно'));
+                }
+            }).catch(function(err) {
+                console.error('Ошибка сети:', err);
+                alert('Ошибка сети: ' + err);
+            });
+        }
+
         function openCreateScooterModal() {
             closeContextMenu();
+            console.log('Открываем модалку самоката, координаты:', rightClickCoords);
             document.getElementById('createScooterModal').style.display = 'flex';
-            setTimeout(function() { document.getElementById('scooterName').focus(); }, 100);
+            setTimeout(function() { document.getElementById('scooterNumber').focus(); }, 100);
         }
 
         function closeCreateScooterModal() {
             document.getElementById('createScooterModal').style.display = 'none';
-            document.getElementById('scooterName').value = '';
             document.getElementById('scooterNumber').value = '';
             document.getElementById('scooterComment').value = '';
             document.getElementById('scooterRed').value = '';
         }
 
         function confirmCreateScooter() {
-            var name = document.getElementById('scooterName').value.trim();
             var number = document.getElementById('scooterNumber').value.trim();
             var comment = document.getElementById('scooterComment').value.trim();
             var red = document.getElementById('scooterRed').value.trim().toLowerCase();
             
-            if (!name || !number) {
-                alert('Заполните название и номер!');
+            console.log('Создание самоката:', { number, comment, red, coords: rightClickCoords });
+            
+            if (!number) {
+                alert('Заполните номер самоката!');
+                return;
+            }
+            
+            if (!rightClickCoords) {
+                alert('Координаты не захвачены! Попробуй еще раз.');
                 return;
             }
             
             var status = (red === 'да') ? 'red' : 'active';
-            var address = rightClickCoords ? rightClickCoords.join(', ') : '';
-            var lat = rightClickCoords ? rightClickCoords[0] : 0;
-            var lon = rightClickCoords ? rightClickCoords[1] : 0;
+            var address = rightClickCoords.join(', ');
+            var lat = rightClickCoords[0];
+            var lon = rightClickCoords[1];
             
             fetch(API_URL + '/create_scooter', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ title: name, number: number, address: address, lat: lat, lon: lon, status: status, comment: comment })
+                body: JSON.stringify({ number: number, address: address, lat: lat, lon: lon, status: status, comment: comment })
             }).then(function(r) { return r.json(); }).then(function(data) {
+                console.log('Ответ сервера:', data);
                 if (data.success) {
                     closeCreateScooterModal();
                     loadPoints();
+                } else {
+                    alert('Ошибка создания: ' + (data.error || 'неизвестно'));
                 }
+            }).catch(function(err) {
+                console.error('Ошибка сети:', err);
+                alert('Ошибка сети: ' + err);
             });
         }
 
         function openCreateParkingModal() {
             closeContextMenu();
+            console.log('Открываем модалку парковки, координаты:', rightClickCoords);
             document.getElementById('createParkingModal').style.display = 'flex';
             setTimeout(function() { document.getElementById('parkingName').focus(); }, 100);
         }
@@ -1290,29 +1320,44 @@
 
         function confirmCreateParking() {
             var name = document.getElementById('parkingName').value.trim();
+            
+            console.log('Создание парковки:', { name, coords: rightClickCoords });
+            
             if (!name) {
                 alert('Заполните название!');
                 return;
             }
             
-            var address = rightClickCoords ? rightClickCoords.join(', ') : '';
-            var lat = rightClickCoords ? rightClickCoords[0] : 0;
-            var lon = rightClickCoords ? rightClickCoords[1] : 0;
+            if (!rightClickCoords) {
+                alert('Координаты не захвачены! Попробуй еще раз.');
+                return;
+            }
+            
+            var address = rightClickCoords.join(', ');
+            var lat = rightClickCoords[0];
+            var lon = rightClickCoords[1];
             
             fetch(API_URL + '/create_parking', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ title: name, address: address, lat: lat, lon: lon })
             }).then(function(r) { return r.json(); }).then(function(data) {
+                console.log('Ответ сервера:', data);
                 if (data.success) {
                     closeCreateParkingModal();
                     loadParkings();
+                } else {
+                    alert('Ошибка создания: ' + (data.error || 'неизвестно'));
                 }
+            }).catch(function(err) {
+                console.error('Ошибка сети:', err);
+                alert('Ошибка сети: ' + err);
             });
         }
 
         function openCreateInfoModal() {
             closeContextMenu();
+            console.log('Открываем модалку доп инфы, координаты:', rightClickCoords);
             document.getElementById('createInfoModal').style.display = 'flex';
             setTimeout(function() { document.getElementById('infoComment').focus(); }, 100);
         }
@@ -1324,24 +1369,38 @@
 
         function confirmCreateInfo() {
             var comment = document.getElementById('infoComment').value.trim();
+            
+            console.log('Создание доп инфы:', { comment, coords: rightClickCoords });
+            
             if (!comment) {
                 alert('Заполните комментарий!');
                 return;
             }
             
-            var address = rightClickCoords ? rightClickCoords.join(', ') : '';
-            var lat = rightClickCoords ? rightClickCoords[0] : 0;
-            var lon = rightClickCoords ? rightClickCoords[1] : 0;
+            if (!rightClickCoords) {
+                alert('Координаты не захвачены! Попробуй еще раз.');
+                return;
+            }
+            
+            var address = rightClickCoords.join(', ');
+            var lat = rightClickCoords[0];
+            var lon = rightClickCoords[1];
             
             fetch(API_URL + '/add_info_point', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ address: address, lat: lat, lon: lon, comment: comment })
             }).then(function(r) { return r.json(); }).then(function(data) {
+                console.log('Ответ сервера:', data);
                 if (data.success) {
                     closeCreateInfoModal();
                     loadInfoPoints();
+                } else {
+                    alert('Ошибка создания: ' + (data.error || 'неизвестно'));
                 }
+            }).catch(function(err) {
+                console.error('Ошибка сети:', err);
+                alert('Ошибка сети: ' + err);
             });
         }
 
