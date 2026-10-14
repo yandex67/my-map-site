@@ -104,6 +104,9 @@ def handle_message(message):
     text = message.text.strip()
     text_lower = text.lower()
 
+    # ==========================================
+    # 0. ГЛОБАЛЬНЫЕ НАСТРОЙКИ ОТОБРАЖЕНИЯ
+    # ==========================================
     if text_lower == 'off лишнее':
         conn = get_db_connection(); c = conn.cursor()
         c.execute("UPDATE settings SET value = 'true' WHERE key = 'hide_empty_labels'")
@@ -159,12 +162,15 @@ def handle_message(message):
             bot.reply_to(message, f"❌ Ошибка при сбросе: {e}")
         return
 
+    # ==========================================
+    # 1. ФОТО ПАРКОВКИ
+    # ==========================================
     if text_lower.endswith(' off ссылку'):
         name = text[:-11].strip()
         conn = get_db_connection(); c = conn.cursor()
         c.execute("UPDATE parkings SET photo_url = NULL WHERE title = %s", (name,))
         conn.commit(); conn.close()
-        bot.reply_to(message, f"️ Ссылка на фото для '{name}' удалена.")
+        bot.reply_to(message, f"🗑️ Ссылка на фото для '{name}' удалена.")
         return
 
     if ' http' in text or text.startswith('http'):
@@ -178,6 +184,9 @@ def handle_message(message):
             bot.reply_to(message, f"✅ Ссылка на фото для '{name}' сохранена.")
             return
 
+    # ==========================================
+    # 2. СОЗДАНИЕ ПАРКОВКИ
+    # ==========================================
     if text_lower.endswith(' - p'):
         clean_text = text[:-4].strip()
         if '-' in clean_text:
@@ -198,6 +207,9 @@ def handle_message(message):
                 bot.reply_to(message, f"❌ Не найдено: '{location_part}'")
         return
 
+    # ==========================================
+    # 3. УПРАВЛЕНИЕ ПАРКОВКАМИ ЧЕРЕЗ ДЕФИС
+    # ==========================================
     if ' - ' in text:
         parts = text.split(' - ', 1)
         title = parts[0].strip()
@@ -245,29 +257,42 @@ def handle_message(message):
                 bot.reply_to(message, f"❌ Парковка '{title}' не найдена.")
             return
 
-    if ' - доп инфа - ' in text_lower:
-        parts = text.split(' - ', 2)
-        if len(parts) == 3:
+    # ==========================================
+    # 4. ✅ ИСПРАВЛЕННОЕ СОЗДАНИЕ ДОП ИНФЫ
+    # ==========================================
+    if text_lower.endswith(' - доп инфа'):
+        # Убираем " - доп инфа" в конце (10 символов)
+        clean_text = text[:-10].strip()
+        
+        # Разделяем по первому " - "
+        if ' - ' in clean_text:
+            parts = clean_text.split(' - ', 1)
             location_part = parts[0].strip()
-            comment = parts[2].strip()
-            
-            coord_match = re.match(r'^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$', location_part)
-            if coord_match:
-                lat, lon = float(coord_match.group(1)), float(coord_match.group(2))
-            else:
-                bot.reply_to(message, f"⏳ Ищу '{location_part}'...")
-                lat, lon = get_coordinates(location_part)
-            
-            if lat and lon:
-                conn = get_db_connection(); c = conn.cursor()
-                c.execute("INSERT INTO info_points (address, lat, lon, comment) VALUES (%s, %s, %s, %s)", 
-                         (location_part, lat, lon, comment))
-                conn.commit(); conn.close()
-                bot.reply_to(message, f"✅ Доп инфа добавлена!")
-            else:
-                bot.reply_to(message, f"❌ Не найдено: '{location_part}'")
+            comment = parts[1].strip()
+        else:
+            location_part = clean_text
+            comment = ""
+        
+        coord_match = re.match(r'^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$', location_part)
+        if coord_match:
+            lat, lon = float(coord_match.group(1)), float(coord_match.group(2))
+        else:
+            bot.reply_to(message, f"⏳ Ищу '{location_part}'...")
+            lat, lon = get_coordinates(location_part)
+        
+        if lat and lon:
+            conn = get_db_connection(); c = conn.cursor()
+            c.execute("INSERT INTO info_points (address, lat, lon, comment) VALUES (%s, %s, %s, %s)", 
+                     (location_part, lat, lon, comment))
+            conn.commit(); conn.close()
+            bot.reply_to(message, f"✅ Доп инфа добавлена!")
+        else:
+            bot.reply_to(message, f"❌ Не найдено: '{location_part}'")
         return
 
+    # ==========================================
+    # 5. СОЗДАНИЕ ОБЫЧНОЙ ТОЧКИ (САМОКАТА)
+    # ==========================================
     if '-' in text:
         parts = text.rsplit('-', 1)
         location_part = parts[0].strip()
@@ -305,15 +330,18 @@ def handle_message(message):
             conn.commit(); conn.close()
             bot.reply_to(message, f"✅ Точка '{title}' добавлена!")
         else:
-            bot.reply_to(message, f"❌ Не найдено: '{location_part}'")
+            bot.reply_to(message, f" Не найдено: '{location_part}'")
         return
 
+    # ==========================================
+    # 6. КОМАНДЫ УДАЛЕНИЯ ВСЕХ / ПОСЛЕДНЕЙ ЗАПИСИ
+    # ==========================================
     if text_lower == 'все p off':
         conn = get_db_connection(); c = conn.cursor()
         c.execute("DELETE FROM parkings")
         count = c.rowcount
         conn.commit(); conn.close()
-        bot.reply_to(message, f"️ Удалено всех парковок: {count}")
+        bot.reply_to(message, f"🗑️ Удалено всех парковок: {count}")
         return
 
     if text_lower == 'все с off':
@@ -322,7 +350,7 @@ def handle_message(message):
         count = c.rowcount
         c.execute("DELETE FROM departures")
         conn.commit(); conn.close()
-        bot.reply_to(message, f"️ Удалено всех самокатов: {count}")
+        bot.reply_to(message, f"🗑️ Удалено всех самокатов: {count}")
         return
 
     if text_lower == 'last p off':
@@ -404,7 +432,6 @@ def update_info_comment():
     except Exception as e:
         return jsonify({"error": str(e), "success": False}), 500
 
-# ✅ НОВЫЙ ЭНДПОИНТ: Создание самоката через правый клик
 @app.route('/create_scooter', methods=['POST'])
 def create_scooter():
     try:
@@ -417,7 +444,6 @@ def create_scooter():
     except Exception as e:
         return jsonify({"error": str(e), "success": False}), 500
 
-# ✅ НОВЫЙ ЭНДПОИНТ: Создание парковки через правый клик
 @app.route('/create_parking', methods=['POST'])
 def create_parking():
     try:
