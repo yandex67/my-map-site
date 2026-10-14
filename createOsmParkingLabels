@@ -220,7 +220,6 @@
             });
         }
 
-        // ========== ЗОНЫ ==========
         function loadZones() {
             zones.forEach(function(z) { myMap.geoObjects.remove(z.polygon); if(z.text) myMap.geoObjects.remove(z.text); });
             zones = []; zoneTextMarkers = [];
@@ -490,7 +489,6 @@
 
         function closeMaxDeadModal() { document.getElementById('maxDeadModal').style.display = 'none'; }
 
-        // ========== ТОЧКИ (САМОКАТЫ) ==========
         function getScooterImage(status) {
             if (status === 'red') return BASE_URL + 'red.png';
             if (status === 'not_found') return BASE_URL + 'black.png';
@@ -547,13 +545,13 @@
                     var osmIcon = createOsmScooterIcon(point.status, point.title.trim());
                     if (isBooked) {
                         var osmLabel = L.marker([point.lat, point.lon], {
-    icon: L.divIcon({
-        className: 'custom-div-icon',
-        html: '<div style="background: black; color: white; font-size: 8px; font-weight: bold; padding: 3px 4px; border-radius: 3px; text-align: center; width: 44px; box-sizing: border-box; line-height: 1.2;">Выехали</div>',
-        iconSize: [44, 16], iconAnchor: [22, 52]
-    }),
-    interactive: false
-}).addTo(osmMap);
+                            icon: L.divIcon({
+                                className: 'custom-div-icon',
+                                html: '<div style="background: black; color: white; font-size: 8px; font-weight: bold; padding: 3px 4px; border-radius: 3px; text-align: center; width: 44px; box-sizing: border-box; line-height: 1.2;">Выехали</div>',
+                                iconSize: [44, 16], iconAnchor: [22, 52]
+                            }),
+                            interactive: false
+                        }).addTo(osmMap);
                         osmLabelMarkers.push(osmLabel);
                     }
                     var osmPm = L.marker([point.lat, point.lon], { icon: osmIcon }).addTo(osmMap);
@@ -631,7 +629,6 @@
             pm.properties.set('balloonContent', h); pm.balloon.open();
         }
 
-        // ========== ПАРКОВКИ ==========
         function createParkingIcon() {
             return {
                 iconLayout: ymaps.templateLayoutFactory.createClass('<div style="width: 18px; height: 18px; text-align: center; line-height: 18px;"><img src="' + BASE_URL + 'p.png" style="width: 18px; height: 18px; display: block;"></div>'),
@@ -674,7 +671,6 @@
             return hasVisible ? html : null;
         }
 
-        // ✅ ДИНАМИЧЕСКИЙ ОТСТУП: плашка прижимается к иконке P
         function createParkingLabels(lat, lon, available, dead, broken, pId) {
             var html = buildLabelsHtml(available, dead, broken);
             if (!html) return null;
@@ -689,30 +685,29 @@
 
             var layout = ymaps.templateLayoutFactory.createClass('<div style="display: flex; flex-direction: column; align-items: center; gap: 2px; width: 100px;">' + html + '</div>');
             return new ymaps.Placemark([lat, lon], {}, {
-                iconLayout: layout, iconOffset: [-38, -offset], iconShape: { type: 'Rectangle', coordinates: [[0, 0], [100, offset]] }
+                iconLayout: layout, iconOffset: [-40, -offset], iconShape: { type: 'Rectangle', coordinates: [[0, 0], [100, offset]] }
             });
         }
 
         function createOsmParkingLabels(available, dead, broken) {
-    var html = buildLabelsHtml(available, dead, broken);
-    if (!html) return null;
+            var html = buildLabelsHtml(available, dead, broken);
+            if (!html) return null;
 
-    var visibleCount = 0;
-    [available, broken, dead].forEach(function(v) {
-        var isEmpty = (v === '?' || v === undefined || v === '');
-        if (!(appSettings.hide_empty_labels && isEmpty)) visibleCount++;
-    });
-    
-    var totalHeight = visibleCount * 17;
-    // Поднимаем плашки выше на размер одной плашки (17px) + отступ (5px) = 22px
-    var extraOffset = 22;
+            var visibleCount = 0;
+            [available, broken, dead].forEach(function(v) {
+                var isEmpty = (v === '?' || v === undefined || v === '');
+                if (!(appSettings.hide_empty_labels && isEmpty)) visibleCount++;
+            });
+            
+            var totalHeight = visibleCount * 17;
+            var extraOffset = 22;
 
-    return L.divIcon({
-        className: 'custom-div-icon',
-        html: '<div style="display: flex; flex-direction: column; align-items: center; gap: 2px; width: 100px;">' + html + '</div>',
-        iconSize: [100, totalHeight], iconAnchor: [50, totalHeight + extraOffset]
-    });
-}
+            return L.divIcon({
+                className: 'custom-div-icon',
+                html: '<div style="display: flex; flex-direction: column; align-items: center; gap: 2px; width: 100px;">' + html + '</div>',
+                iconSize: [100, totalHeight], iconAnchor: [52, totalHeight + extraOffset]
+            });
+        }
 
         function loadParkings() {
             parkingMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); parkingMarkers = [];
