@@ -677,15 +677,26 @@
             return hasVisible ? html : null;
         }
 
-        function createParkingLabels(lat, lon, available, dead, broken, pId) {
-            var html = buildLabelsHtml(available, dead, broken);
-            if (!html) return null;
+        function createOsmParkingLabels(available, dead, broken) {
+    var html = buildLabelsHtml(available, dead, broken);
+    if (!html) return null;
 
-            var layout = ymaps.templateLayoutFactory.createClass('<div style="display: flex; flex-direction: column; align-items: center; gap: 2px; width: 100px;">' + html + '</div>');
-            return new ymaps.Placemark([lat, lon], {}, {
-                iconLayout: layout, iconOffset: [-38, -55], iconShape: { type: 'Rectangle', coordinates: [[0, 0], [100, 52]] }
-            });
-        }
+    // Считаем количество видимых плашек
+    var visibleCount = 0;
+    [available, broken, dead].forEach(function(v) {
+        var isEmpty = (v === '?' || v === undefined || v === '');
+        if (!(appSettings.hide_empty_labels && isEmpty)) visibleCount++;
+    });
+    
+    // Высота одной плашки ~17px
+    var totalHeight = visibleCount * 17;
+
+    return L.divIcon({
+        className: 'custom-div-icon',
+        html: '<div style="display: flex; flex-direction: column; align-items: center; gap: 2px; width: 100px;">' + html + '</div>',
+        iconSize: [100, totalHeight], iconAnchor: [50, totalHeight]
+    });
+}
 
         function createOsmParkingLabels(available, dead, broken) {
             var html = buildLabelsHtml(available, dead, broken);
