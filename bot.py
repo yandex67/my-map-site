@@ -34,40 +34,46 @@ def init_db():
         conn = get_db_connection()
         c = conn.cursor()
         
+        # 1. Таблица точек (самокаты)
         c.execute('''CREATE TABLE IF NOT EXISTS points
                      (id SERIAL PRIMARY KEY, title TEXT, address TEXT, lat REAL, lon REAL, status TEXT DEFAULT 'active')''')
-        
         try:
             c.execute("ALTER TABLE points ADD COLUMN comment TEXT")
+            print("✅ Добавлена колонка comment в points")
         except psycopg.errors.DuplicateColumn:
             pass
-        
         try:
             c.execute("ALTER TABLE points ADD COLUMN url TEXT")
+            print("✅ Добавлена колонка url в points")
         except psycopg.errors.DuplicateColumn:
             pass
         
+        # 2. Таблица парковок
         c.execute('''CREATE TABLE IF NOT EXISTS parkings
                      (id SERIAL PRIMARY KEY, title TEXT UNIQUE, address TEXT, lat REAL, lon REAL, 
                       available_count TEXT DEFAULT '?', dead_count TEXT DEFAULT '?', broken_count TEXT DEFAULT '?')''')
-        
         try:
             c.execute("ALTER TABLE parkings ADD COLUMN photo_url TEXT")
+            print("✅ Добавлена колонка photo_url в parkings")
         except psycopg.errors.DuplicateColumn:
             pass
         
+        # 3. ✅ ТАБЛИЦА ДОП ИНФЫ (создаётся явно)
         c.execute('''CREATE TABLE IF NOT EXISTS info_points
                      (id SERIAL PRIMARY KEY, address TEXT, lat REAL, lon REAL, comment TEXT)''')
+        print("✅ Таблица info_points готова")
         
+        # 4. Таблица зон
         c.execute('''CREATE TABLE IF NOT EXISTS zones
                      (id SERIAL PRIMARY KEY, coords TEXT, comment TEXT)''')
         
+        # 5. Таблица бронирований
         c.execute('''CREATE TABLE IF NOT EXISTS departures
                      (id SERIAL PRIMARY KEY, point_id INTEGER UNIQUE, point_title TEXT, person_name TEXT)''')
         
+        # 6. Таблица настроек
         c.execute('''CREATE TABLE IF NOT EXISTS settings
                      (key TEXT PRIMARY KEY, value TEXT)''')
-        
         c.execute("INSERT INTO settings (key, value) VALUES ('hide_empty_labels', 'false') ON CONFLICT (key) DO NOTHING")
         c.execute("INSERT INTO settings (key, value) VALUES ('show_parkings', 'true') ON CONFLICT (key) DO NOTHING")
         c.execute("INSERT INTO settings (key, value) VALUES ('show_labels', 'true') ON CONFLICT (key) DO NOTHING")
@@ -104,73 +110,59 @@ def handle_message(message):
     text = message.text.strip()
     text_lower = text.lower()
 
-    # ==========================================
-    # 0. ГЛОБАЛЬНЫЕ НАСТРОЙКИ ОТОБРАЖЕНИЯ
-    # ==========================================
     if text_lower == 'off лишнее':
         conn = get_db_connection(); c = conn.cursor()
         c.execute("UPDATE settings SET value = 'true' WHERE key = 'hide_empty_labels'")
         conn.commit(); conn.close()
         bot.reply_to(message, "✅ Лишние плашки (со знаком '?') теперь скрыты.")
         return
-        
     if text_lower == 'вкл всё':
         conn = get_db_connection(); c = conn.cursor()
         c.execute("UPDATE settings SET value = 'false' WHERE key = 'hide_empty_labels'")
         conn.commit(); conn.close()
         bot.reply_to(message, "✅ Все плашки теперь видны.")
         return
-        
     if text_lower == 'off видимость парковок':
         conn = get_db_connection(); c = conn.cursor()
         c.execute("UPDATE settings SET value = 'false' WHERE key = 'show_parkings'")
         conn.commit(); conn.close()
         bot.reply_to(message, "✅ Парковки скрыты с карты.")
         return
-        
     if text_lower == 'вкл видимость парковок':
         conn = get_db_connection(); c = conn.cursor()
         c.execute("UPDATE settings SET value = 'true' WHERE key = 'show_parkings'")
         conn.commit(); conn.close()
         bot.reply_to(message, "✅ Парковки отображаются на карте.")
         return
-        
     if text_lower == 'off плашки':
         conn = get_db_connection(); c = conn.cursor()
         c.execute("UPDATE settings SET value = 'false' WHERE key = 'show_labels'")
         conn.commit(); conn.close()
         bot.reply_to(message, "✅ Плашки над парковками скрыты.")
         return
-        
     if text_lower == 'вкл плашки':
         conn = get_db_connection(); c = conn.cursor()
         c.execute("UPDATE settings SET value = 'true' WHERE key = 'show_labels'")
         conn.commit(); conn.close()
         bot.reply_to(message, "✅ Плашки над парковками отображаются.")
         return
-
     if text_lower == 'сброс парковок':
         try:
-            conn = get_db_connection()
-            c = conn.cursor()
+            conn = get_db_connection(); c = conn.cursor()
             c.execute("UPDATE parkings SET available_count = '?', dead_count = '?', broken_count = '?'")
             count = c.rowcount
-            conn.commit()
-            conn.close()
+            conn.commit(); conn.close()
             bot.reply_to(message, f"✅ Статистика всех парковок ({count} шт.) успешно сброшена на '?'")
         except Exception as e:
             bot.reply_to(message, f"❌ Ошибка при сбросе: {e}")
         return
 
-    # ==========================================
-    # 1. ФОТО ПАРКОВКИ
-    # ==========================================
     if text_lower.endswith(' off ссылку'):
         name = text[:-11].strip()
         conn = get_db_connection(); c = conn.cursor()
         c.execute("UPDATE parkings SET photo_url = NULL WHERE title = %s", (name,))
         conn.commit(); conn.close()
-        bot.reply_to(message, f"🗑️ Ссылка на фото для '{name}' удалена.")
+        bot.reply_to(message, f"️ Ссылка на фото для '{name}' удалена.")
         return
 
     if ' http' in text or text.startswith('http'):
@@ -184,9 +176,6 @@ def handle_message(message):
             bot.reply_to(message, f"✅ Ссылка на фото для '{name}' сохранена.")
             return
 
-    # ==========================================
-    # 2. СОЗДАНИЕ ПАРКОВКИ
-    # ==========================================
     if text_lower.endswith(' - p'):
         clean_text = text[:-4].strip()
         if '-' in clean_text:
@@ -207,9 +196,6 @@ def handle_message(message):
                 bot.reply_to(message, f"❌ Не найдено: '{location_part}'")
         return
 
-    # ==========================================
-    # 3. УПРАВЛЕНИЕ ПАРКОВКАМИ ЧЕРЕЗ ДЕФИС
-    # ==========================================
     if ' - ' in text:
         parts = text.split(' - ', 1)
         title = parts[0].strip()
@@ -221,7 +207,7 @@ def handle_message(message):
             if c.rowcount > 0:
                 bot.reply_to(message, f"🗑️ Парковка '{title}' успешно удалена.")
             else:
-                bot.reply_to(message, f"❌ Парковка '{title}' не найдена.")
+                bot.reply_to(message, f" Парковка '{title}' не найдена.")
             conn.commit(); conn.close()
             return
         
@@ -233,38 +219,27 @@ def handle_message(message):
                 if p_type == 'с': dead = param_value
                 elif p_type == 'д': avail = param_value
                 elif p_type == 'п': broken = param_value
-            
             conn = get_db_connection(); c = conn.cursor()
             c.execute("SELECT available_count, dead_count, broken_count FROM parkings WHERE title = %s", (title,))
             row = c.fetchone()
-            
             if row:
                 new_avail = avail if avail is not None else row[0]
                 new_dead = dead if dead is not None else row[1]
                 new_broken = broken if broken is not None else row[2]
-                
                 c.execute("UPDATE parkings SET available_count = %s, dead_count = %s, broken_count = %s WHERE title = %s", 
                          (new_avail, new_dead, new_broken, title))
                 conn.commit(); conn.close()
-                
                 response_parts = []
                 if avail is not None: response_parts.append(f"Д:{new_avail}")
                 if dead is not None: response_parts.append(f"С:{new_dead}")
                 if broken is not None: response_parts.append(f"П:{new_broken}")
-                
                 bot.reply_to(message, f"✅ '{title}' обновлена: {', '.join(response_parts)}")
             else:
                 bot.reply_to(message, f"❌ Парковка '{title}' не найдена.")
             return
 
-    # ==========================================
-    # 4. ✅ ИСПРАВЛЕННОЕ СОЗДАНИЕ ДОП ИНФЫ
-    # ==========================================
     if text_lower.endswith(' - доп инфа'):
-        # Убираем " - доп инфа" в конце (10 символов)
         clean_text = text[:-10].strip()
-        
-        # Разделяем по первому " - "
         if ' - ' in clean_text:
             parts = clean_text.split(' - ', 1)
             location_part = parts[0].strip()
@@ -272,14 +247,12 @@ def handle_message(message):
         else:
             location_part = clean_text
             comment = ""
-        
         coord_match = re.match(r'^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$', location_part)
         if coord_match:
             lat, lon = float(coord_match.group(1)), float(coord_match.group(2))
         else:
             bot.reply_to(message, f"⏳ Ищу '{location_part}'...")
             lat, lon = get_coordinates(location_part)
-        
         if lat and lon:
             conn = get_db_connection(); c = conn.cursor()
             c.execute("INSERT INTO info_points (address, lat, lon, comment) VALUES (%s, %s, %s, %s)", 
@@ -290,32 +263,25 @@ def handle_message(message):
             bot.reply_to(message, f"❌ Не найдено: '{location_part}'")
         return
 
-    # ==========================================
-    # 5. СОЗДАНИЕ ОБЫЧНОЙ ТОЧКИ (САМОКАТА)
-    # ==========================================
     if '-' in text:
         parts = text.rsplit('-', 1)
         location_part = parts[0].strip()
         right_side = parts[1].strip()
-        
         coord_match = re.match(r'^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$', location_part)
         if coord_match:
             lat, lon = float(coord_match.group(1)), float(coord_match.group(2))
         else:
             bot.reply_to(message, f"⏳ Ищу '{location_part}'...")
             lat, lon = get_coordinates(location_part)
-            
         if lat and lon:
             url_match = re.search(r'(https?://\S+)', right_side)
             url = url_match.group(1) if url_match else ""
             if url:
                 right_side = right_side.replace(url, "").strip()
-                
             status = 'active'
             if re.search(r'\bred\b', right_side, re.IGNORECASE):
                 status = 'red'
                 right_side = re.sub(r'\bred\b', '', right_side, flags=re.IGNORECASE).strip()
-                
             remaining_parts = right_side.split()
             if len(remaining_parts) > 0:
                 title = remaining_parts[0]
@@ -323,19 +289,15 @@ def handle_message(message):
             else:
                 title = "Точка"
                 comment = ""
-                
             conn = get_db_connection(); c = conn.cursor()
             c.execute("INSERT INTO points (title, address, lat, lon, status, comment, url) VALUES (%s, %s, %s, %s, %s, %s, %s)", 
                      (title, location_part, lat, lon, status, comment, url))
             conn.commit(); conn.close()
             bot.reply_to(message, f"✅ Точка '{title}' добавлена!")
         else:
-            bot.reply_to(message, f" Не найдено: '{location_part}'")
+            bot.reply_to(message, f"❌ Не найдено: '{location_part}'")
         return
 
-    # ==========================================
-    # 6. КОМАНДЫ УДАЛЕНИЯ ВСЕХ / ПОСЛЕДНЕЙ ЗАПИСИ
-    # ==========================================
     if text_lower == 'все p off':
         conn = get_db_connection(); c = conn.cursor()
         c.execute("DELETE FROM parkings")
@@ -343,7 +305,6 @@ def handle_message(message):
         conn.commit(); conn.close()
         bot.reply_to(message, f"🗑️ Удалено всех парковок: {count}")
         return
-
     if text_lower == 'все с off':
         conn = get_db_connection(); c = conn.cursor()
         c.execute("DELETE FROM points")
@@ -352,7 +313,6 @@ def handle_message(message):
         conn.commit(); conn.close()
         bot.reply_to(message, f"🗑️ Удалено всех самокатов: {count}")
         return
-
     if text_lower == 'last p off':
         conn = get_db_connection(); c = conn.cursor()
         c.execute("DELETE FROM parkings WHERE id = (SELECT MAX(id) FROM parkings)")
