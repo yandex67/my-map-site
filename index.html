@@ -1217,30 +1217,26 @@
         }
 
         function confirmCommentModal() {
-            var input = document.getElementById('commentModalInput');
-            var commentText = input.value.trim();
-            if (!currentCommentPointId) return;
+    var input = document.getElementById('commentModalInput');
+    var commentText = input.value.trim();
+    if (!currentCommentPointId) return;
 
-            var url = currentCommentType === 'info' ? '/update_info_comment' : '/update_comment';
-            var body = currentCommentType === 'info' 
-                ? { id: currentCommentPointId, comment: commentText }
-                : { point_id: currentCommentPointId, comment: commentText };
-
-            fetch(API_URL + url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body)
-            }).then(function(r) { return r.json(); }).then(function(data) {
-                if (data.success) {
-                    loadPoints(); // Перезагружаем все точки
-                    closeCommentModal();
-                } else {
-                    alert('Ошибка: ' + (data.error || 'неизвестно'));
-                }
-            }).catch(function(err) {
-                alert('Ошибка сети: ' + err);
-            });
+    // ✅ ИСПРАВЛЕНО: теперь всегда используем /update_comment, так как доп инфа — это обычная точка
+    fetch(API_URL + '/update_comment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ point_id: currentCommentPointId, comment: commentText })
+    }).then(function(r) { return r.json(); }).then(function(data) {
+        if (data.success) {
+            loadPoints(); // Перезагружаем все точки
+            closeCommentModal();
+        } else {
+            alert('Ошибка: ' + (data.error || 'неизвестно'));
         }
+    }).catch(function(err) {
+        alert('Ошибка сети: ' + err);
+    });
+}
 
         function openCreateScooterModal() {
             closeContextMenu();
