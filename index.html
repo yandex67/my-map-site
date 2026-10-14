@@ -61,7 +61,7 @@
         <div class="info" onclick="onInfoClick()">Всего: <span id="pointCount">0</span></div>
     </div>
     <div class="bottom-panel" id="bottomPanel">
-        <button class="close-btn" onclick="closeBottomPanel()">✕</button>
+        <button class="close-btn" onclick="closeBottomPanel()"></button>
         <div id="bottomDeparturesList"></div>
         <div id="deadInfo" class="dead-info" onclick="onDeadInfoClick()">Севшие на парковке: <span id="deadCount">0</span></div>
     </div>
@@ -408,7 +408,6 @@
             }
         }
 
-        // ✅ ИСПРАВЛЕНО: зона остаётся на карте в режимах 1 и 2
         function closeFreehandZone() {
             if (zonePoints.length < 3) { cancelZoneDrawing(); return; }
             if (zonePolyline) { myMap.geoObjects.remove(zonePolyline); zonePolyline = null; }
@@ -417,7 +416,7 @@
             isZoneConfirmed = true;
             zonePointMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); zonePointMarkers = [];
             if (willSaveZone) { saveZoneToServer(); } 
-            else { exitDrawingModeKeepPolygon(); } // ✅ Не удаляем полигон!
+            else { exitDrawingModeKeepPolygon(); }
         }
 
         function finishZone() {
@@ -438,17 +437,15 @@
             } else {
                 zonePointMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); zonePointMarkers = [];
                 if (willSaveZone) { saveZoneToServer(); } 
-                else { exitDrawingModeKeepPolygon(); } // ✅ Не удаляем полигон!
+                else { exitDrawingModeKeepPolygon(); }
             }
         }
 
-        // ✅ НОВАЯ ФУНКЦИЯ: выход из режима рисования БЕЗ удаления полигона
         function exitDrawingModeKeepPolygon() {
             isDrawingZone = false; drawMode = 1; willSaveZone = false; isZoneConfirmed = false;
             drawModeSelected = false; isMode3SubMode = false; zonePoints = []; zoneComment = "";
             freehandStartPoint = null; isDrawingFreehand = false;
             zonePointMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); zonePointMarkers = [];
-            // НЕ удаляем zonePolygon и zonePolyline — они остаются на карте!
             myMap.behaviors.enable('drag'); myMap.behaviors.enable('multiTouch'); myMap.behaviors.enable('scrollZoom'); myMap.behaviors.enable('dblClickZoom');
             document.getElementById('drawingIndicator').style.display = 'none';
             myMap.container.getElement().style.cursor = '';
@@ -677,35 +674,41 @@
             return hasVisible ? html : null;
         }
 
-        function createOsmParkingLabels(available, dead, broken) {
-    var html = buildLabelsHtml(available, dead, broken);
-    if (!html) return null;
+        // ✅ ДИНАМИЧЕСКИЙ ОТСТУП: плашка прижимается к иконке P
+        function createParkingLabels(lat, lon, available, dead, broken, pId) {
+            var html = buildLabelsHtml(available, dead, broken);
+            if (!html) return null;
 
-    // Считаем количество видимых плашек
-    var visibleCount = 0;
-    [available, broken, dead].forEach(function(v) {
-        var isEmpty = (v === '?' || v === undefined || v === '');
-        if (!(appSettings.hide_empty_labels && isEmpty)) visibleCount++;
-    });
-    
-    // Высота одной плашки ~17px
-    var totalHeight = visibleCount * 17;
+            var visibleCount = 0;
+            [available, broken, dead].forEach(function(v) {
+                var isEmpty = (v === '?' || v === undefined || v === '');
+                if (!(appSettings.hide_empty_labels && isEmpty)) visibleCount++;
+            });
+            
+            var offset = visibleCount * 17 + 5;
 
-    return L.divIcon({
-        className: 'custom-div-icon',
-        html: '<div style="display: flex; flex-direction: column; align-items: center; gap: 2px; width: 100px;">' + html + '</div>',
-        iconSize: [100, totalHeight], iconAnchor: [50, totalHeight]
-    });
-}
+            var layout = ymaps.templateLayoutFactory.createClass('<div style="display: flex; flex-direction: column; align-items: center; gap: 2px; width: 100px;">' + html + '</div>');
+            return new ymaps.Placemark([lat, lon], {}, {
+                iconLayout: layout, iconOffset: [-38, -offset], iconShape: { type: 'Rectangle', coordinates: [[0, 0], [100, offset]] }
+            });
+        }
 
         function createOsmParkingLabels(available, dead, broken) {
             var html = buildLabelsHtml(available, dead, broken);
             if (!html) return null;
 
+            var visibleCount = 0;
+            [available, broken, dead].forEach(function(v) {
+                var isEmpty = (v === '?' || v === undefined || v === '');
+                if (!(appSettings.hide_empty_labels && isEmpty)) visibleCount++;
+            });
+            
+            var totalHeight = visibleCount * 17;
+
             return L.divIcon({
                 className: 'custom-div-icon',
                 html: '<div style="display: flex; flex-direction: column; align-items: center; gap: 2px; width: 100px;">' + html + '</div>',
-                iconSize: [100, 52], iconAnchor: [50, 52]
+                iconSize: [100, totalHeight], iconAnchor: [50, totalHeight]
             });
         }
 
@@ -859,7 +862,6 @@
             if (tasksHeaderClickCount >= 3) { tasksHeaderClickCount = 0; openZoneModal(); }
         }
 
-        // ✅ ИСПРАВЛЕНО: при переключении на OSM происходит перерисовка
         function onInfoClick() {
             infoClickCount++;
             if (infoClickTimer) clearTimeout(infoClickTimer);
@@ -881,7 +883,6 @@
                     document.getElementById('osmMap').style.display = 'block';
                     setTimeout(function() { 
                         osmMap.invalidateSize();
-                        // Перерисовываем всё на OSM
                         loadPoints();
                         loadParkings();
                         loadZones();
