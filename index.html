@@ -23,11 +23,13 @@
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.5); z-index: 2000; justify-content: center; align-items: center; }
         .modal-box { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); width: 80%; max-width: 300px; text-align: center; }
         .modal-box h4 { margin: 0 0 15px 0; font-size: 16px; color: #333; }
-        .modal-box input { width: 100%; padding: 10px 12px; border: 2px solid #ddd; border-radius: 6px; font-size: 14px; box-sizing: border-box; text-align: center; outline: none; }
+        .modal-box input { width: 100%; padding: 10px 12px; border: 2px solid #ddd; border-radius: 6px; font-size: 14px; box-sizing: border-box; text-align: center; outline: none; margin-bottom: 10px; }
         .modal-box input:focus { border-color: #4CAF50; }
         .modal-box button { margin-top: 12px; width: 100%; padding: 10px; background: #4CAF50; color: white; border: none; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; }
         .modal-box button:active { background: #45a049; }
         .modal-box .btn-secondary { background: #9E9E9E; margin-top: 8px; }
+        .modal-box .btn-cancel { background: #f44336; margin-top: 8px; }
+        .modal-box .btn-primary { background: #0140ff; margin-top: 8px; }
         
         .drawing-indicator { display: none; position: fixed; top: 80px; left: 50%; transform: translateX(-50%); background: #f44336; color: white; padding: 10px 20px; border-radius: 8px; font-size: 14px; font-weight: bold; z-index: 1500; box-shadow: 0 2px 8px rgba(0,0,0,0.3); min-width: 250px; max-width: 350px; align-items: center; gap: 4px; box-sizing: border-box; flex-direction: column; }
         .drawing-indicator .mode-buttons { display: flex; flex-direction: column; gap: 8px; width: 100%; }
@@ -50,6 +52,7 @@
 
         .custom-div-icon { background: transparent; border: none; }
         .leaflet-popup-content-wrapper { border-radius: 8px; }
+        .leaflet-popup-content { margin: 12px; }
     </style>
 </head>
 <body>
@@ -70,7 +73,71 @@
         <div class="modal-box">
             <h4>Введите имя</h4>
             <input type="text" id="modalInput" placeholder="Имя" autocomplete="off">
-            <button onclick="confirmModalInput()">Ок</button>
+            <div style="display: flex; gap: 10px; margin-top: 12px;">
+                <button class="btn-cancel" onclick="closeCustomInputModal()" style="flex: 1;">Отмена</button>
+                <button onclick="confirmModalInput()" style="flex: 1;">Ок</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="commentModalOverlay">
+        <div class="modal-box">
+            <h4>Введите комментарий</h4>
+            <input type="text" id="commentModalInput" autocomplete="off">
+            <div style="display: flex; gap: 10px; margin-top: 12px;">
+                <button class="btn-cancel" onclick="closeCommentModal()" style="flex: 1;">Отмена</button>
+                <button onclick="confirmCommentModal()" style="flex: 1;">Ок</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ✅ НОВОЕ МОДАЛЬНОЕ ОКНО: СОЗДАТЬ САМОКАТ -->
+    <div class="modal-overlay" id="createScooterModal">
+        <div class="modal-box">
+            <h4>Создать самокат</h4>
+            <input type="text" id="scooterName" placeholder="Название самоката" autocomplete="off">
+            <input type="text" id="scooterNumber" placeholder="Номер самоката" autocomplete="off">
+            <input type="text" id="scooterComment" placeholder="Комментарий" autocomplete="off">
+            <input type="text" id="scooterRed" placeholder="Red? (Да/Нет)" autocomplete="off">
+            <div style="display: flex; gap: 10px; margin-top: 12px;">
+                <button class="btn-cancel" onclick="closeCreateScooterModal()" style="flex: 1;">Отмена</button>
+                <button onclick="confirmCreateScooter()" style="flex: 1;">Ок</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ✅ НОВОЕ МОДАЛЬНОЕ ОКНО: СОЗДАТЬ ПАРКОВКУ -->
+    <div class="modal-overlay" id="createParkingModal">
+        <div class="modal-box">
+            <h4>Создать парковку</h4>
+            <input type="text" id="parkingName" placeholder="Название парковки" autocomplete="off">
+            <div style="display: flex; gap: 10px; margin-top: 12px;">
+                <button class="btn-cancel" onclick="closeCreateParkingModal()" style="flex: 1;">Отмена</button>
+                <button onclick="confirmCreateParking()" style="flex: 1;">Ок</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ✅ НОВОЕ МОДАЛЬНОЕ ОКНО: СОЗДАТЬ ДОП ИНФУ -->
+    <div class="modal-overlay" id="createInfoModal">
+        <div class="modal-box">
+            <h4>Создать доп инфу</h4>
+            <input type="text" id="infoComment" placeholder="Комментарий" autocomplete="off">
+            <div style="display: flex; gap: 10px; margin-top: 12px;">
+                <button class="btn-cancel" onclick="closeCreateInfoModal()" style="flex: 1;">Отмена</button>
+                <button onclick="confirmCreateInfo()" style="flex: 1;">Ок</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ✅ НОВОЕ МОДАЛЬНОЕ ОКНО: УДАЛИТЬ ДОП ИНФУ -->
+    <div class="modal-overlay delete-zone-modal" id="deleteInfoModal">
+        <div class="modal-box">
+            <h4>Удалить доп инфу?</h4>
+            <div class="modal-actions">
+                <button class="btn-secondary" onclick="cancelDeleteInfo()">Отмена</button>
+                <button onclick="confirmDeleteInfo()">Ок</button>
+            </div>
         </div>
     </div>
 
@@ -125,11 +192,15 @@
         var myMap, osmMap;
         var markers = [], labelMarkers = [], parkingMarkers = [], parkingLabelMarkers = [];
         var osmMarkers = [], osmLabelMarkers = [], osmParkingMarkers = [], osmParkingLabelMarkers = [];
+        var infoMarkers = [], osmInfoMarkers = [];
         var zones = [], zoneTextMarkers = [];
         var osmZones = [];
         var API_URL = 'https://mapbot-api.onrender.com';
         var departures = {};
         var currentModalPointId = null, currentModalPointTitle = null;
+        var currentCommentPointId = null;
+        var currentInfoPointId = null;
+        var rightClickCoords = null;
         
         var isDrawingZone = false, drawMode = 1, zonePoints = [], zonePolygon = null, zonePolyline = null, zonePointMarkers = [];
         var isDrawingFreehand = false, freehandStartPoint = null;
@@ -174,12 +245,25 @@
             loadDeparturesFromServer();
             loadPoints();
             loadParkings();
+            loadInfoPoints();
             loadZones();
             loadSettings();
 
             setTimeout(function() {
                 myMap.setCenter([54.7818, 32.0401], 12);
             }, 800);
+
+            // ✅ ПРАВЫЙ КЛИК ДЛЯ КОНТЕКСТНОГО МЕНЮ
+            myMap.events.add('contextmenu', function(e) {
+                e.get('domEvent').preventDefault();
+                rightClickCoords = e.get('coords');
+                showContextMenu();
+            });
+
+            osmMap.on('contextmenu', function(e) {
+                rightClickCoords = [e.latlng.lat, e.latlng.lng];
+                showContextMenu();
+            });
 
             myMap.events.add('mousedown', function(e) {
                 if (isDrawingZone && drawMode === 2 && !isZoneConfirmed) { 
@@ -200,6 +284,25 @@
                 if (isDrawingZone && drawMode === 1 && !isZoneConfirmed) { addZonePoint(e.get('coords')); } 
             });
             myMap.events.add('boundschange', function() { updateZoneTextVisibility(); });
+        }
+
+        function showContextMenu() {
+            var menu = document.createElement('div');
+            menu.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); z-index: 3000; min-width: 250px;';
+            menu.innerHTML = `
+                <h4 style="margin: 0 0 15px 0; text-align: center; font-size: 16px;">Создать</h4>
+                <button onclick="openCreateScooterModal()" style="width: 100%; padding: 10px; background: #0140ff; color: white; border: none; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; margin-bottom: 8px;">СОЗДАТЬ САМОКАТ</button>
+                <button onclick="openCreateParkingModal()" style="width: 100%; padding: 10px; background: #0140ff; color: white; border: none; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; margin-bottom: 8px;">СОЗДАТЬ ПАРКОВКУ</button>
+                <button onclick="openCreateInfoModal()" style="width: 100%; padding: 10px; background: #0140ff; color: white; border: none; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; margin-bottom: 8px;">СОЗДАТЬ ДОП ИНФУ</button>
+                <button onclick="closeContextMenu()" style="width: 100%; padding: 10px; background: #9E9E9E; color: white; border: none; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer;">Отмена</button>
+            `;
+            document.body.appendChild(menu);
+            menu.id = 'contextMenu';
+        }
+
+        function closeContextMenu() {
+            var menu = document.getElementById('contextMenu');
+            if (menu) menu.remove();
         }
 
         function loadSettings() {
@@ -548,17 +651,127 @@
                             icon: L.divIcon({
                                 className: 'custom-div-icon',
                                 html: '<div style="background: black; color: white; font-size: 8px; font-weight: bold; padding: 3px 4px; border-radius: 3px; text-align: center; width: 44px; box-sizing: border-box; line-height: 1.2;">Выехали</div>',
-                                iconSize: [44, 16], iconAnchor: [22, 52]
+                                iconSize: [44, 16], iconAnchor: [22, 92]
                             }),
                             interactive: false
                         }).addTo(osmMap);
                         osmLabelMarkers.push(osmLabel);
                     }
                     var osmPm = L.marker([point.lat, point.lon], { icon: osmIcon }).addTo(osmMap);
-                    osmPm.bindPopup(buildBalloonContent(point, isBooked));
+                    var popup = L.popup({ closeOnClick: false, autoClose: false }).setContent(buildBalloonContent(point, isBooked));
+                    osmPm.bindPopup(popup);
                     osmPm.pointData = point;
                     osmMarkers.push(osmPm);
                 });
+            });
+        }
+
+        // ✅ ЗАГРУЗКА ДОП ИНФЫ
+        function loadInfoPoints() {
+            infoMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); infoMarkers = [];
+            osmInfoMarkers.forEach(function(m) { osmMap.removeLayer(m); }); osmInfoMarkers = [];
+            
+            fetch(API_URL + '/get_info_points').then(function(r) { return r.json(); }).then(function(data) {
+                data.forEach(function(info) {
+                    // Яндекс
+                    var infoIcon = {
+                        iconLayout: ymaps.templateLayoutFactory.createClass('<div style="width: 18px; height: 18px; text-align: center; line-height: 18px;"><img src="' + BASE_URL + 'info.png" style="width: 18px; height: 18px; display: block;"></div>'),
+                        iconShape: { type: 'Circle', coordinates: [9, 9], radius: 9 }
+                    };
+                    var pm = new ymaps.Placemark([info.lat, info.lon], { balloonContent: buildInfoBalloonContent(info) }, infoIcon);
+                    pm.properties.set('infoData', info);
+                    pm.events.add('click', function() {
+                        infoClickCount++;
+                        if (infoClickTimer) clearTimeout(infoClickTimer);
+                        infoClickTimer = setTimeout(function() { infoClickCount = 0; }, 600);
+                        if (infoClickCount >= 2) {
+                            infoClickCount = 0;
+                            currentInfoPointId = info.id;
+                            document.getElementById('deleteInfoModal').style.display = 'flex';
+                        }
+                    });
+                    myMap.geoObjects.add(pm); infoMarkers.push(pm);
+
+                    // OSM
+                    var osmInfoIcon = L.divIcon({
+                        className: 'custom-div-icon',
+                        html: '<img src="' + BASE_URL + 'info.png" style="width: 18px; height: 18px; display: block;">',
+                        iconSize: [18, 18], iconAnchor: [9, 9]
+                    });
+                    var osmPm = L.marker([info.lat, info.lon], { icon: osmInfoIcon }).addTo(osmMap);
+                    var popup = L.popup({ closeOnClick: false, autoClose: false }).setContent(buildInfoBalloonContent(info));
+                    osmPm.bindPopup(popup);
+                    osmPm.infoData = info;
+                    osmPm.on('click', function() {
+                        infoClickCount++;
+                        if (infoClickTimer) clearTimeout(infoClickTimer);
+                        infoClickTimer = setTimeout(function() { infoClickCount = 0; }, 600);
+                        if (infoClickCount >= 2) {
+                            infoClickCount = 0;
+                            currentInfoPointId = info.id;
+                            document.getElementById('deleteInfoModal').style.display = 'flex';
+                        }
+                    });
+                    osmInfoMarkers.push(osmPm);
+                });
+            });
+        }
+
+        function buildInfoBalloonContent(info) {
+            var h = '<div style="min-width: 200px; padding: 12px; box-sizing: border-box; text-align: center;" onclick="event.stopPropagation()">';
+            h += '<b style="font-size: 16px; display: block; font-weight: bold;">ДОП ИНФА</b>';
+            h += '<div style="color: #555; font-size: 14px; margin: 8px 0;">' + info.address + '</div>';
+            if (info.comment) {
+                h += '<small style="color: #000; display: block; margin: 5px 0;">' + info.comment + '</small>';
+            }
+            h += '<div style="display: flex; flex-direction: column; align-items: center; gap: 4px; margin-top: 10px;">';
+            h += '<button onclick="event.stopPropagation(); openInfoCommentModal(' + info.id + ')" style="background: #707070; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Комментарий</button>';
+            h += '</div></div>';
+            return h;
+        }
+
+        function openInfoCommentModal(infoId) {
+            currentCommentPointId = infoId;
+            var modal = document.getElementById('commentModalOverlay');
+            var input = document.getElementById('commentModalInput');
+            input.value = ''; 
+            modal.style.display = 'flex';
+            setTimeout(function() { input.focus(); }, 100);
+        }
+
+        function confirmCommentModal() {
+            var input = document.getElementById('commentModalInput');
+            var commentText = input.value.trim();
+            if (!currentCommentPointId) return;
+
+            fetch(API_URL + '/update_info_comment', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: currentCommentPointId, comment: commentText })
+            }).then(function(r) { return r.json(); }).then(function(data) {
+                if (data.success) {
+                    loadInfoPoints();
+                    closeCommentModal();
+                }
+            });
+        }
+
+        function cancelDeleteInfo() { 
+            currentInfoPointId = null;
+            document.getElementById('deleteInfoModal').style.display = 'none'; 
+        }
+
+        function confirmDeleteInfo() {
+            if (!currentInfoPointId) return;
+            fetch(API_URL + '/delete_info_point', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: currentInfoPointId })
+            }).then(function(r) { return r.json(); }).then(function(data) {
+                if (data.success) {
+                    cancelDeleteInfo();
+                    loadInfoPoints();
+                }
             });
         }
 
@@ -567,20 +780,22 @@
             var fzLink = point.url ? '<a href="' + point.url + '" target="_blank" style="color: #1976D2; text-decoration: underline; font-weight: bold; display: block; margin: 5px 0;">ПОСМОТРЕТЬ ФЗ</a>' : '';
             var commentHtml = point.comment ? '<small style="color: #000; display: block; margin: 5px 0;">' + point.comment + '</small>' : '';
             
-            var h = '<div style="min-width: 200px; padding: 12px; box-sizing: border-box; text-align: center;">' +
-                '<b style="font-size: 16px; display: block;">' + point.title + '</b>' +
-                '<div style="color: #555; font-size: 14px; margin: 8px 0;">' + point.address + '</div>' +
-                fzLink + commentHtml +
-                '<div style="display: flex; flex-direction: column; align-items: center; gap: 4px; margin-top: 10px;">' +
-                '<button onclick="updateStatus(' + point.id + ', \'found\')" style="background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Нашёл</button>' +
-                '<button onclick="updateStatus(' + point.id + ', \'not_found\')" style="background: #212121; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Не нашёл</button>' +
-                '<button onclick="updateStatus(' + point.id + ', \'rented\')" style="background: #9E9E9E; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Уехал в аренду</button>';
+            var h = '<div style="min-width: 200px; padding: 12px; box-sizing: border-box; text-align: center;" onclick="event.stopPropagation()">';
+            h += '<b style="font-size: 16px; display: block;">' + point.title + '</b>';
+            h += '<div style="color: #555; font-size: 14px; margin: 8px 0;">' + point.address + '</div>';
+            h += fzLink + commentHtml;
+            h += '<div style="display: flex; flex-direction: column; align-items: center; gap: 4px; margin-top: 10px;">';
+            h += '<button onclick="event.stopPropagation(); updateStatus(' + point.id + ', \'found\')" style="background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Нашёл</button>';
+            h += '<button onclick="event.stopPropagation(); updateStatus(' + point.id + ', \'not_found\')" style="background: #212121; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Не нашёл</button>';
+            h += '<button onclick="event.stopPropagation(); updateStatus(' + point.id + ', \'rented\')" style="background: #9E9E9E; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Уехал в аренду</button>';
+            h += '<button onclick="event.stopPropagation(); openCommentModal(' + point.id + ')" style="background: #707070; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px; margin-top: 4px;">Комментарий</button>';
             if (isBooked) {
-                h += '<button onclick="resetDeparture(' + point.id + ')" style="background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Выехал ' + departures[point.id].name + '</button>';
+                h += '<button onclick="event.stopPropagation(); resetDeparture(' + point.id + ')" style="background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Выехал ' + departures[point.id].name + '</button>';
             } else {
-                h += '<button onclick="showChoiceMenu(' + point.id + ', \'' + esc + '\')" style="background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Забронировать</button>';
+                h += '<button onclick="event.stopPropagation(); showChoiceMenu(' + point.id + ', \'' + esc + '\')" style="background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Забронировать</button>';
             }
-            return h + '</div></div>';
+            h += '</div></div>';
+            return h;
         }
 
         function updateStatus(pointId, status) {
@@ -611,22 +826,45 @@
 
         function showChoiceMenu(pointId, pointTitle) {
             var pm = markers.find(function(m) { var d = m.properties.get('pointData'); return d && d.id === pointId; });
-            if (!pm) return;
-            var point = pm.properties.get('pointData');
-            var esc = pointTitle.replace(/'/g, "\\'").replace(/"/g, '&quot;');
-            var h = '<div style="min-width: 200px; padding: 12px; box-sizing: border-box; text-align: center;">' +
-                '<b style="font-size: 16px; display: block;">' + point.title + '</b>' +
-                '<div style="color: #555; font-size: 14px; margin: 8px 0;">' + point.address + '</div>' +
-                '<small style="color: #999; display: block;">Статус: ' + point.status + '</small>' +
-                '<div style="display: flex; flex-direction: column; align-items: center; gap: 4px; margin-top: 10px;">' +
-                '<button disabled style="background: #f44336; color: white; border: none; border-radius: 4px; cursor: not-allowed; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px; opacity: 0.7;">Кто вы?</button>' +
-                '<button onclick="selectName(' + point.id + ', \'' + esc + '\', \'Андрей\')" style="background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Андрей</button>' +
-                '<button onclick="selectName(' + point.id + ', \'' + esc + '\', \'Миша\')" style="background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Миша</button>' +
-                '<button onclick="selectName(' + point.id + ', \'' + esc + '\', \'Илья\')" style="background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Илья</button>' +
-                '<button onclick="selectName(' + point.id + ', \'' + esc + '\', \'Саша\')" style="background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Саша</button>' +
-                '<button onclick="openCustomInputModal(' + point.id + ', \'' + esc + '\')" style="background: #9E9E9E; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Ввести своё</button>' +
-                '</div></div>';
-            pm.properties.set('balloonContent', h); pm.balloon.open();
+            if (pm) {
+                var point = pm.properties.get('pointData');
+                var esc = pointTitle.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                var h = '<div style="min-width: 200px; padding: 12px; box-sizing: border-box; text-align: center;" onclick="event.stopPropagation()">';
+                h += '<b style="font-size: 16px; display: block;">' + point.title + '</b>';
+                h += '<div style="color: #555; font-size: 14px; margin: 8px 0;">' + point.address + '</div>';
+                h += '<small style="color: #999; display: block;">Статус: ' + point.status + '</small>';
+                h += '<div style="display: flex; flex-direction: column; align-items: center; gap: 4px; margin-top: 10px;">';
+                h += '<button disabled style="background: #f44336; color: white; border: none; border-radius: 4px; cursor: not-allowed; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px; opacity: 0.7;">Кто вы?</button>';
+                h += '<button onclick="event.stopPropagation(); selectName(' + pointId + ', \'' + esc + '\', \'Андрей\')" style="background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Андрей</button>';
+                h += '<button onclick="event.stopPropagation(); selectName(' + pointId + ', \'' + esc + '\', \'Миша\')" style="background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Миша</button>';
+                h += '<button onclick="event.stopPropagation(); selectName(' + pointId + ', \'' + esc + '\', \'Илья\')" style="background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Илья</button>';
+                h += '<button onclick="event.stopPropagation(); selectName(' + pointId + ', \'' + esc + '\', \'Саша\')" style="background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Саша</button>';
+                h += '<button onclick="event.stopPropagation(); openCustomInputModal(' + pointId + ', \'' + esc + '\')" style="background: #9E9E9E; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Ввести своё</button>';
+                h += '</div></div>';
+                pm.properties.set('balloonContent', h); 
+                pm.balloon.open();
+                return;
+            }
+
+            var osmPm = osmMarkers.find(function(m) { return m.pointData && m.pointData.id === pointId; });
+            if (osmPm) {
+                var point = osmPm.pointData;
+                var esc = pointTitle.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                var h = '<div style="min-width: 200px; padding: 12px; box-sizing: border-box; text-align: center;" onclick="event.stopPropagation()">';
+                h += '<b style="font-size: 16px; display: block;">' + point.title + '</b>';
+                h += '<div style="color: #555; font-size: 14px; margin: 8px 0;">' + point.address + '</div>';
+                h += '<small style="color: #999; display: block;">Статус: ' + point.status + '</small>';
+                h += '<div style="display: flex; flex-direction: column; align-items: center; gap: 4px; margin-top: 10px;">';
+                h += '<button disabled style="background: #f44336; color: white; border: none; border-radius: 4px; cursor: not-allowed; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px; opacity: 0.7;">Кто вы?</button>';
+                h += '<button onclick="event.stopPropagation(); selectName(' + pointId + ', \'' + esc + '\', \'Андрей\')" style="background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Андрей</button>';
+                h += '<button onclick="event.stopPropagation(); selectName(' + pointId + ', \'' + esc + '\', \'Миша\')" style="background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Миша</button>';
+                h += '<button onclick="event.stopPropagation(); selectName(' + pointId + ', \'' + esc + '\', \'Илья\')" style="background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Илья</button>';
+                h += '<button onclick="event.stopPropagation(); selectName(' + pointId + ', \'' + esc + '\', \'Саша\')" style="background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Саша</button>';
+                h += '<button onclick="event.stopPropagation(); openCustomInputModal(' + pointId + ', \'' + esc + '\')" style="background: #9E9E9E; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Ввести своё</button>';
+                h += '</div></div>';
+                osmPm.setPopupContent(h);
+                osmPm.openPopup();
+            }
         }
 
         function createParkingIcon() {
@@ -685,7 +923,7 @@
 
             var layout = ymaps.templateLayoutFactory.createClass('<div style="display: flex; flex-direction: column; align-items: center; gap: 2px; width: 100px;">' + html + '</div>');
             return new ymaps.Placemark([lat, lon], {}, {
-                iconLayout: layout, iconOffset: [-40, -offset], iconShape: { type: 'Rectangle', coordinates: [[0, 0], [100, offset]] }
+                iconLayout: layout, iconOffset: [-41, -offset], iconShape: { type: 'Rectangle', coordinates: [[0, 0], [100, offset]] }
             });
         }
 
@@ -705,7 +943,7 @@
             return L.divIcon({
                 className: 'custom-div-icon',
                 html: '<div style="display: flex; flex-direction: column; align-items: center; gap: 2px; width: 100px;">' + html + '</div>',
-                iconSize: [100, totalHeight], iconAnchor: [52, totalHeight + extraOffset]
+                iconSize: [100, totalHeight], iconAnchor: [51, totalHeight + extraOffset]
             });
         }
 
@@ -730,7 +968,8 @@
                             myMap.geoObjects.add(pm); parkingMarkers.push(pm);
 
                             var osmPm = L.marker([p.lat, p.lon], { icon: createOsmParkingIcon() }).addTo(osmMap);
-                            osmPm.bindPopup(buildParkingBalloon(p));
+                            var popup = L.popup({ closeOnClick: false, autoClose: false }).setContent(buildParkingBalloon(p));
+                            osmPm.bindPopup(popup);
                             osmPm.parkingData = p;
                             osmParkingMarkers.push(osmPm);
                         }
@@ -801,39 +1040,67 @@
             var photoHtml = p.photo_url ? '<a href="' + p.photo_url + '" target="_blank" style="color: #1976D2; text-decoration: underline; font-weight: bold; display: block; margin-top: 10px;">ФОТО ПАРКОВКИ</a>' : '';
             var btnText = appSettings.hide_empty_labels ? 'Вкл всё' : 'Выкл лишнее';
             var btnColor = appSettings.hide_empty_labels ? '#4CAF50' : '#f44336';
-            return '<div style="min-width: 220px; padding: 15px; box-sizing: border-box; text-align: center;">' +
-                '<b style="font-size: 16px; display: block; margin-bottom: 15px;">' + p.title + '</b>' + photoHtml +
-                '<div style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px;">' +
-                    '<button onclick="resetParking(' + p.id + ')" style="background: #0080ff; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px;">ЗАРЯДИЛ</button>' +
-                    '<div style="background: #4CAF50; color: white; padding: 10px; border-radius: 4px; font-weight: bold; font-size: 14px;">В доступе: ' + p.available + '</div>' +
-                    '<div style="background: #7E0000; color: white; padding: 10px; border-radius: 4px; font-weight: bold; font-size: 14px;">Поломки: ' + p.broken + '</div>' +
-                    '<div style="background: #f44336; color: white; padding: 10px; border-radius: 4px; font-weight: bold; font-size: 14px;">Севшие: ' + p.dead + '</div>' +
-                    '<button onclick="startEditParking(' + p.id + ')" style="background: #9E9E9E; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px;">Изменить</button>' +
-                    '<button onclick="toggleExtraVisibility()" style="background: ' + btnColor + '; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px;">' + btnText + '</button>' +
-                '</div></div>';
+            var h = '<div style="min-width: 220px; padding: 15px; box-sizing: border-box; text-align: center;" onclick="event.stopPropagation()">';
+            h += '<b style="font-size: 16px; display: block; margin-bottom: 15px;">' + p.title + '</b>' + photoHtml;
+            h += '<div style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px;">';
+            h += '<button onclick="event.stopPropagation(); resetParking(' + p.id + ')" style="background: #0080ff; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px;">ЗАРЯДИЛ</button>';
+            h += '<div style="background: #4CAF50; color: white; padding: 10px; border-radius: 4px; font-weight: bold; font-size: 14px;">В доступе: ' + p.available + '</div>';
+            h += '<div style="background: #7E0000; color: white; padding: 10px; border-radius: 4px; font-weight: bold; font-size: 14px;">Поломки: ' + p.broken + '</div>';
+            h += '<div style="background: #f44336; color: white; padding: 10px; border-radius: 4px; font-weight: bold; font-size: 14px;">Севшие: ' + p.dead + '</div>';
+            h += '<button onclick="event.stopPropagation(); startEditParking(' + p.id + ')" style="background: #9E9E9E; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px;">Изменить</button>';
+            h += '<button onclick="event.stopPropagation(); toggleExtraVisibility()" style="background: ' + btnColor + '; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px;">' + btnText + '</button>';
+            h += '</div></div>';
+            return h;
         }
 
         function startEditParking(id) {
             var pm = parkingMarkers.find(function(m) { var d = m.properties.get('parkingData'); return d && d.id === id; });
-            if (!pm) return;
-            var p = pm.properties.get('parkingData');
-            var html = '<div style="min-width: 220px; padding: 15px; box-sizing: border-box; text-align: center;">' +
-                '<b style="font-size: 16px; display: block; margin-bottom: 15px;">' + p.title + '</b>' +
-                '<div style="display: flex; flex-direction: column; gap: 10px;">' +
-                    '<div><button id="btn_avail_' + id + '" onclick="activateInput(\'avail\', ' + id + ')" style="background: white; color: #333; border: 2px solid #333; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%; font-size: 14px;">В доступе</button>' +
-                    '<input id="inp_avail_' + id + '" type="number" style="display: none; width: 100%; padding: 10px; border: 2px solid #333; border-radius: 4px; text-align: center; font-size: 16px; box-sizing: border-box;"></div>' +
-                    '<div><button id="btn_dead_' + id + '" onclick="activateInput(\'dead\', ' + id + ')" style="background: white; color: #333; border: 2px solid #333; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%; font-size: 14px;">Севшие</button>' +
-                    '<input id="inp_dead_' + id + '" type="number" style="display: none; width: 100%; padding: 10px; border: 2px solid #333; border-radius: 4px; text-align: center; font-size: 16px; box-sizing: border-box;"></div>' +
-                    '<div><button id="btn_broken_' + id + '" onclick="activateInput(\'broken\', ' + id + ')" style="background: white; color: #333; border: 2px solid #333; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%; font-size: 14px;">Поломки</button>' +
-                    '<input id="inp_broken_' + id + '" type="number" style="display: none; width: 100%; padding: 10px; border: 2px solid #333; border-radius: 4px; text-align: center; font-size: 16px; box-sizing: border-box;"></div>' +
-                    '<button onclick="saveParking(' + id + ')" style="background: #4CAF50; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%; font-size: 14px;">ОК</button>' +
-                '</div></div>';
-            pm.properties.set('balloonContent', html); pm.balloon.open();
+            if (pm) {
+                var p = pm.properties.get('parkingData');
+                var html = '<div style="min-width: 220px; padding: 15px; box-sizing: border-box; text-align: center;" onclick="event.stopPropagation()">';
+                html += '<b style="font-size: 16px; display: block; margin-bottom: 15px;">' + p.title + '</b>';
+                html += '<div style="display: flex; flex-direction: column; gap: 10px;">';
+                html += '<div><button id="btn_avail_' + id + '" onclick="event.stopPropagation(); activateInput(\'avail\', ' + id + ')" style="background: white; color: #333; border: 2px solid #333; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%; font-size: 14px;">В доступе</button>';
+                html += '<input id="inp_avail_' + id + '" type="number" onclick="event.stopPropagation()" style="display: none; width: 100%; padding: 10px; border: 2px solid #333; border-radius: 4px; text-align: center; font-size: 16px; box-sizing: border-box;"></div>';
+                html += '<div><button id="btn_dead_' + id + '" onclick="event.stopPropagation(); activateInput(\'dead\', ' + id + ')" style="background: white; color: #333; border: 2px solid #333; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%; font-size: 14px;">Севшие</button>';
+                html += '<input id="inp_dead_' + id + '" type="number" onclick="event.stopPropagation()" style="display: none; width: 100%; padding: 10px; border: 2px solid #333; border-radius: 4px; text-align: center; font-size: 16px; box-sizing: border-box;"></div>';
+                html += '<div><button id="btn_broken_' + id + '" onclick="event.stopPropagation(); activateInput(\'broken\', ' + id + ')" style="background: white; color: #333; border: 2px solid #333; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%; font-size: 14px;">Поломки</button>';
+                html += '<input id="inp_broken_' + id + '" type="number" onclick="event.stopPropagation()" style="display: none; width: 100%; padding: 10px; border: 2px solid #333; border-radius: 4px; text-align: center; font-size: 16px; box-sizing: border-box;"></div>';
+                html += '<button onclick="event.stopPropagation(); saveParking(' + id + ')" style="background: #4CAF50; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%; font-size: 14px;">ОК</button>';
+                html += '</div></div>';
+                pm.properties.set('balloonContent', html); 
+                pm.balloon.open();
+                return;
+            }
+
+            var osmPm = osmParkingMarkers.find(function(m) { return m.parkingData && m.parkingData.id === id; });
+            if (osmPm) {
+                var p = osmPm.parkingData;
+                var html = '<div style="min-width: 220px; padding: 15px; box-sizing: border-box; text-align: center;" onclick="event.stopPropagation()">';
+                html += '<b style="font-size: 16px; display: block; margin-bottom: 15px;">' + p.title + '</b>';
+                html += '<div style="display: flex; flex-direction: column; gap: 10px;">';
+                html += '<div><button id="osm_btn_avail_' + id + '" onclick="event.stopPropagation(); activateOsmInput(\'avail\', ' + id + ')" style="background: white; color: #333; border: 2px solid #333; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%; font-size: 14px;">В доступе</button>';
+                html += '<input id="osm_inp_avail_' + id + '" type="number" onclick="event.stopPropagation()" style="display: none; width: 100%; padding: 10px; border: 2px solid #333; border-radius: 4px; text-align: center; font-size: 16px; box-sizing: border-box;"></div>';
+                html += '<div><button id="osm_btn_dead_' + id + '" onclick="event.stopPropagation(); activateOsmInput(\'dead\', ' + id + ')" style="background: white; color: #333; border: 2px solid #333; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%; font-size: 14px;">Севшие</button>';
+                html += '<input id="osm_inp_dead_' + id + '" type="number" onclick="event.stopPropagation()" style="display: none; width: 100%; padding: 10px; border: 2px solid #333; border-radius: 4px; text-align: center; font-size: 16px; box-sizing: border-box;"></div>';
+                html += '<div><button id="osm_btn_broken_' + id + '" onclick="event.stopPropagation(); activateOsmInput(\'broken\', ' + id + ')" style="background: white; color: #333; border: 2px solid #333; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%; font-size: 14px;">Поломки</button>';
+                html += '<input id="osm_inp_broken_' + id + '" type="number" onclick="event.stopPropagation()" style="display: none; width: 100%; padding: 10px; border: 2px solid #333; border-radius: 4px; text-align: center; font-size: 16px; box-sizing: border-box;"></div>';
+                html += '<button onclick="event.stopPropagation(); saveOsmParking(' + id + ')" style="background: #4CAF50; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%; font-size: 14px;">ОК</button>';
+                html += '</div></div>';
+                osmPm.setPopupContent(html);
+                osmPm.openPopup();
+            }
         }
 
         function activateInput(type, id) {
             document.getElementById('btn_' + type + '_' + id).style.display = 'none';
             var inp = document.getElementById('inp_' + type + '_' + id);
+            inp.style.display = 'block'; inp.value = ''; inp.focus();
+        }
+
+        function activateOsmInput(type, id) {
+            document.getElementById('osm_btn_' + type + '_' + id).style.display = 'none';
+            var inp = document.getElementById('osm_inp_' + type + '_' + id);
             inp.style.display = 'block'; inp.value = ''; inp.focus();
         }
 
@@ -843,6 +1110,21 @@
             var inpBroken = document.getElementById('inp_broken_' + id);
             var pm = parkingMarkers.find(function(m) { var d = m.properties.get('parkingData'); return d && d.id === id; });
             var oldData = pm ? pm.properties.get('parkingData') : {available: '?', dead: '?', broken: '?'};
+            var newAvail = inpAvail.style.display !== 'none' && inpAvail.value.trim() !== '' ? inpAvail.value.trim() : oldData.available;
+            var newDead = inpDead.style.display !== 'none' && inpDead.value.trim() !== '' ? inpDead.value.trim() : oldData.dead;
+            var newBroken = inpBroken.style.display !== 'none' && inpBroken.value.trim() !== '' ? inpBroken.value.trim() : oldData.broken;
+            fetch(API_URL + '/update_parking', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: id, available: newAvail, dead: newDead, broken: newBroken })
+            }).then(function(r) { return r.json(); }).then(function(data) { if (data.success) loadParkings(); });
+        }
+
+        function saveOsmParking(id) {
+            var inpAvail = document.getElementById('osm_inp_avail_' + id);
+            var inpDead = document.getElementById('osm_inp_dead_' + id);
+            var inpBroken = document.getElementById('osm_inp_broken_' + id);
+            var osmPm = osmParkingMarkers.find(function(m) { return m.parkingData && m.parkingData.id === id; });
+            var oldData = osmPm ? osmPm.parkingData : {available: '?', dead: '?', broken: '?'};
             var newAvail = inpAvail.style.display !== 'none' && inpAvail.value.trim() !== '' ? inpAvail.value.trim() : oldData.available;
             var newDead = inpDead.style.display !== 'none' && inpDead.value.trim() !== '' ? inpDead.value.trim() : oldData.dead;
             var newBroken = inpBroken.style.display !== 'none' && inpBroken.value.trim() !== '' ? inpBroken.value.trim() : oldData.broken;
@@ -882,6 +1164,7 @@
                         osmMap.invalidateSize();
                         loadPoints();
                         loadParkings();
+                        loadInfoPoints();
                         loadZones();
                     }, 200);
                 }
@@ -914,29 +1197,164 @@
         function closeBottomPanel() { document.getElementById('bottomPanel').style.display = 'none'; }
 
         function openCustomInputModal(pointId, pointTitle) {
-            currentModalPointId = pointId; currentModalPointTitle = pointTitle;
+            currentModalPointId = pointId; 
+            currentModalPointTitle = pointTitle;
             var modal = document.getElementById('modalOverlay');
             var input = document.getElementById('modalInput');
-            input.value = ''; modal.style.display = 'flex';
+            input.value = ''; 
+            modal.style.display = 'flex';
             setTimeout(function() { input.focus(); }, 100);
+        }
+
+        function closeCustomInputModal() {
+            document.getElementById('modalOverlay').style.display = 'none';
+            currentModalPointId = null; 
+            currentModalPointTitle = null;
         }
 
         function confirmModalInput() {
             var input = document.getElementById('modalInput');
             var name = input.value.trim();
             if (!name) { input.style.borderColor = '#f44336'; setTimeout(function() { input.style.borderColor = '#ddd'; }, 1000); return; }
-            document.getElementById('modalOverlay').style.display = 'none';
+            closeCustomInputModal();
             selectName(currentModalPointId, currentModalPointTitle, name);
-            currentModalPointId = null; currentModalPointTitle = null;
+        }
+
+        function openCommentModal(pointId) {
+            currentCommentPointId = pointId;
+            var modal = document.getElementById('commentModalOverlay');
+            var input = document.getElementById('commentModalInput');
+            input.value = ''; 
+            modal.style.display = 'flex';
+            setTimeout(function() { input.focus(); }, 100);
+        }
+
+        function closeCommentModal() {
+            document.getElementById('commentModalOverlay').style.display = 'none';
+            currentCommentPointId = null;
+        }
+
+        // ✅ ФУНКЦИИ ДЛЯ СОЗДАНИЯ ЧЕРЕЗ ПРАВЫЙ КЛИК
+        function openCreateScooterModal() {
+            closeContextMenu();
+            document.getElementById('createScooterModal').style.display = 'flex';
+            setTimeout(function() { document.getElementById('scooterName').focus(); }, 100);
+        }
+
+        function closeCreateScooterModal() {
+            document.getElementById('createScooterModal').style.display = 'none';
+            document.getElementById('scooterName').value = '';
+            document.getElementById('scooterNumber').value = '';
+            document.getElementById('scooterComment').value = '';
+            document.getElementById('scooterRed').value = '';
+        }
+
+        function confirmCreateScooter() {
+            var name = document.getElementById('scooterName').value.trim();
+            var number = document.getElementById('scooterNumber').value.trim();
+            var comment = document.getElementById('scooterComment').value.trim();
+            var red = document.getElementById('scooterRed').value.trim().toLowerCase();
+            
+            if (!name || !number) {
+                alert('Заполните название и номер!');
+                return;
+            }
+            
+            var status = (red === 'да') ? 'red' : 'active';
+            var address = rightClickCoords ? rightClickCoords.join(', ') : '';
+            var lat = rightClickCoords ? rightClickCoords[0] : 0;
+            var lon = rightClickCoords ? rightClickCoords[1] : 0;
+            
+            fetch(API_URL + '/create_scooter', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title: name, number: number, address: address, lat: lat, lon: lon, status: status, comment: comment })
+            }).then(function(r) { return r.json(); }).then(function(data) {
+                if (data.success) {
+                    closeCreateScooterModal();
+                    loadPoints();
+                }
+            });
+        }
+
+        function openCreateParkingModal() {
+            closeContextMenu();
+            document.getElementById('createParkingModal').style.display = 'flex';
+            setTimeout(function() { document.getElementById('parkingName').focus(); }, 100);
+        }
+
+        function closeCreateParkingModal() {
+            document.getElementById('createParkingModal').style.display = 'none';
+            document.getElementById('parkingName').value = '';
+        }
+
+        function confirmCreateParking() {
+            var name = document.getElementById('parkingName').value.trim();
+            if (!name) {
+                alert('Заполните название!');
+                return;
+            }
+            
+            var address = rightClickCoords ? rightClickCoords.join(', ') : '';
+            var lat = rightClickCoords ? rightClickCoords[0] : 0;
+            var lon = rightClickCoords ? rightClickCoords[1] : 0;
+            
+            fetch(API_URL + '/create_parking', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title: name, address: address, lat: lat, lon: lon })
+            }).then(function(r) { return r.json(); }).then(function(data) {
+                if (data.success) {
+                    closeCreateParkingModal();
+                    loadParkings();
+                }
+            });
+        }
+
+        function openCreateInfoModal() {
+            closeContextMenu();
+            document.getElementById('createInfoModal').style.display = 'flex';
+            setTimeout(function() { document.getElementById('infoComment').focus(); }, 100);
+        }
+
+        function closeCreateInfoModal() {
+            document.getElementById('createInfoModal').style.display = 'none';
+            document.getElementById('infoComment').value = '';
+        }
+
+        function confirmCreateInfo() {
+            var comment = document.getElementById('infoComment').value.trim();
+            if (!comment) {
+                alert('Заполните комментарий!');
+                return;
+            }
+            
+            var address = rightClickCoords ? rightClickCoords.join(', ') : '';
+            var lat = rightClickCoords ? rightClickCoords[0] : 0;
+            var lon = rightClickCoords ? rightClickCoords[1] : 0;
+            
+            fetch(API_URL + '/add_info_point', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ address: address, lat: lat, lon: lon, comment: comment })
+            }).then(function(r) { return r.json(); }).then(function(data) {
+                if (data.success) {
+                    closeCreateInfoModal();
+                    loadInfoPoints();
+                }
+            });
         }
 
         document.addEventListener('click', function(e) { 
-            if (e.target.id === 'modalOverlay') document.getElementById('modalOverlay').style.display = 'none';
+            if (e.target.id === 'modalOverlay') closeCustomInputModal();
+            if (e.target.id === 'commentModalOverlay') closeCommentModal();
             if (e.target.id === 'deleteZoneModal') cancelDeleteZone();
+            if (e.target.id === 'deleteInfoModal') cancelDeleteInfo();
             if (e.target.id === 'maxDeadModal') closeMaxDeadModal();
         });
         document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('modalInput').addEventListener('keypress', function(e) { if (e.key === 'Enter') { e.preventDefault(); confirmModalInput(); } });
+            document.getElementById('commentModalInput').addEventListener('keypress', function(e) { if (e.key === 'Enter') { e.preventDefault(); confirmCommentModal(); } });
         });
 
         function selectName(pointId, pointTitle, name) {
