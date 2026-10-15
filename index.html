@@ -19,17 +19,20 @@
         .bottom-panel { position: fixed; bottom: 0; left: 0; right: 0; background: white; padding: 15px 45px 15px 15px; box-shadow: 0 -2px 10px rgba(0,0,0,0.2); z-index: 1000; max-height: 180px; overflow-y: auto; }
         .bottom-panel .close-btn { position: absolute; top: 8px; right: 10px; background: none; border: none; font-size: 20px; cursor: pointer; color: #333; padding: 0; width: auto; margin: 0; line-height: 1; }
         .departure-item { font-size: 15px; color: #333; text-align: center; margin: 4px 0; }
+        .no-departures { font-size: 13px; color: #999; text-align: center; margin: 4px 0; font-style: italic; }
         .dead-info { font-size: 15px; color: #333; text-align: center; margin: 4px 0; font-weight: bold; cursor: pointer; }
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.5); z-index: 2000; justify-content: center; align-items: center; }
         .modal-box { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); width: 80%; max-width: 300px; text-align: center; }
         .modal-box h4 { margin: 0 0 15px 0; font-size: 16px; color: #333; }
         .modal-box input { width: 100%; padding: 10px 12px; border: 2px solid #ddd; border-radius: 6px; font-size: 14px; box-sizing: border-box; text-align: center; outline: none; margin-bottom: 10px; }
         .modal-box input:focus { border-color: #4CAF50; }
-        .modal-box button { margin-top: 12px; width: 100%; padding: 10px; background: #4CAF50; color: white; border: none; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; }
-        .modal-box button:active { background: #45a049; }
-        .modal-box .btn-secondary { background: #9E9E9E; margin-top: 8px; }
-        .modal-box .btn-cancel { background: #f44336; margin-top: 8px; }
-        .modal-box .btn-primary { background: #0140ff; margin-top: 8px; }
+        .modal-box .btn-row { display: flex; gap: 10px; margin-top: 12px; }
+        .modal-box .btn-row button { flex: 1; padding: 10px; border: none; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; }
+        .modal-box .btn-ok { background: #4CAF50; color: white; }
+        .modal-box .btn-ok:active { background: #45a049; }
+        .modal-box .btn-cancel { background: #f44336; color: white; }
+        .modal-box .btn-cancel:active { background: #d32f2f; }
+        .modal-box .btn-secondary { background: #9E9E9E; color: white; margin-top: 8px; width: 100%; padding: 10px; border: none; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; }
         
         .drawing-indicator { display: none; position: fixed; top: 80px; left: 50%; transform: translateX(-50%); background: #f44336; color: white; padding: 10px 20px; border-radius: 8px; font-size: 14px; font-weight: bold; z-index: 1500; box-shadow: 0 2px 8px rgba(0,0,0,0.3); min-width: 250px; max-width: 350px; align-items: center; gap: 4px; box-sizing: border-box; flex-direction: column; }
         .drawing-indicator .mode-buttons { display: flex; flex-direction: column; gap: 8px; width: 100%; }
@@ -43,12 +46,16 @@
         .delete-zone-modal { top: 80px; align-items: flex-start; }
         .delete-zone-modal .modal-box { margin-top: 10px; }
         .delete-zone-modal .modal-actions { display: flex; gap: 10px; margin-top: 15px; }
-        .delete-zone-modal .modal-actions button { flex: 1; margin-top: 0; }
+        .delete-zone-modal .modal-actions button { flex: 1; margin-top: 0; padding: 10px; border: none; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; }
+        .delete-zone-modal .modal-actions .btn-secondary { background: #9E9E9E; color: white; }
+        .delete-zone-modal .modal-actions .btn-ok { background: #4CAF50; color: white; }
 
         .max-dead-modal { top: 80px; align-items: flex-start; }
         .max-dead-modal .modal-box { margin-top: 10px; }
         .max-dead-modal .modal-actions { display: flex; gap: 10px; margin-top: 15px; }
         .max-dead-modal .modal-actions button { flex: 1; margin-top: 0; }
+
+        .move-hint { display: none; position: fixed; top: 15px; left: 50%; transform: translateX(-50%); background: #ff9800; color: white; padding: 12px 20px; border-radius: 8px; font-size: 14px; font-weight: bold; z-index: 1600; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
 
         .custom-div-icon { background: transparent; border: none; }
         .leaflet-popup-content-wrapper { border-radius: 8px; }
@@ -59,23 +66,29 @@
     <div id="map"></div>
     <div id="osmMap"></div>
 
+    <!-- ✅ ПОДСКАЗКА О РЕЖИМЕ ПЕРЕМЕЩЕНИЯ -->
+    <div class="move-hint" id="moveHint">Кликните по карте, куда переместить самокат</div>
+
     <div class="controls">
         <h3 onclick="onTasksHeaderClick()">Задачи на сегодня</h3>
         <div class="info" onclick="onInfoClick()">Всего: <span id="pointCount">0</span></div>
     </div>
+
+    <!-- ✅ BOTTOM PANEL ВСЕГДА ВИДИМА -->
     <div class="bottom-panel" id="bottomPanel">
-        <button class="close-btn" onclick="closeBottomPanel()"></button>
+        <button class="close-btn" onclick="closeBottomPanel()">✕</button>
         <div id="bottomDeparturesList"></div>
         <div id="deadInfo" class="dead-info" onclick="onDeadInfoClick()">Севшие на парковке: <span id="deadCount">0</span></div>
     </div>
     
+    <!-- Модальные окна -->
     <div class="modal-overlay" id="modalOverlay">
         <div class="modal-box">
             <h4>Введите имя</h4>
             <input type="text" id="modalInput" placeholder="Имя" autocomplete="off">
-            <div style="display: flex; gap: 10px; margin-top: 12px;">
-                <button class="btn-cancel" onclick="closeCustomInputModal()" style="flex: 1;">Отмена</button>
-                <button onclick="confirmModalInput()" style="flex: 1;">Ок</button>
+            <div class="btn-row">
+                <button class="btn-cancel" onclick="closeCustomInputModal()">Отмена</button>
+                <button class="btn-ok" onclick="confirmModalInput()">Ок</button>
             </div>
         </div>
     </div>
@@ -84,9 +97,9 @@
         <div class="modal-box">
             <h4>Введите комментарий</h4>
             <input type="text" id="commentModalInput" autocomplete="off">
-            <div style="display: flex; gap: 10px; margin-top: 12px;">
-                <button class="btn-cancel" onclick="closeCommentModal()" style="flex: 1;">Отмена</button>
-                <button onclick="confirmCommentModal()" style="flex: 1;">Ок</button>
+            <div class="btn-row">
+                <button class="btn-cancel" onclick="closeCommentModal()">Отмена</button>
+                <button class="btn-ok" onclick="confirmCommentModal()">Ок</button>
             </div>
         </div>
     </div>
@@ -97,9 +110,9 @@
             <input type="text" id="scooterNumber" placeholder="Номер самоката" autocomplete="off">
             <input type="text" id="scooterComment" placeholder="Комментарий" autocomplete="off">
             <input type="text" id="scooterRed" placeholder="red или sev?" autocomplete="off">
-            <div style="display: flex; gap: 10px; margin-top: 12px;">
-                <button class="btn-cancel" onclick="closeCreateScooterModal()" style="flex: 1;">Отмена</button>
-                <button onclick="confirmCreateScooter()" style="flex: 1;">Ок</button>
+            <div class="btn-row">
+                <button class="btn-cancel" onclick="closeCreateScooterModal()">Отмена</button>
+                <button class="btn-ok" onclick="confirmCreateScooter()">Ок</button>
             </div>
         </div>
     </div>
@@ -108,9 +121,9 @@
         <div class="modal-box">
             <h4>Создать парковку</h4>
             <input type="text" id="parkingName" placeholder="Название парковки" autocomplete="off">
-            <div style="display: flex; gap: 10px; margin-top: 12px;">
-                <button class="btn-cancel" onclick="closeCreateParkingModal()" style="flex: 1;">Отмена</button>
-                <button onclick="confirmCreateParking()" style="flex: 1;">Ок</button>
+            <div class="btn-row">
+                <button class="btn-cancel" onclick="closeCreateParkingModal()">Отмена</button>
+                <button class="btn-ok" onclick="confirmCreateParking()">Ок</button>
             </div>
         </div>
     </div>
@@ -119,9 +132,20 @@
         <div class="modal-box">
             <h4>Создать доп инфу</h4>
             <input type="text" id="infoComment" placeholder="Комментарий" autocomplete="off">
-            <div style="display: flex; gap: 10px; margin-top: 12px;">
-                <button class="btn-cancel" onclick="closeCreateInfoModal()" style="flex: 1;">Отмена</button>
-                <button onclick="confirmCreateInfo()" style="flex: 1;">Ок</button>
+            <div class="btn-row">
+                <button class="btn-cancel" onclick="closeCreateInfoModal()">Отмена</button>
+                <button class="btn-ok" onclick="confirmCreateInfo()">Ок</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ✅ НОВОЕ МОДАЛЬНОЕ ОКНО: ИЗМЕНИТЬ РАСПОЛОЖЕНИЕ -->
+    <div class="modal-overlay" id="movePointModal">
+        <div class="modal-box">
+            <h4>Изменить расположение?</h4>
+            <div class="btn-row">
+                <button class="btn-cancel" onclick="closeMovePointModal()">Отмена</button>
+                <button class="btn-ok" onclick="confirmMovePoint()">Ок</button>
             </div>
         </div>
     </div>
@@ -158,7 +182,7 @@
             <h4>Удалить зону?</h4>
             <div class="modal-actions">
                 <button class="btn-secondary" onclick="cancelDeleteZone()">Отмена</button>
-                <button onclick="confirmDeleteZone()">Ок</button>
+                <button class="btn-ok" onclick="confirmDeleteZone()">Ок</button>
             </div>
         </div>
     </div>
@@ -187,6 +211,11 @@
         var currentCommentType = null;
         var currentInfoPointId = null;
         var rightClickCoords = null;
+        
+        // ✅ ПЕРЕМЕННЫЕ ДЛЯ ПЕРЕМЕЩЕНИЯ САМОКАТА
+        var movingPointId = null;
+        var movingPointData = null;
+        var longPressTimer = null;
         
         var isDrawingZone = false, drawMode = 1, zonePoints = [], zonePolygon = null, zonePolyline = null, zonePointMarkers = [];
         var isDrawingFreehand = false, freehandStartPoint = null;
@@ -238,14 +267,32 @@
                 myMap.setCenter([54.7818, 32.0401], 12);
             }, 800);
 
+            // Правый клик на карте (создание объектов)
             myMap.events.add('contextmenu', function(e) {
+                if (movingPointId) return; // не показываем меню создания в режиме перемещения
                 e.get('domEvent').preventDefault();
                 rightClickCoords = e.get('coords');
                 showContextMenu();
             });
             osmMap.on('contextmenu', function(e) {
+                if (movingPointId) return;
                 rightClickCoords = [e.latlng.lat, e.latlng.lng];
                 showContextMenu();
+            });
+
+            // ✅ КЛИК ПО КАРТЕ В РЕЖИМЕ ПЕРЕМЕЩЕНИЯ
+            myMap.events.add('click', function(e) { 
+                if (movingPointId) {
+                    performMove(e.get('coords'));
+                    return;
+                }
+                if (isDrawingZone && drawMode === 1 && !isZoneConfirmed) { addZonePoint(e.get('coords')); } 
+            });
+            osmMap.on('click', function(e) {
+                if (movingPointId) {
+                    performMove([e.latlng.lat, e.latlng.lng]);
+                    return;
+                }
             });
 
             myMap.events.add('mousedown', function(e) {
@@ -263,10 +310,83 @@
             document.addEventListener('mouseup', function(e) {
                 if (isDrawingFreehand) { isDrawingFreehand = false; closeFreehandZone(); }
             });
-            myMap.events.add('click', function(e) { 
-                if (isDrawingZone && drawMode === 1 && !isZoneConfirmed) { addZonePoint(e.get('coords')); } 
-            });
             myMap.events.add('boundschange', function() { updateZoneTextVisibility(); });
+        }
+
+        // ✅ ФУНКЦИЯ ПЕРЕМЕЩЕНИЯ ТОЧКИ
+        function performMove(newCoords) {
+            if (!movingPointId) return;
+            var lat = newCoords[0];
+            var lon = newCoords[1];
+            var address = lat.toFixed(6) + ', ' + lon.toFixed(6);
+            
+            fetch(API_URL + '/update_point_location', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: movingPointId, lat: lat, lon: lon, address: address })
+            }).then(function(r) { return r.json(); }).then(function(data) {
+                if (data.success) {
+                    movingPointId = null;
+                    movingPointData = null;
+                    document.getElementById('moveHint').style.display = 'none';
+                    loadPoints();
+                } else {
+                    alert('Ошибка перемещения: ' + (data.error || 'неизвестно'));
+                }
+            }).catch(function(err) {
+                alert('Ошибка сети: ' + err);
+            });
+        }
+
+        function openMovePointModal(pointId, pointData) {
+            movingPointId = pointId;
+            movingPointData = pointData;
+            document.getElementById('movePointModal').style.display = 'flex';
+        }
+
+        function closeMovePointModal() {
+            document.getElementById('movePointModal').style.display = 'none';
+            movingPointId = null;
+            movingPointData = null;
+        }
+
+        function confirmMovePoint() {
+            closeMovePointModal();
+            document.getElementById('moveHint').style.display = 'block';
+            // Закрываем popup если открыт
+            if (myMap) myMap.balloon.close();
+            if (osmMap) osmMap.closePopup();
+        }
+
+        // ✅ ОБРАБОТЧИК ПРАВОГО КЛИКА НА МАРКЕРЕ САМОКАТА (Яндекс)
+        function attachScooterContextMenu(pm, point) {
+            pm.events.add('contextmenu', function(e) {
+                e.get('domEvent').preventDefault();
+                e.get('domEvent').stopPropagation();
+                openMovePointModal(point.id, point);
+            });
+        }
+
+        // ✅ ОБРАБОТЧИК ПРАВОГО КЛИКА НА МАРКЕРЕ САМОКАТА (Leaflet OSM)
+        function attachOsmScooterContextMenu(osmPm, point) {
+            osmPm.on('contextmenu', function(e) {
+                L.DomEvent.preventDefault(e);
+                L.DomEvent.stopPropagation(e);
+                openMovePointModal(point.id, point);
+            });
+            // ✅ ДОЛГОЕ НАЖАТИЕ ДЛЯ ТЕЛЕФОНА
+            var touchTimer = null;
+            osmPm.on('touchstart', function(e) {
+                touchTimer = setTimeout(function() {
+                    openMovePointModal(point.id, point);
+                }, 500);
+            });
+            osmPm.on('touchend', function(e) {
+                clearTimeout(touchTimer);
+            });
+            osmPm.on('touchmove', function(e) {
+                clearTimeout(touchTimer);
+            });
         }
 
         function showContextMenu() {
@@ -646,6 +766,9 @@
                         var pm = new ymaps.Placemark([point.lat, point.lon], { balloonContent: buildBalloonContent(point, isBooked) }, iconOptions);
                         pm.properties.set('pointData', point);
                         myMap.geoObjects.add(pm); markers.push(pm);
+                        
+                        // ✅ ПРАВЫЙ КЛИК НА МАРКЕРЕ САМОКАТА (Яндекс)
+                        attachScooterContextMenu(pm, point);
 
                         var osmIcon = createOsmScooterIcon(point.status, point.title.trim());
                         if (isBooked) {
@@ -664,6 +787,9 @@
                         osmPm.bindPopup(popup);
                         osmPm.pointData = point;
                         osmMarkers.push(osmPm);
+                        
+                        // ✅ ПРАВЫЙ КЛИК + ДОЛГОЕ НАЖАТИЕ НА МАРКЕРЕ САМОКАТА (Leaflet)
+                        attachOsmScooterContextMenu(osmPm, point);
                     }
                 });
                 
@@ -676,7 +802,8 @@
             h += '<b style="font-size: 16px; display: block; font-weight: bold;">ДОП ИНФА</b>';
             h += '<div style="color: #555; font-size: 14px; margin: 8px 0;">' + info.address + '</div>';
             if (info.comment) {
-                h += '<small style="color: #000; display: block; margin: 5px 0;">' + info.comment + '</small>';
+                // ✅ РАЗМЕР ШРИФТА КОММЕНТАРИЯ = РАЗМЕРУ АДРЕСА (14px)
+                h += '<div style="color: #000; font-size: 14px; display: block; margin: 5px 0;">' + info.comment + '</div>';
             }
             h += '<div style="display: flex; flex-direction: column; align-items: center; gap: 4px; margin-top: 10px;">';
             h += '<button onclick="event.stopPropagation(); openInfoCommentModal(' + info.id + ')" style="background: #707070; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Комментарий</button>';
@@ -715,7 +842,7 @@
         function buildBalloonContent(point, isBooked) {
             var esc = point.title.replace(/'/g, "\\'").replace(/"/g, '&quot;');
             var fzLink = point.url ? '<a href="' + point.url + '" target="_blank" style="color: #1976D2; text-decoration: underline; font-weight: bold; display: block; margin: 5px 0;">ПОСМОТРЕТЬ ФЗ</a>' : '';
-            var commentHtml = point.comment ? '<small style="color: #000; display: block; margin: 5px 0;">' + point.comment + '</small>' : '';
+            var commentHtml = point.comment ? '<div style="color: #000; font-size: 14px; display: block; margin: 5px 0;">' + point.comment + '</div>' : '';
             var h = '<div style="min-width: 200px; padding: 12px; box-sizing: border-box; text-align: center;" onclick="event.stopPropagation()">';
             h += '<b style="font-size: 16px; display: block;">' + point.title + '</b>';
             h += '<div style="color: #555; font-size: 14px; margin: 8px 0;">' + point.address + '</div>';
@@ -775,6 +902,9 @@
                 h += '<button onclick="event.stopPropagation(); selectName(' + pointId + ', \'' + esc + '\', \'Миша\')" style="background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Миша</button>';
                 h += '<button onclick="event.stopPropagation(); selectName(' + pointId + ', \'' + esc + '\', \'Илья\')" style="background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Илья</button>';
                 h += '<button onclick="event.stopPropagation(); selectName(' + pointId + ', \'' + esc + '\', \'Саша\')" style="background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Саша</button>';
+                // ✅ НОВЫЕ ИМЕНА
+                h += '<button onclick="event.stopPropagation(); selectName(' + pointId + ', \'' + esc + '\', \'Кирилл\')" style="background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Кирилл</button>';
+                h += '<button onclick="event.stopPropagation(); selectName(' + pointId + ', \'' + esc + '\', \'no4ka\')" style="background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">no4ka</button>';
                 h += '<button onclick="event.stopPropagation(); openCustomInputModal(' + pointId + ', \'' + esc + '\')" style="background: #9E9E9E; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Ввести своё</button>';
                 h += '</div></div>';
                 pm.properties.set('balloonContent', h); 
@@ -795,6 +925,9 @@
                 h += '<button onclick="event.stopPropagation(); selectName(' + pointId + ', \'' + esc + '\', \'Миша\')" style="background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Миша</button>';
                 h += '<button onclick="event.stopPropagation(); selectName(' + pointId + ', \'' + esc + '\', \'Илья\')" style="background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Илья</button>';
                 h += '<button onclick="event.stopPropagation(); selectName(' + pointId + ', \'' + esc + '\', \'Саша\')" style="background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Саша</button>';
+                // ✅ НОВЫЕ ИМЕНА
+                h += '<button onclick="event.stopPropagation(); selectName(' + pointId + ', \'' + esc + '\', \'Кирилл\')" style="background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Кирилл</button>';
+                h += '<button onclick="event.stopPropagation(); selectName(' + pointId + ', \'' + esc + '\', \'no4ka\')" style="background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">no4ka</button>';
                 h += '<button onclick="event.stopPropagation(); openCustomInputModal(' + pointId + ', \'' + esc + '\')" style="background: #9E9E9E; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Ввести своё</button>';
                 h += '</div></div>';
                 osmPm.setPopupContent(h);
@@ -1102,17 +1235,22 @@
             });
         }
 
+        // ✅ BOTTOM PANEL ВСЕГДА ВИДИМА
         function renderBottomPanel() {
             var panel = document.getElementById('bottomPanel');
             var list = document.getElementById('bottomDeparturesList');
             var keys = Object.keys(departures);
-            if (keys.length === 0) { panel.style.display = 'none'; return; }
             var html = '';
-            for (var i = 0; i < keys.length; i++) {
-                var d = departures[keys[i]];
-                html += '<div class="departure-item">За ' + d.title + ' ым выехал ' + d.name + '</div>';
+            if (keys.length === 0) {
+                html = '<div class="no-departures">Нет активных выездов</div>';
+            } else {
+                for (var i = 0; i < keys.length; i++) {
+                    var d = departures[keys[i]];
+                    html += '<div class="departure-item">За ' + d.title + ' ым выехал ' + d.name + '</div>';
+                }
             }
-            list.innerHTML = html; panel.style.display = 'block';
+            list.innerHTML = html;
+            panel.style.display = 'block'; // ✅ ВСЕГДА ПОКАЗЫВАЕМ
         }
         function closeBottomPanel() { document.getElementById('bottomPanel').style.display = 'none'; }
 
@@ -1317,6 +1455,7 @@
         document.addEventListener('click', function(e) { 
             if (e.target.id === 'modalOverlay') closeCustomInputModal();
             if (e.target.id === 'commentModalOverlay') closeCommentModal();
+            if (e.target.id === 'movePointModal') closeMovePointModal();
             if (e.target.id === 'deleteZoneModal') cancelDeleteZone();
             if (e.target.id === 'maxDeadModal') closeMaxDeadModal();
         });
