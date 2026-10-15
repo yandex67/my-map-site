@@ -182,7 +182,7 @@ def handle_message(message):
                 conn.commit(); conn.close()
                 bot.reply_to(message, f"✅ Парковка '{title}' добавлена!")
             else:
-                bot.reply_to(message, f" Не найдено: '{location_part}'")
+                bot.reply_to(message, f"❌ Не найдено: '{location_part}'")
         return
 
     if ' - ' in text:
@@ -194,9 +194,9 @@ def handle_message(message):
             conn = get_db_connection(); c = conn.cursor()
             c.execute("DELETE FROM parkings WHERE title = %s", (title,))
             if c.rowcount > 0:
-                bot.reply_to(message, f"️ Парковка '{title}' удалена.")
+                bot.reply_to(message, f"🗑️ Парковка '{title}' удалена.")
             else:
-                bot.reply_to(message, f" Парковка '{title}' не найдена.")
+                bot.reply_to(message, f"❌ Парковка '{title}' не найдена.")
             conn.commit(); conn.close()
             return
         
@@ -392,6 +392,19 @@ def update_comment():
         data = request.json
         conn = get_db_connection(); c = conn.cursor()
         c.execute("UPDATE points SET comment = %s WHERE id = %s", (data.get('comment', ''), data.get('point_id')))
+        conn.commit(); conn.close()
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"error": str(e), "success": False}), 500
+
+# ✅ НОВЫЙ ЭНДПОИНТ: перемещение самоката/доп инфы
+@app.route('/update_point_location', methods=['POST'])
+def update_point_location():
+    try:
+        data = request.json
+        conn = get_db_connection(); c = conn.cursor()
+        c.execute("UPDATE points SET lat = %s, lon = %s, address = %s WHERE id = %s", 
+                 (data.get('lat'), data.get('lon'), data.get('address', ''), data.get('id')))
         conn.commit(); conn.close()
         return jsonify({"success": True})
     except Exception as e:
