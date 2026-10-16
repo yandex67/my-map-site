@@ -13,10 +13,10 @@
         body, html { margin: 0; padding: 0; height: 100%; font-family: Arial, sans-serif; }
         #map { width: 100%; height: 100vh; }
         #osmMap { width: 100%; height: 100vh; display: none; }
-        .controls { position: absolute; top: 15px; left: 50%; transform: translateX(-50%); z-index: 1000; background: white; padding: 12px 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); min-width: 250px; max-width: 350px; text-align: center; }
+        .controls { position: absolute; top: 15px; left: 50%; transform: translateX(-50%); z-index: 1000; background: white; padding: 12px 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); min-width: 250px; max-width: 350px; text-align: center; cursor: pointer; }
         .controls h3 { margin: 0 0 5px 0; font-size: 15px; cursor: pointer; user-select: none; display: inline-block; }
         .info { font-size: 13px; color: #666; margin-bottom: 0; cursor: pointer; user-select: none; display: inline-block; }
-        .bottom-panel { position: fixed; bottom: 0; left: 0; right: 0; background: white; padding: 15px 45px 15px 15px; box-shadow: 0 -2px 10px rgba(0,0,0,0.2); z-index: 1000; max-height: 180px; overflow-y: auto; text-align: center; }
+        .bottom-panel { position: fixed; bottom: 0; left: 0; right: 0; background: white; padding: 15px 45px 15px 15px; box-shadow: 0 -2px 10px rgba(0,0,0,0.2); z-index: 1000; max-height: 180px; overflow-y: auto; text-align: center; cursor: pointer; }
         .bottom-panel .close-btn { position: absolute; top: 8px; right: 10px; background: none; border: none; font-size: 20px; cursor: pointer; color: #333; padding: 0; width: auto; margin: 0; line-height: 1; }
         .departure-item { font-size: 15px; color: #333; text-align: center; margin: 4px 0; }
         .dead-info { font-size: 15px; color: #333; margin: 4px 0; font-weight: bold; cursor: pointer; display: inline-block; }
@@ -73,7 +73,7 @@
 
     <div class="move-hint" id="moveHint">Кликните по карте, куда переместить</div>
 
-    <div class="controls">
+    <div class="controls" id="controlsPanel">
         <h3 onclick="onTasksHeaderClick()">Задачи на сегодня</h3>
         <br>
         <div class="info" onclick="onInfoClick()">Всего: <span id="pointCount">0</span></div>
@@ -577,7 +577,6 @@
             osmZones.forEach(function(z) { osmMap.removeLayer(z.layer); if(z.text) osmMap.removeLayer(z.text); });
             osmZones = [];
             
-            // ✅ Если фильтр не выбран — показываем все зоны
             var url = currentUserFilter ? API_URL + '/get_zones?user=' + encodeURIComponent(currentUserFilter) : API_URL + '/get_zones';
             
             fetch(url).then(function(r) { return r.json(); }).then(function(data) {
@@ -589,7 +588,6 @@
                     });
                     var zoneObj = { id: z.id, polygon: polygon, text: null, assigned_to: z.assigned_to };
                     
-                    // ✅ Правый клик для удаления зоны
                     polygon.events.add('contextmenu', function(e) {
                         e.get('domEvent').preventDefault();
                         e.get('domEvent').stopPropagation();
@@ -620,7 +618,6 @@
                     }).addTo(osmMap);
                     var osmZoneObj = { id: z.id, layer: osmPolygon, text: null, assigned_to: z.assigned_to };
                     
-                    // ✅ Правый клик для удаления зоны (OSM)
                     osmPolygon.on('contextmenu', function(e) {
                         L.DomEvent.preventDefault(e);
                         L.DomEvent.stopPropagation(e);
@@ -879,14 +876,12 @@
                 return;
             }
             
-            // ✅ Сохраняем маршрут и закрываем модалку
             routePointMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); routePointMarkers = [];
             if (routePolyline) { myMap.geoObjects.remove(routePolyline); routePolyline = null; }
             
             routePolyline = new ymaps.Polyline(routePoints, {}, { strokeColor: '#ff3b30', strokeWidth: 4, strokeStyle: 'solid' });
             myMap.geoObjects.add(routePolyline);
             
-            // ✅ Исправленная стрелка в конце
             var lastPoint = routePoints[routePoints.length - 1];
             var prevPoint = routePoints[routePoints.length - 2];
             var angle = calculateArrowAngle(prevPoint, lastPoint);
@@ -1032,7 +1027,6 @@
             infoMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); infoMarkers = [];
             osmInfoMarkers.forEach(function(m) { osmMap.removeLayer(m); }); osmInfoMarkers = [];
             
-            // ✅ Если фильтр не выбран — показываем все точки
             var url = currentUserFilter ? API_URL + '/get_points?user=' + encodeURIComponent(currentUserFilter) : API_URL + '/get_points';
             
             fetch(url).then(function(r) { return r.json(); }).then(function(data) {
@@ -1137,7 +1131,6 @@
                     });
                     myMap.geoObjects.add(arrowMarker);
                     
-                    // ✅ Правый клик для удаления маршрута
                     polyline.events.add('contextmenu', function(e) {
                         e.get('domEvent').preventDefault();
                         e.get('domEvent').stopPropagation();
@@ -1432,18 +1425,23 @@
             });
         }
 
+        // ✅ ИСПРАВЛЕНО: клик по тексту "Севшие на парковке" → модалка "Больше всего севших"
         function onDeadInfoClick() {
             deadClickCount++;
             if (deadClickTimer) clearTimeout(deadClickTimer);
             deadClickTimer = setTimeout(function() { deadClickCount = 0; }, 600);
             if (deadClickCount >= 3) {
                 deadClickCount = 0;
-                // ✅ При назначении — показываем всё
-                currentUserFilter = null;
-                document.getElementById('userFilterText').style.display = 'none';
-                loadPoints();
-                loadZones();
-                openNameSelectModal('assign');
+                var data = document.getElementById('deadInfo').data || { maxDead: 0, maxDeadParkings: [] };
+                if (data.maxDead >= 5 && data.maxDeadParkings.length > 0) {
+                    var bodyText = data.maxDeadParkings.length === 1 ? 'На парковке "' + data.maxDeadParkings[0] + '" — ' + data.maxDead + ' севших' : 'На парковках ' + data.maxDeadParkings.map(function(n) { return '"' + n + '"'; }).join(', ') + ' — по ' + data.maxDead + ' севших';
+                    document.getElementById('maxDeadTitle').textContent = 'Больше всего севших';
+                    document.getElementById('maxDeadText').textContent = bodyText;
+                } else {
+                    document.getElementById('maxDeadTitle').textContent = 'Севшие на парковке';
+                    document.getElementById('maxDeadText').textContent = 'Нет парковок с 5 и более севшими самокатами';
+                }
+                document.getElementById('maxDeadModal').style.display = 'flex';
             }
         }
 
@@ -1545,14 +1543,14 @@
             }).then(function(r) { return r.json(); }).then(function(data) { if (data.success) loadParkings(); });
         }
 
+        // ✅ ИСПРАВЛЕНО: клик по тексту "Задачи на сегодня" → режимы черчения (3 клика)
         function onTasksHeaderClick() {
             tasksHeaderClickCount++;
             if (tasksHeaderClickTimer) clearTimeout(tasksHeaderClickTimer);
             tasksHeaderClickTimer = setTimeout(function() { tasksHeaderClickCount = 0; }, 1000);
             if (tasksHeaderClickCount >= 3) { 
                 tasksHeaderClickCount = 0; 
-                // ✅ При просмотре — показываем только задачи выбранного имени
-                openNameSelectModal('view');
+                openZoneModal();
             }
         }
 
@@ -1816,6 +1814,50 @@
             });
         }
 
+        // ✅ ОБРАБОТЧИКИ КЛИКОВ ПО ПЛАШКАМ (областям вокруг текста)
+        document.addEventListener('DOMContentLoaded', function() {
+            var controlsPanel = document.getElementById('controlsPanel');
+            var bottomPanel = document.getElementById('bottomPanel');
+            var controlsClickCount = 0;
+            var controlsClickTimer = null;
+            var bottomClickCount = 0;
+            var bottomClickTimer = null;
+            
+            // Клик по плашке "Задачи на сегодня" → просмотр задач для имени
+            controlsPanel.addEventListener('click', function(e) {
+                // Игнорируем клики по тексту h3 и info
+                if (e.target.tagName === 'H3' || e.target.classList.contains('info')) return;
+                controlsClickCount++;
+                if (controlsClickTimer) clearTimeout(controlsClickTimer);
+                controlsClickTimer = setTimeout(function() { controlsClickCount = 0; }, 600);
+                if (controlsClickCount >= 2) {
+                    controlsClickCount = 0;
+                    openNameSelectModal('view');
+                }
+            });
+            
+            // Клик по плашке "Севшие на парковке" → назначение задач
+            bottomPanel.addEventListener('click', function(e) {
+                // Игнорируем клики по тексту dead-info и кнопке закрытия
+                if (e.target.classList.contains('dead-info') || e.target.classList.contains('close-btn')) return;
+                bottomClickCount++;
+                if (bottomClickTimer) clearTimeout(bottomClickTimer);
+                bottomClickTimer = setTimeout(function() { bottomClickCount = 0; }, 600);
+                if (bottomClickCount >= 2) {
+                    bottomClickCount = 0;
+                    // Сбрасываем фильтр чтобы показать все объекты для выбора
+                    currentUserFilter = null;
+                    document.getElementById('userFilterText').style.display = 'none';
+                    loadPoints();
+                    loadZones();
+                    openNameSelectModal('assign');
+                }
+            });
+            
+            document.getElementById('modalInput').addEventListener('keypress', function(e) { if (e.key === 'Enter') { e.preventDefault(); confirmModalInput(); } });
+            document.getElementById('commentModalInput').addEventListener('keypress', function(e) { if (e.key === 'Enter') { e.preventDefault(); confirmCommentModal(); } });
+        });
+
         document.addEventListener('click', function(e) { 
             if (e.target.id === 'modalOverlay') closeCustomInputModal();
             if (e.target.id === 'commentModalOverlay') closeCommentModal();
@@ -1826,10 +1868,6 @@
             if (e.target.id === 'maxDeadModal') closeMaxDeadModal();
             if (e.target.id === 'nameSelectModal') closeNameSelectModal();
             if (e.target.id === 'orangeModal') closeOrangeModal();
-        });
-        document.addEventListener('DOMContentLoaded', function() {
-            document.getElementById('modalInput').addEventListener('keypress', function(e) { if (e.key === 'Enter') { e.preventDefault(); confirmModalInput(); } });
-            document.getElementById('commentModalInput').addEventListener('keypress', function(e) { if (e.key === 'Enter') { e.preventDefault(); confirmCommentModal(); } });
         });
 
         function selectName(pointId, pointTitle, name) {
