@@ -13,13 +13,13 @@
         body, html { margin: 0; padding: 0; height: 100%; font-family: Arial, sans-serif; }
         #map { width: 100%; height: 100vh; }
         #osmMap { width: 100%; height: 100vh; display: none; }
-        .controls { position: absolute; top: 15px; left: 50%; transform: translateX(-50%); z-index: 1000; background: white; padding: 12px 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); min-width: 250px; max-width: 350px; }
-        .controls h3 { margin: 0 0 5px 0; text-align: center; font-size: 15px; cursor: pointer; user-select: none; display: inline-block; width: auto; }
-        .info { font-size: 13px; color: #666; text-align: center; margin-bottom: 0; cursor: pointer; user-select: none; display: inline-block; width: auto; }
-        .bottom-panel { position: fixed; bottom: 0; left: 0; right: 0; background: white; padding: 15px 45px 15px 15px; box-shadow: 0 -2px 10px rgba(0,0,0,0.2); z-index: 1000; max-height: 180px; overflow-y: auto; }
+        .controls { position: absolute; top: 15px; left: 50%; transform: translateX(-50%); z-index: 1000; background: white; padding: 12px 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); min-width: 250px; max-width: 350px; text-align: center; }
+        .controls h3 { margin: 0 0 5px 0; font-size: 15px; cursor: pointer; user-select: none; display: inline-block; }
+        .info { font-size: 13px; color: #666; margin-bottom: 0; cursor: pointer; user-select: none; display: inline-block; }
+        .bottom-panel { position: fixed; bottom: 0; left: 0; right: 0; background: white; padding: 15px 45px 15px 15px; box-shadow: 0 -2px 10px rgba(0,0,0,0.2); z-index: 1000; max-height: 180px; overflow-y: auto; text-align: center; }
         .bottom-panel .close-btn { position: absolute; top: 8px; right: 10px; background: none; border: none; font-size: 20px; cursor: pointer; color: #333; padding: 0; width: auto; margin: 0; line-height: 1; }
         .departure-item { font-size: 15px; color: #333; text-align: center; margin: 4px 0; }
-        .dead-info { font-size: 15px; color: #333; text-align: center; margin: 4px 0; font-weight: bold; cursor: pointer; display: inline-block; width: auto; }
+        .dead-info { font-size: 15px; color: #333; margin: 4px 0; font-weight: bold; cursor: pointer; display: inline-block; }
         .user-filter-text { font-size: 13px; color: #ff9800; text-align: center; margin: 4px 0; font-weight: bold; }
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.5); z-index: 2000; justify-content: center; align-items: center; }
         .modal-box { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); width: 80%; max-width: 300px; text-align: center; }
@@ -75,6 +75,7 @@
 
     <div class="controls">
         <h3 onclick="onTasksHeaderClick()">Задачи на сегодня</h3>
+        <br>
         <div class="info" onclick="onInfoClick()">Всего: <span id="pointCount">0</span></div>
     </div>
     <div class="bottom-panel" id="bottomPanel">
@@ -199,6 +200,16 @@
         </div>
     </div>
 
+    <div class="modal-overlay delete-zone-modal" id="deleteRouteModal">
+        <div class="modal-box">
+            <h4>Удалить маршрут?</h4>
+            <div class="modal-actions">
+                <button class="btn-secondary" onclick="cancelDeleteRoute()">Отмена</button>
+                <button class="btn-ok" onclick="confirmDeleteRoute()">Ок</button>
+            </div>
+        </div>
+    </div>
+
     <div class="modal-overlay max-dead-modal" id="maxDeadModal">
         <div class="modal-box">
             <h4 id="maxDeadTitle">Севшие на парковке</h4>
@@ -250,13 +261,13 @@
         var movingZoneId = null;
         var movingParkingId = null;
         var parkingMoveMode = false;
+        var deleteRouteId = null;
+        var deleteZoneId = null;
         
         var isDrawingZone = false, drawMode = 1, zonePoints = [], zonePolygon = null, zonePolyline = null, zonePointMarkers = [];
         var isDrawingRoute = false, routePoints = [], routePolyline = null, routePointMarkers = [], isTempRoute = false;
         var isDrawingFreehand = false, freehandStartPoint = null;
         var zoneComment = "", willSaveZone = false;
-        var zoneToDeleteId = null;
-        var zoneClickCount = 0, zoneClickTimer = null;
         var isZoneConfirmed = false;
         var drawModeSelected = false;
         var isMode3SubMode = false;
@@ -279,8 +290,6 @@
         var currentUserFilter = null;
         var assigningUser = null;
         var selectedForAssignment = [];
-
-        // ✅ ИМЕНА (без no4ka, с Антоном после Андрея)
         var ALL_NAMES = ['Андрей', 'Антон', 'Миша', 'Илья', 'Саша', 'Кирилл'];
 
         ymaps.ready(init);
@@ -365,7 +374,6 @@
             myMap.events.add('boundschange', function() { updateZoneTextVisibility(); });
         }
 
-        // ===== ПЕРЕМЕЩЕНИЕ САМОКАТА/ДОП ИНФЫ =====
         function performMove(newCoords) {
             if (!movingPointId) return;
             var lat = newCoords[0];
@@ -387,8 +395,6 @@
                     loadPoints();
                     if (movingType === 'parking') loadParkings();
                 }
-            }).catch(function(err) {
-                alert('Ошибка сети: ' + err);
             });
         }
 
@@ -410,7 +416,6 @@
 
         function confirmMovePoint() {
             if (movingZoneId) {
-                // Режим перетаскивания зоны
                 document.getElementById('movePointModal').style.display = 'none';
                 enableZoneDrag(movingZoneId);
                 movingZoneId = null;
@@ -464,7 +469,6 @@
             }
         }
 
-        // ===== ПЕРЕМЕЩЕНИЕ ПАРКОВКИ =====
         function openParkingMoveModal(parkingId, parkingData) {
             movingParkingId = parkingId;
             parkingMoveMode = true;
@@ -506,7 +510,6 @@
             });
         }
 
-        // ===== КОНТЕКСТНОЕ МЕНЮ =====
         function attachScooterContextMenu(pm, point) {
             pm.events.add('contextmenu', function(e) {
                 e.get('domEvent').preventDefault();
@@ -556,7 +559,7 @@
                 appSettings.show_parkings = data.show_parkings !== false;
                 appSettings.show_labels = data.show_labels !== false;
                 loadParkings();
-            }).catch(function(err) { console.error('Ошибка загрузки настроек:', err); });
+            });
         }
 
         function updateZoneTextVisibility() {
@@ -574,6 +577,7 @@
             osmZones.forEach(function(z) { osmMap.removeLayer(z.layer); if(z.text) osmMap.removeLayer(z.text); });
             osmZones = [];
             
+            // ✅ Если фильтр не выбран — показываем все зоны
             var url = currentUserFilter ? API_URL + '/get_zones?user=' + encodeURIComponent(currentUserFilter) : API_URL + '/get_zones';
             
             fetch(url).then(function(r) { return r.json(); }).then(function(data) {
@@ -584,6 +588,15 @@
                         strokeColor: '#ff3b30', strokeWidth: 3, strokeStyle: 'solid', draggable: false
                     });
                     var zoneObj = { id: z.id, polygon: polygon, text: null, assigned_to: z.assigned_to };
+                    
+                    // ✅ Правый клик для удаления зоны
+                    polygon.events.add('contextmenu', function(e) {
+                        e.get('domEvent').preventDefault();
+                        e.get('domEvent').stopPropagation();
+                        deleteZoneId = z.id;
+                        document.getElementById('deleteZoneModal').style.display = 'flex';
+                    });
+                    
                     polygon.events.add('click', function(e) {
                         e.stopImmediatePropagation();
                         openZoneMoveModal(z.id, z);
@@ -606,6 +619,15 @@
                         color: '#ff3b30', weight: 3, fillColor: '#FFB6C1', fillOpacity: 0.5
                     }).addTo(osmMap);
                     var osmZoneObj = { id: z.id, layer: osmPolygon, text: null, assigned_to: z.assigned_to };
+                    
+                    // ✅ Правый клик для удаления зоны (OSM)
+                    osmPolygon.on('contextmenu', function(e) {
+                        L.DomEvent.preventDefault(e);
+                        L.DomEvent.stopPropagation(e);
+                        deleteZoneId = z.id;
+                        document.getElementById('deleteZoneModal').style.display = 'flex';
+                    });
+                    
                     osmPolygon.on('click', function(e) {
                         L.DomEvent.stopPropagation(e);
                         openZoneMoveModal(z.id, z);
@@ -625,7 +647,7 @@
                     }
                     osmZones.push(osmZoneObj);
                 });
-            }).catch(function(err) { console.error('Ошибка загрузки зон:', err); });
+            });
         }
 
         function openZoneMoveModal(zoneId, zoneData) {
@@ -848,29 +870,28 @@
             if (routePoints.length < 2) { cancelZoneDrawing(); return; }
             
             if (!routeEditMode) {
-                // Первый "Ок" — показываем кружочки для редактирования
                 if (routePolyline) { myMap.geoObjects.remove(routePolyline); routePolyline = null; }
                 routePolyline = new ymaps.Polyline(routePoints, {}, { strokeColor: '#ff3b30', strokeWidth: 4, strokeStyle: 'solid' });
                 myMap.geoObjects.add(routePolyline);
                 enableRouteVertexEditing();
                 routeEditMode = true;
-                document.getElementById('indicatorText').textContent = 'Точно всё? Двигайте кружочки';
+                document.getElementById('indicatorText').textContent = 'Точно всё?';
                 return;
             }
             
-            // Второй "Ок" — сохраняем маршрут со стрелкой
+            // ✅ Сохраняем маршрут и закрываем модалку
             routePointMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); routePointMarkers = [];
             if (routePolyline) { myMap.geoObjects.remove(routePolyline); routePolyline = null; }
             
-            // Рисуем финальную линию
             routePolyline = new ymaps.Polyline(routePoints, {}, { strokeColor: '#ff3b30', strokeWidth: 4, strokeStyle: 'solid' });
             myMap.geoObjects.add(routePolyline);
             
-            // Добавляем стрелку в конце
+            // ✅ Исправленная стрелка в конце
             var lastPoint = routePoints[routePoints.length - 1];
             var prevPoint = routePoints[routePoints.length - 2];
+            var angle = calculateArrowAngle(prevPoint, lastPoint);
             var arrowMarker = new ymaps.Placemark(lastPoint, {}, {
-                iconLayout: ymaps.templateLayoutFactory.createClass('<div style="width: 0; height: 0; border-left: 8px solid transparent; border-right: 8px solid transparent; border-bottom: 16px solid #ff3b30; transform: rotate(' + calculateArrowAngle(prevPoint, lastPoint) + 'deg);"></div>'),
+                iconLayout: ymaps.templateLayoutFactory.createClass('<div style="width: 0; height: 0; border-left: 8px solid transparent; border-right: 8px solid transparent; border-bottom: 16px solid #ff3b30; transform: rotate(' + angle + 'deg);"></div>'),
                 iconOffset: [-8, -8]
             });
             myMap.geoObjects.add(arrowMarker);
@@ -880,8 +901,8 @@
 
         function calculateArrowAngle(from, to) {
             var dx = to[1] - from[1];
-            var dy = -(to[0] - from[0]);
-            var angle = Math.atan2(dy, dx) * 180 / Math.PI - 90;
+            var dy = to[0] - from[0];
+            var angle = Math.atan2(dy, dx) * 180 / Math.PI + 90;
             return angle;
         }
 
@@ -892,6 +913,7 @@
             }).then(function(r) { return r.json(); }).then(function(data) {
                 if (data.success) {
                     resetDrawingState();
+                    document.getElementById('drawingIndicator').style.display = 'none';
                     loadRoutes();
                 }
             });
@@ -931,19 +953,42 @@
                 body: JSON.stringify({ coords: finalCoords, comment: zoneComment })
             }).then(function(r) { return r.json(); }).then(function(data) {
                 if (data.success) { resetDrawingState(); loadZones(); }
-                else { alert('Ошибка сохранения зоны!'); }
-            }).catch(function(err) { alert('Ошибка сети!'); });
+            });
         }
 
-        function cancelDeleteZone() { zoneToDeleteId = null; document.getElementById('deleteZoneModal').style.display = 'none'; }
+        function cancelDeleteZone() { 
+            deleteZoneId = null; 
+            document.getElementById('deleteZoneModal').style.display = 'none'; 
+        }
 
         function confirmDeleteZone() {
-            if (!zoneToDeleteId) return;
+            if (!deleteZoneId) return;
             fetch(API_URL + '/delete_zone', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: zoneToDeleteId })
+                body: JSON.stringify({ id: deleteZoneId })
             }).then(function(r) { return r.json(); }).then(function(data) {
-                if (data.success) { cancelDeleteZone(); loadZones(); }
+                if (data.success) { 
+                    cancelDeleteZone(); 
+                    loadZones(); 
+                }
+            });
+        }
+
+        function cancelDeleteRoute() { 
+            deleteRouteId = null; 
+            document.getElementById('deleteRouteModal').style.display = 'none'; 
+        }
+
+        function confirmDeleteRoute() {
+            if (!deleteRouteId) return;
+            fetch(API_URL + '/delete_route', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: deleteRouteId })
+            }).then(function(r) { return r.json(); }).then(function(data) {
+                if (data.success) { 
+                    cancelDeleteRoute(); 
+                    loadRoutes(); 
+                }
             });
         }
 
@@ -987,6 +1032,7 @@
             infoMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); infoMarkers = [];
             osmInfoMarkers.forEach(function(m) { osmMap.removeLayer(m); }); osmInfoMarkers = [];
             
+            // ✅ Если фильтр не выбран — показываем все точки
             var url = currentUserFilter ? API_URL + '/get_points?user=' + encodeURIComponent(currentUserFilter) : API_URL + '/get_points';
             
             fetch(url).then(function(r) { return r.json(); }).then(function(data) {
@@ -1063,7 +1109,7 @@
                 });
                 
                 document.getElementById('pointCount').textContent = scooterCount;
-            }).catch(function(err) { console.error('Ошибка загрузки точек:', err); });
+            });
         }
 
         function loadRoutes() {
@@ -1082,21 +1128,35 @@
                     var polyline = new ymaps.Polyline(route.coords, {}, { strokeColor: '#ff3b30', strokeWidth: 4, strokeStyle: 'solid' });
                     myMap.geoObjects.add(polyline);
                     
-                    // Стрелка в конце
                     var lastPoint = route.coords[route.coords.length - 1];
                     var prevPoint = route.coords[route.coords.length - 2];
+                    var angle = calculateArrowAngle(prevPoint, lastPoint);
                     var arrowMarker = new ymaps.Placemark(lastPoint, {}, {
-                        iconLayout: ymaps.templateLayoutFactory.createClass('<div style="width: 0; height: 0; border-left: 8px solid transparent; border-right: 8px solid transparent; border-bottom: 16px solid #ff3b30; transform: rotate(' + calculateArrowAngle(prevPoint, lastPoint) + 'deg);"></div>'),
+                        iconLayout: ymaps.templateLayoutFactory.createClass('<div style="width: 0; height: 0; border-left: 8px solid transparent; border-right: 8px solid transparent; border-bottom: 16px solid #ff3b30; transform: rotate(' + angle + 'deg);"></div>'),
                         iconOffset: [-8, -8]
                     });
                     myMap.geoObjects.add(arrowMarker);
                     
+                    // ✅ Правый клик для удаления маршрута
+                    polyline.events.add('contextmenu', function(e) {
+                        e.get('domEvent').preventDefault();
+                        e.get('domEvent').stopPropagation();
+                        deleteRouteId = route.id;
+                        document.getElementById('deleteRouteModal').style.display = 'flex';
+                    });
+                    
                     routes.push({ id: route.id, polyline: polyline, arrow: arrowMarker });
                     
                     var osmPolyline = L.polyline(route.coords, { color: '#ff3b30', weight: 4 }).addTo(osmMap);
+                    osmPolyline.on('contextmenu', function(e) {
+                        L.DomEvent.preventDefault(e);
+                        L.DomEvent.stopPropagation(e);
+                        deleteRouteId = route.id;
+                        document.getElementById('deleteRouteModal').style.display = 'flex';
+                    });
                     osmRoutes.push({ id: route.id, layer: osmPolyline });
                 });
-            }).catch(function(err) { console.error('Ошибка загрузки маршрутов:', err); });
+            });
             
             fetch(API_URL + '/get_temp_routes').then(function(r) { return r.json(); }).then(function(data) {
                 data.forEach(function(route) {
@@ -1108,7 +1168,7 @@
                     var osmPolyline = L.polyline(route.coords, { color: '#ff3b30', weight: 4 }).addTo(osmMap);
                     osmTempRoutes.push({ id: route.id, layer: osmPolyline });
                 });
-            }).catch(function(err) { console.error('Ошибка загрузки временных маршрутов:', err); });
+            });
         }
 
         function buildInfoBalloonContent(info) {
@@ -1348,7 +1408,7 @@
                 });
                 document.getElementById('deadCount').textContent = totalDead;
                 document.getElementById('deadInfo').data = { maxDead: maxDead, maxDeadParkings: maxDeadParkings };
-            }).catch(function(err) { console.error('Ошибка загрузки парковок:', err); });
+            });
         }
 
         function toggleExtraVisibility() {
@@ -1378,16 +1438,12 @@
             deadClickTimer = setTimeout(function() { deadClickCount = 0; }, 600);
             if (deadClickCount >= 3) {
                 deadClickCount = 0;
-                var data = document.getElementById('deadInfo').data || { maxDead: 0, maxDeadParkings: [] };
-                if (data.maxDead >= 5 && data.maxDeadParkings.length > 0) {
-                    var bodyText = data.maxDeadParkings.length === 1 ? 'На парковке "' + data.maxDeadParkings[0] + '" — ' + data.maxDead + ' севших' : 'На парковках ' + data.maxDeadParkings.map(function(n) { return '"' + n + '"'; }).join(', ') + ' — по ' + data.maxDead + ' севших';
-                    document.getElementById('maxDeadTitle').textContent = 'Больше всего севших';
-                    document.getElementById('maxDeadText').textContent = bodyText;
-                } else {
-                    document.getElementById('maxDeadTitle').textContent = 'Севшие на парковке';
-                    document.getElementById('maxDeadText').textContent = 'Нет парковок с 5 и более севшими самокатами';
-                }
-                document.getElementById('maxDeadModal').style.display = 'flex';
+                // ✅ При назначении — показываем всё
+                currentUserFilter = null;
+                document.getElementById('userFilterText').style.display = 'none';
+                loadPoints();
+                loadZones();
+                openNameSelectModal('assign');
             }
         }
 
@@ -1403,7 +1459,6 @@
             h += '<div style="background: #7E0000; color: white; padding: 10px; border-radius: 4px; font-weight: bold; font-size: 14px;">Поломки: ' + p.broken + '</div>';
             h += '<div style="background: #f44336; color: white; padding: 10px; border-radius: 4px; font-weight: bold; font-size: 14px;">Севшие: ' + p.dead + '</div>';
             h += '<button onclick="event.stopPropagation(); startEditParking(' + p.id + ')" style="background: #9E9E9E; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px;">Изменить</button>';
-            // ✅ НОВАЯ КНОПКА ПЕРЕМЕСТИТЬ
             h += '<button onclick="event.stopPropagation(); openParkingMoveModal(' + p.id + ', ' + JSON.stringify(p).replace(/"/g, '&quot;') + ')" style="background: #9E9E9E; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px;">Переместить</button>';
             h += '<button onclick="event.stopPropagation(); toggleExtraVisibility()" style="background: ' + btnColor + '; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px;">' + btnText + '</button>';
             h += '</div></div>';
@@ -1494,7 +1549,11 @@
             tasksHeaderClickCount++;
             if (tasksHeaderClickTimer) clearTimeout(tasksHeaderClickTimer);
             tasksHeaderClickTimer = setTimeout(function() { tasksHeaderClickCount = 0; }, 1000);
-            if (tasksHeaderClickCount >= 3) { tasksHeaderClickCount = 0; openZoneModal(); }
+            if (tasksHeaderClickCount >= 3) { 
+                tasksHeaderClickCount = 0; 
+                // ✅ При просмотре — показываем только задачи выбранного имени
+                openNameSelectModal('view');
+            }
         }
 
         function onInfoClick() {
@@ -1534,7 +1593,7 @@
                 departures = {};
                 data.forEach(function(d) { departures[d.point_id] = { title: d.point_title, name: d.person_name }; });
                 renderBottomPanel();
-            }).catch(function(err) { console.error('Ошибка загрузки бронирований:', err); });
+            });
         }
 
         function renderBottomPanel() {
@@ -1689,7 +1748,6 @@
             });
         }
 
-        // ===== НАЗНАЧЕНИЕ ЗАДАЧ =====
         function openNameSelectModal(mode) {
             var container = document.getElementById('nameSelectButtons');
             container.innerHTML = '';
@@ -1758,21 +1816,20 @@
             });
         }
 
-        // ✅ ОБРАБОТЧИКИ КЛИКОВ ТОЛЬКО ПО ТЕКСТУ (не по всей области)
-        document.addEventListener('DOMContentLoaded', function() {
-            document.getElementById('modalInput').addEventListener('keypress', function(e) { if (e.key === 'Enter') { e.preventDefault(); confirmModalInput(); } });
-            document.getElementById('commentModalInput').addEventListener('keypress', function(e) { if (e.key === 'Enter') { e.preventDefault(); confirmCommentModal(); } });
-        });
-
         document.addEventListener('click', function(e) { 
             if (e.target.id === 'modalOverlay') closeCustomInputModal();
             if (e.target.id === 'commentModalOverlay') closeCommentModal();
             if (e.target.id === 'movePointModal') closeMovePointModal();
             if (e.target.id === 'parkingMoveModal') closeParkingMoveModal();
             if (e.target.id === 'deleteZoneModal') cancelDeleteZone();
+            if (e.target.id === 'deleteRouteModal') cancelDeleteRoute();
             if (e.target.id === 'maxDeadModal') closeMaxDeadModal();
             if (e.target.id === 'nameSelectModal') closeNameSelectModal();
             if (e.target.id === 'orangeModal') closeOrangeModal();
+        });
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('modalInput').addEventListener('keypress', function(e) { if (e.key === 'Enter') { e.preventDefault(); confirmModalInput(); } });
+            document.getElementById('commentModalInput').addEventListener('keypress', function(e) { if (e.key === 'Enter') { e.preventDefault(); confirmCommentModal(); } });
         });
 
         function selectName(pointId, pointTitle, name) {
