@@ -15,6 +15,8 @@ DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://mapbotuser:r47l5ou0p
 app = Flask(__name__)
 CORS(app)
 
+db_initialized = False
+
 @app.before_request
 def handle_options():
     if request.method == 'OPTIONS':
@@ -30,68 +32,55 @@ def add_cors_headers(response):
 def get_db_connection():
     try:
         conn = psycopg.connect(DATABASE_URL)
-        print("✅ Подключение к БД успешно")
         return conn
     except Exception as e:
         print(f"❌ Ошибка подключения к БД: {e}")
-        traceback.print_exc()
         return None
 
 def init_db():
+    global db_initialized
+    if db_initialized:
+        return
     print("🔄 Начинаю инициализацию БД...")
     try:
         conn = get_db_connection()
         if not conn:
             print("❌ Не удалось подключиться к БД")
             return
-            
         c = conn.cursor()
-        
-        # Создаем таблицы
         tables = [
             '''CREATE TABLE IF NOT EXISTS points
                (id SERIAL PRIMARY KEY, title TEXT, address TEXT, lat REAL, lon REAL, 
                 status TEXT DEFAULT 'active', comment TEXT, url TEXT, assigned_to TEXT)''',
-            
             '''CREATE TABLE IF NOT EXISTS parkings
                (id SERIAL PRIMARY KEY, title TEXT UNIQUE, address TEXT, lat REAL, lon REAL, 
                 available_count TEXT DEFAULT '?', dead_count TEXT DEFAULT '?', 
                 broken_count TEXT DEFAULT '?', photo_url TEXT)''',
-            
             '''CREATE TABLE IF NOT EXISTS zones
                (id SERIAL PRIMARY KEY, coords TEXT, comment TEXT, assigned_to TEXT)''',
-            
             '''CREATE TABLE IF NOT EXISTS routes
                (id SERIAL PRIMARY KEY, coords TEXT, comment TEXT, temporary BOOLEAN DEFAULT FALSE)''',
-            
             '''CREATE TABLE IF NOT EXISTS departures
                (id SERIAL PRIMARY KEY, point_id INTEGER UNIQUE, point_title TEXT, person_name TEXT)''',
-            
             '''CREATE TABLE IF NOT EXISTS settings
                (key TEXT PRIMARY KEY, value TEXT)'''
         ]
-        
         for table_sql in tables:
             c.execute(table_sql)
-        
-        # Вставляем настройки
-        settings = [
-            ('hide_empty_labels', 'false'),
-            ('show_parkings', 'true'),
-            ('show_labels', 'true')
-        ]
+        settings = [('hide_empty_labels', 'false'), ('show_parkings', 'true'), ('show_labels', 'true')]
         for key, value in settings:
             c.execute("INSERT INTO settings (key, value) VALUES (%s, %s) ON CONFLICT (key) DO NOTHING", (key, value))
-        
         conn.commit()
         conn.close()
+        db_initialized = True
         print("✅ База данных успешно инициализирована!")
     except Exception as e:
         print(f"❌ Ошибка инициализации БД: {e}")
         traceback.print_exc()
 
-# Запускаем инициализацию
-init_db()
+@app.before_request
+def ensure_db_initialized():
+    init_db()
 
 def get_coordinates(address):
     query = f"г. Смоленск, {address}"
@@ -112,15 +101,224 @@ bot = telebot.TeleBot(BOT_TOKEN)
 @bot.message_handler(func=lambda message: True)
 def handle_message(message):
     if message.text is None:
-        return 
-
+        return
     text = message.text.strip()
     text_lower = text.lower()
 
-    # ... (остальной код бота без изменений) ...
-    # Для краткости не дублирую весь код обработчиков сообщений
+    if text_lower == 'off лишнее':
+        conn = get_db_connection(); c = conn.cursor()
+        c.execute("UPDATE settings SET value = 'true' WHERE key = 'hide_empty_labels'")
+        conn.commit(); conn.close()
+        bot.reply_to(message, "✅ Лишние плашки скрыты.")
+        return
+    if text_lower == 'вкл всё':
+        conn = get_db_connection(); c = conn.cursor()
+        c.execute("UPDATE settings SET value = 'false' WHERE key = 'hide_empty_labels'")
+        conn.commit(); conn.close()
+        bot.reply_to(message, "✅ Все плашки видны.")
+        return
+    if text_lower == 'off видимость парковок':
+        conn = get_db_connection(); c = conn.cursor()
+        c.execute("UPDATE settings SET value = 'false' WHERE key = 'show_parkings'")
+        conn.commit(); conn.close()
+        bot.reply_to(message, "✅ Парковки скрыты.")
+        return
+    if text_lower == 'вкл видимость парковок':
+        conn = get_db_connection(); c = conn.cursor()
+        c.execute("UPDATE settings SET value = 'true' WHERE key = 'show_parkings'")
+        conn.commit(); conn.close()
+        bot.reply_to(message, "✅ Парковки видны.")
+        return
+    if text_lower == 'off плашки':
+        conn = get_db_connection(); c = conn.cursor()
+        c.execute("UPDATE settings SET value = 'false' WHERE key = 'show_labels'")
+        conn.commit(); conn.close()
+        bot.reply_to(message, "✅ Плашки скрыты.")
+        return
+    if text_lower == 'вкл плашки':
+        conn = get_db_connection(); c = conn.cursor()
+        c.execute("UPDATE settings SET value = 'true' WHERE key = 'show_labels'")
+        conn.commit(); conn.close()
+        bot.reply_to(message, "✅ Плашки видны.")
+        return
+    if text_lower == 'сброс парковок':
+        try:
+            conn = get_db_connection(); c = conn.cursor()
+            c.execute("UPDATE parkings SET available_count = '?', dead_count = '?', broken_count = '?'")
+            count = c.rowcount
+            conn.commit(); conn.close()
+            bot.reply_to(message, f"✅ Статистика сброшена ({count} шт.)")
+        except Exception as e:
+            bot.reply_to(message, f"❌ Ошибка: {e}")
+        return
 
-# --- API ЭНДПОИНТЫ С ОБРАБОТКОЙ ОШИБОК ---
+    if text_lower.endswith(' off ссылку'):
+        name = text[:-11].strip()
+        conn = get_db_connection(); c = conn.cursor()
+        c.execute("UPDATE parkings SET photo_url = NULL WHERE title = %s", (name,))
+        conn.commit(); conn.close()
+        bot.reply_to(message, f"🗑️ Ссылка удалена.")
+        return
+    if ' http' in text or text.startswith('http'):
+        parts = text.split(' ', 1)
+        if len(parts) == 2 and parts[1].startswith('http'):
+            name = parts[0].strip()
+            photo_url = parts[1].strip()
+            conn = get_db_connection(); c = conn.cursor()
+            c.execute("UPDATE parkings SET photo_url = %s WHERE title = %s", (photo_url, name))
+            conn.commit(); conn.close()
+            bot.reply_to(message, f"✅ Ссылка сохранена.")
+            return
+
+    if text_lower.endswith(' - p'):
+        clean_text = text[:-4].strip()
+        if '-' in clean_text:
+            parts = clean_text.rsplit('-', 1)
+            location_part, title = parts[0].strip(), parts[1].strip()
+            coord_match = re.match(r'^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$', location_part)
+            if coord_match:
+                lat, lon = float(coord_match.group(1)), float(coord_match.group(2))
+            else:
+                bot.reply_to(message, f"⏳ Ищу '{location_part}'...")
+                lat, lon = get_coordinates(location_part)
+            if lat and lon:
+                conn = get_db_connection(); c = conn.cursor()
+                c.execute("INSERT INTO parkings (title, address, lat, lon) VALUES (%s, %s, %s, %s)", (title, location_part, lat, lon))
+                conn.commit(); conn.close()
+                bot.reply_to(message, f"✅ Парковка '{title}' добавлена!")
+            else:
+                bot.reply_to(message, f"❌ Не найдено: '{location_part}'")
+        return
+
+    if ' - ' in text:
+        parts = text.split(' - ', 1)
+        title = parts[0].strip()
+        action = parts[1].strip()
+        if action.lower() == 'удалить':
+            conn = get_db_connection(); c = conn.cursor()
+            c.execute("DELETE FROM parkings WHERE title = %s", (title,))
+            if c.rowcount > 0:
+                bot.reply_to(message, f"🗑️ Парковка '{title}' удалена.")
+            else:
+                bot.reply_to(message, f"❌ Парковка '{title}' не найдена.")
+            conn.commit(); conn.close()
+            return
+        params_match = re.findall(r'([СсДдПп])(\d+|\?)', action)
+        if params_match:
+            avail = dead = broken = None
+            for param_type, param_value in params_match:
+                p_type = param_type.lower()
+                if p_type == 'с': dead = param_value
+                elif p_type == 'д': avail = param_value
+                elif p_type == 'п': broken = param_value
+            conn = get_db_connection(); c = conn.cursor()
+            c.execute("SELECT available_count, dead_count, broken_count FROM parkings WHERE title = %s", (title,))
+            row = c.fetchone()
+            if row:
+                new_avail = avail if avail is not None else row[0]
+                new_dead = dead if dead is not None else row[1]
+                new_broken = broken if broken is not None else row[2]
+                c.execute("UPDATE parkings SET available_count = %s, dead_count = %s, broken_count = %s WHERE title = %s", 
+                         (new_avail, new_dead, new_broken, title))
+                conn.commit(); conn.close()
+                response_parts = []
+                if avail is not None: response_parts.append(f"Д:{new_avail}")
+                if dead is not None: response_parts.append(f"С:{new_dead}")
+                if broken is not None: response_parts.append(f"П:{new_broken}")
+                bot.reply_to(message, f"✅ '{title}' обновлена: {', '.join(response_parts)}")
+            else:
+                bot.reply_to(message, f"❌ Парковка '{title}' не найдена.")
+            return
+
+    if text_lower.endswith(' - доп инфа'):
+        clean_text = text[:-10].strip()
+        if ' - ' in clean_text:
+            parts = clean_text.split(' - ', 1)
+            location_part = parts[0].strip()
+            comment = parts[1].strip()
+        else:
+            location_part = clean_text
+            comment = ""
+        coord_match = re.match(r'^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$', location_part)
+        if coord_match:
+            lat, lon = float(coord_match.group(1)), float(coord_match.group(2))
+        else:
+            bot.reply_to(message, f"⏳ Ищу '{location_part}'...")
+            lat, lon = get_coordinates(location_part)
+        if lat and lon:
+            conn = get_db_connection(); c = conn.cursor()
+            c.execute("INSERT INTO points (title, address, lat, lon, status, comment) VALUES (%s, %s, %s, %s, 'info', %s)", 
+                     ("ДОП ИНФА", location_part, lat, lon, comment))
+            conn.commit(); conn.close()
+            bot.reply_to(message, f"✅ Доп инфа добавлена!")
+        else:
+            bot.reply_to(message, f" Не найдено: '{location_part}'")
+        return
+
+    if '-' in text:
+        parts = text.rsplit('-', 1)
+        location_part = parts[0].strip()
+        right_side = parts[1].strip()
+        coord_match = re.match(r'^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$', location_part)
+        if coord_match:
+            lat, lon = float(coord_match.group(1)), float(coord_match.group(2))
+        else:
+            bot.reply_to(message, f"⏳ Ищу '{location_part}'...")
+            lat, lon = get_coordinates(location_part)
+        if lat and lon:
+            url_match = re.search(r'(https?://\S+)', right_side)
+            url = url_match.group(1) if url_match else ""
+            if url:
+                right_side = right_side.replace(url, "").strip()
+            status = 'active'
+            if re.search(r'\bred\b', right_side, re.IGNORECASE):
+                status = 'red'
+                right_side = re.sub(r'\bred\b', '', right_side, flags=re.IGNORECASE).strip()
+            elif re.search(r'\bsev\b', right_side, re.IGNORECASE):
+                status = 'sev'
+                right_side = re.sub(r'\bsev\b', '', right_side, flags=re.IGNORECASE).strip()
+            remaining_parts = right_side.split()
+            if len(remaining_parts) > 0:
+                title = remaining_parts[0]
+                comment = " ".join(remaining_parts[1:]) if len(remaining_parts) > 1 else ""
+            else:
+                title = "Точка"
+                comment = ""
+            conn = get_db_connection(); c = conn.cursor()
+            c.execute("INSERT INTO points (title, address, lat, lon, status, comment, url) VALUES (%s, %s, %s, %s, %s, %s, %s)", 
+                     (title, location_part, lat, lon, status, comment, url))
+            conn.commit(); conn.close()
+            bot.reply_to(message, f"✅ Точка '{title}' добавлена!")
+        else:
+            bot.reply_to(message, f"❌ Не найдено: '{location_part}'")
+        return
+
+    if text_lower == 'все p off':
+        conn = get_db_connection(); c = conn.cursor()
+        c.execute("DELETE FROM parkings")
+        count = c.rowcount
+        conn.commit(); conn.close()
+        bot.reply_to(message, f"🗑️ Удалено парковок: {count}")
+        return
+    if text_lower == 'все с off':
+        conn = get_db_connection(); c = conn.cursor()
+        c.execute("DELETE FROM points")
+        count = c.rowcount
+        c.execute("DELETE FROM departures")
+        conn.commit(); conn.close()
+        bot.reply_to(message, f"🗑️ Удалено точек: {count}")
+        return
+    if text_lower == 'last p off':
+        conn = get_db_connection(); c = conn.cursor()
+        c.execute("DELETE FROM parkings WHERE id = (SELECT MAX(id) FROM parkings)")
+        if c.rowcount > 0:
+            bot.reply_to(message, "️ Последняя парковка удалена.")
+        else:
+            bot.reply_to(message, "❌ Парковок нет.")
+        conn.commit(); conn.close()
+        return
+
+# --- API ЭНДПОИНТЫ ---
 
 @app.route('/get_settings')
 def get_settings():
@@ -135,8 +333,21 @@ def get_settings():
         return jsonify(settings)
     except Exception as e:
         print(f"❌ /get_settings: {e}")
-        traceback.print_exc()
         return jsonify({"error": str(e)}), 500
+
+@app.route('/update_setting', methods=['POST'])
+def update_setting():
+    try:
+        data = request.json
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"error": "DB connection failed"}), 500
+        c = conn.cursor()
+        c.execute("UPDATE settings SET value = %s WHERE key = %s", (str(data.get('value')).lower(), data.get('key')))
+        conn.commit(); conn.close()
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"error": str(e), "success": False}), 500
 
 @app.route('/get_points')
 def get_points():
@@ -144,7 +355,7 @@ def get_points():
         user = request.args.get('user', '')
         conn = get_db_connection()
         if not conn:
-            return jsonify({"error": "DB connection failed"}), 500
+            return jsonify([]), 200
         c = conn.cursor()
         if user:
             c.execute("SELECT id, title, address, lat, lon, status, comment, url, assigned_to FROM points WHERE status != 'found' AND (assigned_to = %s OR assigned_to IS NULL)", (user,))
@@ -157,53 +368,138 @@ def get_points():
     except Exception as e:
         print(f"❌ /get_points: {e}")
         traceback.print_exc()
-        return jsonify({"error": str(e)}), 500
+        return jsonify([]), 200
 
-@app.route('/get_routes')
-def get_routes():
+@app.route('/create_scooter', methods=['POST'])
+def create_scooter():
     try:
+        data = request.json
         conn = get_db_connection()
         if not conn:
-            return jsonify([]), 200  # Возвращаем пустой массив если БД не доступна
+            return jsonify({"error": "DB connection failed"}), 500
         c = conn.cursor()
-        c.execute("SELECT id, coords, comment, temporary FROM routes WHERE temporary = FALSE")
-        routes = []
-        for r in c.fetchall():
-            try:
-                coords_list = json.loads(r[1]) if r[1] else []
-                routes.append({"id": r[0], "coords": coords_list, "comment": r[2] or ""})
-            except:
-                continue
-        conn.close()
-        print(f"✅ /get_routes: возвращено {len(routes)} маршрутов")
-        return jsonify(routes)
+        c.execute("INSERT INTO points (title, address, lat, lon, status, comment) VALUES (%s, %s, %s, %s, %s, %s)", 
+                 (data.get('number', ''), data.get('address', ''), data.get('lat'), data.get('lon'), data.get('status', 'active'), data.get('comment', '')))
+        conn.commit(); conn.close()
+        return jsonify({"success": True})
     except Exception as e:
-        print(f"❌ /get_routes: {e}")
-        traceback.print_exc()
-        return jsonify([]), 200  # Возвращаем пустой массив вместо 500
+        return jsonify({"error": str(e), "success": False}), 500
 
-@app.route('/get_temp_routes')
-def get_temp_routes():
+@app.route('/create_parking', methods=['POST'])
+def create_parking():
+    try:
+        data = request.json
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"error": "DB connection failed"}), 500
+        c = conn.cursor()
+        c.execute("INSERT INTO parkings (title, address, lat, lon) VALUES (%s, %s, %s, %s)", 
+                 (data.get('title', ''), data.get('address', ''), data.get('lat'), data.get('lon')))
+        conn.commit(); conn.close()
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"error": str(e), "success": False}), 500
+
+@app.route('/update_status', methods=['POST'])
+def update_status():
+    try:
+        data = request.json
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"error": "DB connection failed"}), 500
+        c = conn.cursor()
+        if data.get('status') == 'found':
+            c.execute("DELETE FROM points WHERE id = %s", (data.get('id'),))
+        else:
+            c.execute("UPDATE points SET status = %s WHERE id = %s", (data.get('status'), data.get('id')))
+        conn.commit(); conn.close()
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"error": str(e), "success": False}), 500
+
+@app.route('/update_comment', methods=['POST'])
+def update_comment():
+    try:
+        data = request.json
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"error": "DB connection failed"}), 500
+        c = conn.cursor()
+        c.execute("UPDATE points SET comment = %s WHERE id = %s", (data.get('comment', ''), data.get('point_id')))
+        conn.commit(); conn.close()
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"error": str(e), "success": False}), 500
+
+@app.route('/update_point_location', methods=['POST'])
+def update_point_location():
+    try:
+        data = request.json
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"error": "DB connection failed"}), 500
+        c = conn.cursor()
+        c.execute("UPDATE points SET lat = %s, lon = %s, address = %s WHERE id = %s", 
+                 (data.get('lat'), data.get('lon'), data.get('address', ''), data.get('id')))
+        conn.commit(); conn.close()
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"error": str(e), "success": False}), 500
+
+@app.route('/update_parking_location', methods=['POST'])
+def update_parking_location():
+    try:
+        data = request.json
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"error": "DB connection failed"}), 500
+        c = conn.cursor()
+        c.execute("UPDATE parkings SET lat = %s, lon = %s, address = %s WHERE id = %s", 
+                 (data.get('lat'), data.get('lon'), data.get('address', ''), data.get('id')))
+        conn.commit(); conn.close()
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"error": str(e), "success": False}), 500
+
+@app.route('/get_parkings')
+def get_parkings():
     try:
         conn = get_db_connection()
         if not conn:
             return jsonify([]), 200
         c = conn.cursor()
-        c.execute("SELECT id, coords, comment FROM routes WHERE temporary = TRUE")
-        routes = []
+        c.execute("SELECT id, title, address, lat, lon, available_count, dead_count, broken_count, photo_url FROM parkings")
+        parkings = []
         for r in c.fetchall():
-            try:
-                coords_list = json.loads(r[1]) if r[1] else []
-                routes.append({"id": r[0], "coords": coords_list, "comment": r[2] or ""})
-            except:
-                continue
+            if r[3] and r[4]:
+                parkings.append({
+                    "id": r[0], "title": r[1] or "?", "address": r[2] or "?", 
+                    "lat": float(r[3]), "lon": float(r[4]), 
+                    "available": r[5] or '?', "dead": r[6] or '?', 
+                    "broken": r[7] or '?', "photo_url": r[8] or ""
+                })
         conn.close()
-        print(f"✅ /get_temp_routes: возвращено {len(routes)} временных маршрутов")
-        return jsonify(routes)
+        print(f"✅ /get_parkings: возвращено {len(parkings)} парковок")
+        return jsonify(parkings)
     except Exception as e:
-        print(f"❌ /get_temp_routes: {e}")
+        print(f"❌ /get_parkings: {e}")
         traceback.print_exc()
         return jsonify([]), 200
+
+@app.route('/update_parking', methods=['POST'])
+def update_parking():
+    try:
+        data = request.json
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"error": "DB connection failed"}), 500
+        c = conn.cursor()
+        c.execute("UPDATE parkings SET available_count = %s, dead_count = %s, broken_count = %s WHERE id = %s", 
+                  (data.get('available', '?'), data.get('dead', '?'), data.get('broken', '?'), data.get('id')))
+        conn.commit(); conn.close()
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"error": str(e), "success": False}), 500
 
 @app.route('/get_zones')
 def get_zones():
@@ -232,30 +528,172 @@ def get_zones():
         traceback.print_exc()
         return jsonify([]), 200
 
-@app.route('/get_parkings')
-def get_parkings():
+@app.route('/add_zone', methods=['POST'])
+def add_zone():
+    try:
+        data = request.json
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"error": "DB connection failed"}), 500
+        c = conn.cursor()
+        c.execute("INSERT INTO zones (coords, comment) VALUES (%s, %s)", (json.dumps(data.get('coords')), data.get('comment', '')))
+        conn.commit(); conn.close()
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"error": str(e), "success": False}), 500
+
+@app.route('/delete_zone', methods=['POST'])
+def delete_zone():
+    try:
+        data = request.json
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"error": "DB connection failed"}), 500
+        c = conn.cursor()
+        c.execute("DELETE FROM zones WHERE id = %s", (data.get('id'),))
+        conn.commit(); conn.close()
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"error": str(e), "success": False}), 500
+
+@app.route('/update_zone_location', methods=['POST'])
+def update_zone_location():
+    try:
+        data = request.json
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"error": "DB connection failed"}), 500
+        c = conn.cursor()
+        c.execute("UPDATE zones SET coords = %s WHERE id = %s", (json.dumps(data.get('coords')), data.get('id')))
+        conn.commit(); conn.close()
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"error": str(e), "success": False}), 500
+
+@app.route('/get_routes')
+def get_routes():
     try:
         conn = get_db_connection()
         if not conn:
             return jsonify([]), 200
         c = conn.cursor()
-        c.execute("SELECT id, title, address, lat, lon, available_count, dead_count, broken_count, photo_url FROM parkings")
-        parkings = []
+        c.execute("SELECT id, coords, comment, temporary FROM routes WHERE temporary = FALSE")
+        routes = []
         for r in c.fetchall():
-            if r[3] and r[4]:  # lat и lon не null
-                parkings.append({
-                    "id": r[0], "title": r[1] or "?", "address": r[2] or "?", 
-                    "lat": float(r[3]), "lon": float(r[4]), 
-                    "available": r[5] or '?', "dead": r[6] or '?', 
-                    "broken": r[7] or '?', "photo_url": r[8] or ""
-                })
+            try:
+                coords_list = json.loads(r[1]) if r[1] else []
+                routes.append({"id": r[0], "coords": coords_list, "comment": r[2] or ""})
+            except:
+                continue
         conn.close()
-        print(f"✅ /get_parkings: возвращено {len(parkings)} парковок")
-        return jsonify(parkings)
+        print(f"✅ /get_routes: возвращено {len(routes)} маршрутов")
+        return jsonify(routes)
     except Exception as e:
-        print(f" /get_parkings: {e}")
+        print(f"❌ /get_routes: {e}")
         traceback.print_exc()
         return jsonify([]), 200
+
+@app.route('/get_temp_routes')
+def get_temp_routes():
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify([]), 200
+        c = conn.cursor()
+        c.execute("SELECT id, coords, comment FROM routes WHERE temporary = TRUE")
+        routes = []
+        for r in c.fetchall():
+            try:
+                coords_list = json.loads(r[1]) if r[1] else []
+                routes.append({"id": r[0], "coords": coords_list, "comment": r[2] or ""})
+            except:
+                continue
+        conn.close()
+        print(f"✅ /get_temp_routes: возвращено {len(routes)} временных маршрутов")
+        return jsonify(routes)
+    except Exception as e:
+        print(f"❌ /get_temp_routes: {e}")
+        traceback.print_exc()
+        return jsonify([]), 200
+
+@app.route('/add_route', methods=['POST'])
+def add_route():
+    try:
+        data = request.json
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"error": "DB connection failed"}), 500
+        c = conn.cursor()
+        c.execute("INSERT INTO routes (coords, comment, temporary) VALUES (%s, %s, %s)", 
+                 (json.dumps(data.get('coords')), data.get('comment', ''), data.get('temporary', False)))
+        conn.commit(); conn.close()
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"error": str(e), "success": False}), 500
+
+@app.route('/delete_route', methods=['POST'])
+def delete_route():
+    try:
+        data = request.json
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"error": "DB connection failed"}), 500
+        c = conn.cursor()
+        c.execute("DELETE FROM routes WHERE id = %s", (data.get('id'),))
+        conn.commit(); conn.close()
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"error": str(e), "success": False}), 500
+
+@app.route('/update_route', methods=['POST'])
+def update_route():
+    try:
+        data = request.json
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"error": "DB connection failed"}), 500
+        c = conn.cursor()
+        c.execute("UPDATE routes SET coords = %s WHERE id = %s", (json.dumps(data.get('coords')), data.get('id')))
+        conn.commit(); conn.close()
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"error": str(e), "success": False}), 500
+
+@app.route('/assign_task', methods=['POST'])
+def assign_task():
+    try:
+        data = request.json
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"error": "DB connection failed"}), 500
+        c = conn.cursor()
+        task_type = data.get('type')
+        task_id = data.get('id')
+        user = data.get('user')
+        if task_type == 'point':
+            c.execute("UPDATE points SET assigned_to = %s WHERE id = %s", (user, task_id))
+        elif task_type == 'zone':
+            c.execute("UPDATE zones SET assigned_to = %s WHERE id = %s", (user, task_id))
+        conn.commit(); conn.close()
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"error": str(e), "success": False}), 500
+
+@app.route('/clear_assignments', methods=['POST'])
+def clear_assignments():
+    try:
+        data = request.json
+        user = data.get('user')
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"error": "DB connection failed"}), 500
+        c = conn.cursor()
+        c.execute("UPDATE points SET assigned_to = NULL WHERE assigned_to = %s", (user,))
+        c.execute("UPDATE zones SET assigned_to = NULL WHERE assigned_to = %s", (user,))
+        conn.commit(); conn.close()
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"error": str(e), "success": False}), 500
 
 @app.route('/get_departures')
 def get_departures():
@@ -272,84 +710,38 @@ def get_departures():
         print(f"❌ /get_departures: {e}")
         return jsonify([]), 200
 
-# Остальные эндпоинты (create_scooter, create_parking, update_status и т.д.)
-# оставляем без изменений для краткости...
-
-# Заглушки для остальных эндпоинтов чтобы не было 500
-@app.route('/create_scooter', methods=['POST'])
-def create_scooter():
-    return jsonify({"success": True})
-
-@app.route('/create_parking', methods=['POST'])
-def create_parking():
-    return jsonify({"success": True})
-
-@app.route('/update_status', methods=['POST'])
-def update_status():
-    return jsonify({"success": True})
-
-@app.route('/update_comment', methods=['POST'])
-def update_comment():
-    return jsonify({"success": True})
-
-@app.route('/update_point_location', methods=['POST'])
-def update_point_location():
-    return jsonify({"success": True})
-
-@app.route('/update_parking_location', methods=['POST'])
-def update_parking_location():
-    return jsonify({"success": True})
-
-@app.route('/update_parking', methods=['POST'])
-def update_parking():
-    return jsonify({"success": True})
-
-@app.route('/add_zone', methods=['POST'])
-def add_zone():
-    return jsonify({"success": True})
-
-@app.route('/delete_zone', methods=['POST'])
-def delete_zone():
-    return jsonify({"success": True})
-
-@app.route('/update_zone_location', methods=['POST'])
-def update_zone_location():
-    return jsonify({"success": True})
-
-@app.route('/add_route', methods=['POST'])
-def add_route():
-    return jsonify({"success": True})
-
-@app.route('/delete_route', methods=['POST'])
-def delete_route():
-    return jsonify({"success": True})
-
-@app.route('/update_route', methods=['POST'])
-def update_route():
-    return jsonify({"success": True})
-
-@app.route('/assign_task', methods=['POST'])
-def assign_task():
-    return jsonify({"success": True})
-
-@app.route('/clear_assignments', methods=['POST'])
-def clear_assignments():
-    return jsonify({"success": True})
-
 @app.route('/add_departure', methods=['POST'])
 def add_departure():
-    return jsonify({"success": True})
+    try:
+        data = request.json
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"error": "DB connection failed"}), 500
+        c = conn.cursor()
+        c.execute("""INSERT INTO departures (point_id, point_title, person_name) VALUES (%s, %s, %s)
+                     ON CONFLICT (point_id) DO UPDATE SET point_title = EXCLUDED.point_title, person_name = EXCLUDED.person_name""", 
+                  (data.get('point_id'), data.get('point_title'), data.get('person_name')))
+        conn.commit(); conn.close()
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"error": str(e), "success": False}), 500
 
 @app.route('/remove_departure', methods=['POST'])
 def remove_departure():
-    return jsonify({"success": True})
-
-@app.route('/update_setting', methods=['POST'])
-def update_setting():
-    return jsonify({"success": True})
+    try:
+        data = request.json
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"error": "DB connection failed"}), 500
+        c = conn.cursor()
+        c.execute("DELETE FROM departures WHERE point_id = %s", (data.get('point_id'),))
+        conn.commit(); conn.close()
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"error": str(e), "success": False}), 500
 
 def run_bot():
-    print(" Запускаю бота...")
+    print("🤖 Запускаю бота...")
     try:
         bot.polling(none_stop=True)
     except Exception as e:
