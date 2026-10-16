@@ -13,10 +13,10 @@
         body, html { margin: 0; padding: 0; height: 100%; font-family: Arial, sans-serif; }
         #map { width: 100%; height: 100vh; }
         #osmMap { width: 100%; height: 100vh; display: none; }
-        .controls { position: absolute; top: 15px; left: 50%; transform: translateX(-50%); z-index: 1000; background: white; padding: 12px 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); min-width: 250px; max-width: 350px; text-align: center; cursor: pointer; }
+        .controls { position: absolute; top: 15px; left: 50%; transform: translateX(-50%); z-index: 1000; background: white; padding: 12px 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); min-width: 250px; max-width: 350px; text-align: center; }
         .controls h3 { margin: 0 0 5px 0; font-size: 15px; cursor: pointer; user-select: none; display: inline-block; }
         .info { font-size: 13px; color: #666; margin-bottom: 0; cursor: pointer; user-select: none; display: inline-block; }
-        .bottom-panel { position: fixed; bottom: 0; left: 0; right: 0; background: white; padding: 15px 45px 15px 15px; box-shadow: 0 -2px 10px rgba(0,0,0,0.2); z-index: 1000; max-height: 180px; overflow-y: auto; text-align: center; cursor: pointer; }
+        .bottom-panel { position: fixed; bottom: 0; left: 0; right: 0; background: white; padding: 15px 45px 15px 15px; box-shadow: 0 -2px 10px rgba(0,0,0,0.2); z-index: 1000; max-height: 180px; overflow-y: auto; text-align: center; }
         .bottom-panel .close-btn { position: absolute; top: 8px; right: 10px; background: none; border: none; font-size: 20px; cursor: pointer; color: #333; padding: 0; width: auto; margin: 0; line-height: 1; }
         .departure-item { font-size: 15px; color: #333; text-align: center; margin: 4px 0; }
         .dead-info { font-size: 15px; color: #333; margin: 4px 0; font-weight: bold; cursor: pointer; display: inline-block; }
@@ -55,7 +55,6 @@
         .max-dead-modal .modal-actions { display: flex; gap: 10px; margin-top: 15px; }
         .max-dead-modal .modal-actions button { flex: 1; margin-top: 0; padding: 10px; background: #4CAF50; color: white; border: none; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; }
 
-        /* ✅ ПЛАШКА ПЕРЕМЕЩЕНИЯ — НИЖЕ ПЛАШКИ "Всего:" */
         .move-hint { display: none; position: fixed; top: 90px; left: 50%; transform: translateX(-50%); background: #ff9800; color: white; padding: 12px 20px; border-radius: 8px; font-size: 14px; font-weight: bold; z-index: 1600; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
 
         .orange-modal .modal-box { background: #ff9800; }
@@ -63,7 +62,6 @@
         .orange-modal .modal-box p { color: white; }
         .orange-modal .modal-box .btn-row button { background: white; color: #ff9800; }
 
-        /* ✅ КРУЖОК-ПРЕВЬЮ ПРИ ПЕРЕМЕЩЕНИИ ПАРКОВКИ */
         .parking-move-preview {
             width: 18px; height: 18px;
             background: rgba(255, 152, 0, 0.6);
@@ -81,7 +79,6 @@
     <div id="map"></div>
     <div id="osmMap"></div>
 
-    <!-- ✅ ПЛАШКА ПЕРЕМЕЩЕНИЯ (теперь ниже плашки "Всего:") -->
     <div class="move-hint" id="moveHint">Кликните по карте, куда переместить</div>
 
     <div class="controls" id="controlsPanel">
@@ -272,7 +269,7 @@
         var movingZoneId = null;
         var movingParkingId = null;
         var parkingMoveMode = false;
-        var parkingMovePreview = null; // ✅ Кружок-превью для перемещения парковки
+        var parkingMovePreview = null;
         var deleteRouteId = null;
         var deleteZoneId = null;
         
@@ -344,7 +341,6 @@
                 showContextMenu();
             });
 
-            // ✅ ДВИЖЕНИЕ МЫШИ ДЛЯ ПРЕВЬЮ ПЕРЕМЕЩЕНИЯ ПАРКОВКИ
             myMap.events.add('mousemove', function(e) {
                 if (parkingMoveMode && movingParkingId) {
                     showParkingMovePreview(e.get('coords'));
@@ -396,7 +392,6 @@
             myMap.events.add('boundschange', function() { updateZoneTextVisibility(); });
         }
 
-        // ✅ ПРЕВЬЮ КРУЖКА ПРИ ПЕРЕМЕЩЕНИИ ПАРКОВКИ (Яндекс)
         function showParkingMovePreview(coords) {
             if (!parkingMovePreview) {
                 parkingMovePreview = new ymaps.Placemark(coords, {}, {
@@ -410,7 +405,6 @@
             }
         }
 
-        // ✅ ПРЕВЬЮ КРУЖКА ПРИ ПЕРЕМЕЩЕНИИ ПАРКОВКИ (OSM)
         function showOsmParkingMovePreview(coords) {
             if (!parkingMovePreview) {
                 parkingMovePreview = L.marker(coords, {
@@ -547,7 +541,6 @@
             closeParkingMoveModal();
             document.getElementById('moveHint').textContent = 'Кликните куда переместить парковку';
             document.getElementById('moveHint').style.display = 'block';
-            // ✅ Меняем курсор на crosshair (плюсик)
             if (myMap) {
                 myMap.balloon.close();
                 myMap.container.getElement().style.cursor = 'crosshair';
@@ -576,7 +569,6 @@
                     parkingMoveMode = false;
                     document.getElementById('moveHint').style.display = 'none';
                     document.getElementById('moveHint').textContent = 'Кликните по карте, куда переместить';
-                    // ✅ Возвращаем обычный курсор
                     if (myMap) myMap.container.getElement().style.cursor = '';
                     if (osmMap) osmMap.getContainer().style.cursor = '';
                     loadParkings();
@@ -627,7 +619,6 @@
             if (menu) menu.remove();
         }
 
-        // ✅ УСТОЙЧИВЫЙ FETCH — не ломает карту при 500 ошибке
         function safeFetch(url) {
             return fetch(url).then(function(r) {
                 if (!r.ok) return [];
@@ -1482,7 +1473,6 @@
                         }
                         var deadNum = parseInt(p.dead, 10); if (isNaN(deadNum)) deadNum = 0;
                         totalDead += deadNum;
-                        // ✅ ПОРОГ С 5 НА 3
                         if (deadNum >= 3) {
                             if (deadNum > maxDead) { maxDead = deadNum; maxDeadParkings = [p.title]; }
                             else if (deadNum === maxDead) { maxDeadParkings.push(p.title); }
@@ -1515,7 +1505,6 @@
             });
         }
 
-        // ✅ КЛИК ПО ТЕКСТУ "Севшие на парковке" → модалка "Больше всего севших" (3 клика)
         function onDeadInfoClick() {
             deadClickCount++;
             if (deadClickTimer) clearTimeout(deadClickTimer);
@@ -1633,7 +1622,6 @@
             }).then(function(r) { return r.json(); }).then(function(data) { if (data.success) loadParkings(); });
         }
 
-        // ✅ КЛИК ПО ТЕКСТУ "Задачи на сегодня" → режимы черчения (3 клика)
         function onTasksHeaderClick() {
             tasksHeaderClickCount++;
             if (tasksHeaderClickTimer) clearTimeout(tasksHeaderClickTimer);
@@ -1905,7 +1893,6 @@
             });
         }
 
-        // ✅ ОБРАБОТЧИКИ КЛИКОВ ПО ПЛАШКАМ (3+ клика по области)
         document.addEventListener('DOMContentLoaded', function() {
             var controlsPanel = document.getElementById('controlsPanel');
             var bottomPanel = document.getElementById('bottomPanel');
@@ -1914,7 +1901,6 @@
             var bottomClickCount = 0;
             var bottomClickTimer = null;
             
-            // Клик по плашке "Задачи на сегодня" (область, не текст) → просмотр задач (3 клика)
             controlsPanel.addEventListener('click', function(e) {
                 if (e.target.tagName === 'H3' || e.target.classList.contains('info')) return;
                 controlsClickCount++;
@@ -1926,7 +1912,6 @@
                 }
             });
             
-            // Клик по плашке "Севшие на парковке" (область, не текст) → назначение задач (3 клика)
             bottomPanel.addEventListener('click', function(e) {
                 if (e.target.classList.contains('dead-info') || e.target.classList.contains('close-btn')) return;
                 bottomClickCount++;
