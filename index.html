@@ -55,12 +55,22 @@
         .max-dead-modal .modal-actions { display: flex; gap: 10px; margin-top: 15px; }
         .max-dead-modal .modal-actions button { flex: 1; margin-top: 0; padding: 10px; background: #4CAF50; color: white; border: none; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; }
 
-        .move-hint { display: none; position: fixed; top: 15px; left: 50%; transform: translateX(-50%); background: #ff9800; color: white; padding: 12px 20px; border-radius: 8px; font-size: 14px; font-weight: bold; z-index: 1600; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+        /* ✅ ПЛАШКА ПЕРЕМЕЩЕНИЯ — НИЖЕ ПЛАШКИ "Всего:" */
+        .move-hint { display: none; position: fixed; top: 90px; left: 50%; transform: translateX(-50%); background: #ff9800; color: white; padding: 12px 20px; border-radius: 8px; font-size: 14px; font-weight: bold; z-index: 1600; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
 
         .orange-modal .modal-box { background: #ff9800; }
         .orange-modal .modal-box h4 { color: white; }
         .orange-modal .modal-box p { color: white; }
         .orange-modal .modal-box .btn-row button { background: white; color: #ff9800; }
+
+        /* ✅ КРУЖОК-ПРЕВЬЮ ПРИ ПЕРЕМЕЩЕНИИ ПАРКОВКИ */
+        .parking-move-preview {
+            width: 18px; height: 18px;
+            background: rgba(255, 152, 0, 0.6);
+            border: 3px solid #ff9800;
+            border-radius: 50%;
+            pointer-events: none;
+        }
 
         .custom-div-icon { background: transparent; border: none; }
         .leaflet-popup-content-wrapper { border-radius: 8px; }
@@ -71,6 +81,7 @@
     <div id="map"></div>
     <div id="osmMap"></div>
 
+    <!-- ✅ ПЛАШКА ПЕРЕМЕЩЕНИЯ (теперь ниже плашки "Всего:") -->
     <div class="move-hint" id="moveHint">Кликните по карте, куда переместить</div>
 
     <div class="controls" id="controlsPanel">
@@ -261,6 +272,7 @@
         var movingZoneId = null;
         var movingParkingId = null;
         var parkingMoveMode = false;
+        var parkingMovePreview = null; // ✅ Кружок-превью для перемещения парковки
         var deleteRouteId = null;
         var deleteZoneId = null;
         
@@ -332,6 +344,19 @@
                 showContextMenu();
             });
 
+            // ✅ ДВИЖЕНИЕ МЫШИ ДЛЯ ПРЕВЬЮ ПЕРЕМЕЩЕНИЯ ПАРКОВКИ
+            myMap.events.add('mousemove', function(e) {
+                if (parkingMoveMode && movingParkingId) {
+                    showParkingMovePreview(e.get('coords'));
+                }
+                if (isDrawingFreehand) { addZonePoint(e.get('coords')); }
+            });
+            osmMap.on('mousemove', function(e) {
+                if (parkingMoveMode && movingParkingId) {
+                    showOsmParkingMovePreview([e.latlng.lat, e.latlng.lng]);
+                }
+            });
+
             myMap.events.add('click', function(e) { 
                 if (parkingMoveMode && movingParkingId) {
                     performParkingMove(e.get('coords'));
@@ -362,9 +387,6 @@
                     isDrawingFreehand = true; 
                 }
             });
-            myMap.events.add('mousemove', function(e) {
-                if (isDrawingFreehand) { addZonePoint(e.get('coords')); }
-            });
             myMap.events.add('mouseup', function(e) {
                 if (isDrawingFreehand) { isDrawingFreehand = false; closeFreehandZone(); }
             });
@@ -372,6 +394,46 @@
                 if (isDrawingFreehand) { isDrawingFreehand = false; closeFreehandZone(); }
             });
             myMap.events.add('boundschange', function() { updateZoneTextVisibility(); });
+        }
+
+        // ✅ ПРЕВЬЮ КРУЖКА ПРИ ПЕРЕМЕЩЕНИИ ПАРКОВКИ (Яндекс)
+        function showParkingMovePreview(coords) {
+            if (!parkingMovePreview) {
+                parkingMovePreview = new ymaps.Placemark(coords, {}, {
+                    iconLayout: ymaps.templateLayoutFactory.createClass('<div class="parking-move-preview"></div>'),
+                    iconShape: { type: 'Circle', coordinates: [9, 9], radius: 9 },
+                    zIndex: 2000
+                });
+                myMap.geoObjects.add(parkingMovePreview);
+            } else {
+                parkingMovePreview.geometry.setCoordinates(coords);
+            }
+        }
+
+        // ✅ ПРЕВЬЮ КРУЖКА ПРИ ПЕРЕМЕЩЕНИИ ПАРКОВКИ (OSM)
+        function showOsmParkingMovePreview(coords) {
+            if (!parkingMovePreview) {
+                parkingMovePreview = L.marker(coords, {
+                    icon: L.divIcon({
+                        className: 'custom-div-icon',
+                        html: '<div class="parking-move-preview"></div>',
+                        iconSize: [18, 18],
+                        iconAnchor: [9, 9]
+                    }),
+                    interactive: false,
+                    zIndexOffset: 2000
+                }).addTo(osmMap);
+            } else {
+                parkingMovePreview.setLatLng(coords);
+            }
+        }
+
+        function removeParkingMovePreview() {
+            if (parkingMovePreview) {
+                if (myMap) myMap.geoObjects.remove(parkingMovePreview);
+                if (osmMap) osmMap.removeLayer(parkingMovePreview);
+                parkingMovePreview = null;
+            }
         }
 
         function performMove(newCoords) {
@@ -393,7 +455,6 @@
                     movingType = null;
                     document.getElementById('moveHint').style.display = 'none';
                     loadPoints();
-                    if (movingType === 'parking') loadParkings();
                 }
             });
         }
@@ -479,14 +540,22 @@
             document.getElementById('parkingMoveModal').style.display = 'none';
             movingParkingId = null;
             parkingMoveMode = false;
+            removeParkingMovePreview();
         }
 
         function confirmParkingMove() {
             closeParkingMoveModal();
             document.getElementById('moveHint').textContent = 'Кликните куда переместить парковку';
             document.getElementById('moveHint').style.display = 'block';
-            if (myMap) myMap.balloon.close();
-            if (osmMap) osmMap.closePopup();
+            // ✅ Меняем курсор на crosshair (плюсик)
+            if (myMap) {
+                myMap.balloon.close();
+                myMap.container.getElement().style.cursor = 'crosshair';
+            }
+            if (osmMap) {
+                osmMap.closePopup();
+                osmMap.getContainer().style.cursor = 'crosshair';
+            }
         }
 
         function performParkingMove(newCoords) {
@@ -494,6 +563,8 @@
             var lat = newCoords[0];
             var lon = newCoords[1];
             var address = lat.toFixed(6) + ', ' + lon.toFixed(6);
+            
+            removeParkingMovePreview();
             
             fetch(API_URL + '/update_parking_location', {
                 method: 'POST',
@@ -505,6 +576,9 @@
                     parkingMoveMode = false;
                     document.getElementById('moveHint').style.display = 'none';
                     document.getElementById('moveHint').textContent = 'Кликните по карте, куда переместить';
+                    // ✅ Возвращаем обычный курсор
+                    if (myMap) myMap.container.getElement().style.cursor = '';
+                    if (osmMap) osmMap.getContainer().style.cursor = '';
                     loadParkings();
                 }
             });
@@ -553,11 +627,21 @@
             if (menu) menu.remove();
         }
 
+        // ✅ УСТОЙЧИВЫЙ FETCH — не ломает карту при 500 ошибке
+        function safeFetch(url) {
+            return fetch(url).then(function(r) {
+                if (!r.ok) return [];
+                return r.json().catch(function() { return []; });
+            }).catch(function() { return []; });
+        }
+
         function loadSettings() {
-            fetch(API_URL + '/get_settings').then(function(r) { return r.json(); }).then(function(data) {
-                appSettings.hide_empty_labels = data.hide_empty_labels || false;
-                appSettings.show_parkings = data.show_parkings !== false;
-                appSettings.show_labels = data.show_labels !== false;
+            safeFetch(API_URL + '/get_settings').then(function(data) {
+                if (data && typeof data === 'object' && !Array.isArray(data)) {
+                    appSettings.hide_empty_labels = data.hide_empty_labels || false;
+                    appSettings.show_parkings = data.show_parkings !== false;
+                    appSettings.show_labels = data.show_labels !== false;
+                }
                 loadParkings();
             });
         }
@@ -579,7 +663,8 @@
             
             var url = currentUserFilter ? API_URL + '/get_zones?user=' + encodeURIComponent(currentUserFilter) : API_URL + '/get_zones';
             
-            fetch(url).then(function(r) { return r.json(); }).then(function(data) {
+            safeFetch(url).then(function(data) {
+                if (!Array.isArray(data)) return;
                 data.forEach(function(z) {
                     if (!z.coords || !Array.isArray(z.coords) || z.coords.length === 0) return;
                     var polygon = new ymaps.Polygon([z.coords], {}, {
@@ -1029,7 +1114,8 @@
             
             var url = currentUserFilter ? API_URL + '/get_points?user=' + encodeURIComponent(currentUserFilter) : API_URL + '/get_points';
             
-            fetch(url).then(function(r) { return r.json(); }).then(function(data) {
+            safeFetch(url).then(function(data) {
+                if (!Array.isArray(data)) return;
                 markers.forEach(function(m) { myMap.geoObjects.remove(m); }); markers = [];
                 osmMarkers.forEach(function(m) { osmMap.removeLayer(m); }); osmMarkers = [];
                 
@@ -1116,7 +1202,8 @@
             osmTempRoutes.forEach(function(r) { osmMap.removeLayer(r.layer); });
             osmTempRoutes = [];
             
-            fetch(API_URL + '/get_routes').then(function(r) { return r.json(); }).then(function(data) {
+            safeFetch(API_URL + '/get_routes').then(function(data) {
+                if (!Array.isArray(data)) return;
                 data.forEach(function(route) {
                     if (!route.coords || route.coords.length < 2) return;
                     var polyline = new ymaps.Polyline(route.coords, {}, { strokeColor: '#ff3b30', strokeWidth: 4, strokeStyle: 'solid' });
@@ -1151,7 +1238,8 @@
                 });
             });
             
-            fetch(API_URL + '/get_temp_routes').then(function(r) { return r.json(); }).then(function(data) {
+            safeFetch(API_URL + '/get_temp_routes').then(function(data) {
+                if (!Array.isArray(data)) return;
                 data.forEach(function(route) {
                     if (!route.coords || route.coords.length < 2) return;
                     var polyline = new ymaps.Polyline(route.coords, {}, { strokeColor: '#ff3b30', strokeWidth: 4, strokeStyle: 'solid' });
@@ -1364,7 +1452,8 @@
             osmParkingMarkers.forEach(function(m) { osmMap.removeLayer(m); }); osmParkingMarkers = [];
             osmParkingLabelMarkers.forEach(function(m) { osmMap.removeLayer(m); }); osmParkingLabelMarkers = [];
             
-            fetch(API_URL + '/get_parkings').then(function(r) { return r.json(); }).then(function(data) {
+            safeFetch(API_URL + '/get_parkings').then(function(data) {
+                if (!Array.isArray(data)) return;
                 var totalDead = 0, maxDead = 0, maxDeadParkings = [];
                 data.forEach(function(p) {
                     if (!p.lat || !p.lon) return;
@@ -1393,7 +1482,8 @@
                         }
                         var deadNum = parseInt(p.dead, 10); if (isNaN(deadNum)) deadNum = 0;
                         totalDead += deadNum;
-                        if (deadNum >= 5) {
+                        // ✅ ПОРОГ С 5 НА 3
+                        if (deadNum >= 3) {
                             if (deadNum > maxDead) { maxDead = deadNum; maxDeadParkings = [p.title]; }
                             else if (deadNum === maxDead) { maxDeadParkings.push(p.title); }
                         }
@@ -1425,7 +1515,7 @@
             });
         }
 
-        // ✅ ИСПРАВЛЕНО: клик по тексту "Севшие на парковке" → модалка "Больше всего севших"
+        // ✅ КЛИК ПО ТЕКСТУ "Севшие на парковке" → модалка "Больше всего севших" (3 клика)
         function onDeadInfoClick() {
             deadClickCount++;
             if (deadClickTimer) clearTimeout(deadClickTimer);
@@ -1433,13 +1523,13 @@
             if (deadClickCount >= 3) {
                 deadClickCount = 0;
                 var data = document.getElementById('deadInfo').data || { maxDead: 0, maxDeadParkings: [] };
-                if (data.maxDead >= 5 && data.maxDeadParkings.length > 0) {
+                if (data.maxDead >= 3 && data.maxDeadParkings.length > 0) {
                     var bodyText = data.maxDeadParkings.length === 1 ? 'На парковке "' + data.maxDeadParkings[0] + '" — ' + data.maxDead + ' севших' : 'На парковках ' + data.maxDeadParkings.map(function(n) { return '"' + n + '"'; }).join(', ') + ' — по ' + data.maxDead + ' севших';
                     document.getElementById('maxDeadTitle').textContent = 'Больше всего севших';
                     document.getElementById('maxDeadText').textContent = bodyText;
                 } else {
                     document.getElementById('maxDeadTitle').textContent = 'Севшие на парковке';
-                    document.getElementById('maxDeadText').textContent = 'Нет парковок с 5 и более севшими самокатами';
+                    document.getElementById('maxDeadText').textContent = 'Нет парковок с 3 и более севшими самокатами';
                 }
                 document.getElementById('maxDeadModal').style.display = 'flex';
             }
@@ -1543,7 +1633,7 @@
             }).then(function(r) { return r.json(); }).then(function(data) { if (data.success) loadParkings(); });
         }
 
-        // ✅ ИСПРАВЛЕНО: клик по тексту "Задачи на сегодня" → режимы черчения (3 клика)
+        // ✅ КЛИК ПО ТЕКСТУ "Задачи на сегодня" → режимы черчения (3 клика)
         function onTasksHeaderClick() {
             tasksHeaderClickCount++;
             if (tasksHeaderClickTimer) clearTimeout(tasksHeaderClickTimer);
@@ -1587,7 +1677,8 @@
         function closeZoneModal() { document.getElementById('zoneModalOverlay').style.display = 'none'; }
 
         function loadDeparturesFromServer() {
-            fetch(API_URL + '/get_departures').then(function(r) { return r.json(); }).then(function(data) {
+            safeFetch(API_URL + '/get_departures').then(function(data) {
+                if (!Array.isArray(data)) return;
                 departures = {};
                 data.forEach(function(d) { departures[d.point_id] = { title: d.point_title, name: d.person_name }; });
                 renderBottomPanel();
@@ -1814,7 +1905,7 @@
             });
         }
 
-        // ✅ ОБРАБОТЧИКИ КЛИКОВ ПО ПЛАШКАМ (областям вокруг текста)
+        // ✅ ОБРАБОТЧИКИ КЛИКОВ ПО ПЛАШКАМ (3+ клика по области)
         document.addEventListener('DOMContentLoaded', function() {
             var controlsPanel = document.getElementById('controlsPanel');
             var bottomPanel = document.getElementById('bottomPanel');
@@ -1823,29 +1914,26 @@
             var bottomClickCount = 0;
             var bottomClickTimer = null;
             
-            // Клик по плашке "Задачи на сегодня" → просмотр задач для имени
+            // Клик по плашке "Задачи на сегодня" (область, не текст) → просмотр задач (3 клика)
             controlsPanel.addEventListener('click', function(e) {
-                // Игнорируем клики по тексту h3 и info
                 if (e.target.tagName === 'H3' || e.target.classList.contains('info')) return;
                 controlsClickCount++;
                 if (controlsClickTimer) clearTimeout(controlsClickTimer);
                 controlsClickTimer = setTimeout(function() { controlsClickCount = 0; }, 600);
-                if (controlsClickCount >= 2) {
+                if (controlsClickCount >= 3) {
                     controlsClickCount = 0;
                     openNameSelectModal('view');
                 }
             });
             
-            // Клик по плашке "Севшие на парковке" → назначение задач
+            // Клик по плашке "Севшие на парковке" (область, не текст) → назначение задач (3 клика)
             bottomPanel.addEventListener('click', function(e) {
-                // Игнорируем клики по тексту dead-info и кнопке закрытия
                 if (e.target.classList.contains('dead-info') || e.target.classList.contains('close-btn')) return;
                 bottomClickCount++;
                 if (bottomClickTimer) clearTimeout(bottomClickTimer);
                 bottomClickTimer = setTimeout(function() { bottomClickCount = 0; }, 600);
-                if (bottomClickCount >= 2) {
+                if (bottomClickCount >= 3) {
                     bottomClickCount = 0;
-                    // Сбрасываем фильтр чтобы показать все объекты для выбора
                     currentUserFilter = null;
                     document.getElementById('userFilterText').style.display = 'none';
                     loadPoints();
