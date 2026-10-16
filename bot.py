@@ -20,7 +20,6 @@ CORS(app)
 
 db_initialized = False
 bot_running = False
-bot_thread = None
 
 @app.before_request
 def handle_options():
@@ -42,6 +41,14 @@ def get_db_connection():
         print(f" Ошибка подключения к БД: {e}")
         return None
 
+def column_exists(c, table, column):
+    """Проверяет существует ли колонка в таблице"""
+    try:
+        c.execute(f"SELECT column_name FROM information_schema.columns WHERE table_name='{table}' AND column_name='{column}'")
+        return c.fetchone() is not None
+    except:
+        return False
+
 def init_db():
     global db_initialized
     if db_initialized:
@@ -53,32 +60,74 @@ def init_db():
             print("❌ Не удалось подключиться к БД")
             return
         c = conn.cursor()
-        tables = [
-            '''CREATE TABLE IF NOT EXISTS points
-               (id SERIAL PRIMARY KEY, title TEXT, address TEXT, lat REAL, lon REAL, 
-                status TEXT DEFAULT 'active', comment TEXT, url TEXT, assigned_to TEXT)''',
-            '''CREATE TABLE IF NOT EXISTS parkings
-               (id SERIAL PRIMARY KEY, title TEXT UNIQUE, address TEXT, lat REAL, lon REAL, 
-                available_count TEXT DEFAULT '?', dead_count TEXT DEFAULT '?', 
-                broken_count TEXT DEFAULT '?', photo_url TEXT)''',
-            '''CREATE TABLE IF NOT EXISTS zones
-               (id SERIAL PRIMARY KEY, coords TEXT, comment TEXT, assigned_to TEXT)''',
-            '''CREATE TABLE IF NOT EXISTS routes
-               (id SERIAL PRIMARY KEY, coords TEXT, comment TEXT, temporary BOOLEAN DEFAULT FALSE)''',
-            '''CREATE TABLE IF NOT EXISTS departures
-               (id SERIAL PRIMARY KEY, point_id INTEGER UNIQUE, point_title TEXT, person_name TEXT)''',
-            '''CREATE TABLE IF NOT EXISTS settings
-               (key TEXT PRIMARY KEY, value TEXT)'''
-        ]
-        for table_sql in tables:
-            c.execute(table_sql)
+        
+        # Создаём таблицы
+        print("📦 Создаю таблицы...")
+        c.execute('''CREATE TABLE IF NOT EXISTS points
+                     (id SERIAL PRIMARY KEY, title TEXT, address TEXT, lat REAL, lon REAL, 
+                      status TEXT DEFAULT 'active', comment TEXT, url TEXT)''')
+        c.execute('''CREATE TABLE IF NOT EXISTS parkings
+                     (id SERIAL PRIMARY KEY, title TEXT UNIQUE, address TEXT, lat REAL, lon REAL, 
+                      available_count TEXT DEFAULT '?', dead_count TEXT DEFAULT '?', 
+                      broken_count TEXT DEFAULT '?', photo_url TEXT)''')
+        c.execute('''CREATE TABLE IF NOT EXISTS zones
+                     (id SERIAL PRIMARY KEY, coords TEXT, comment TEXT)''')
+        c.execute('''CREATE TABLE IF NOT EXISTS routes
+                     (id SERIAL PRIMARY KEY, coords TEXT, comment TEXT, temporary BOOLEAN DEFAULT FALSE)''')
+        c.execute('''CREATE TABLE IF NOT EXISTS departures
+                     (id SERIAL PRIMARY KEY, point_id INTEGER UNIQUE, point_title TEXT, person_name TEXT)''')
+        c.execute('''CREATE TABLE IF NOT EXISTS settings
+                     (key TEXT PRIMARY KEY, value TEXT)''')
+        conn.commit()
+        print("✅ Таблицы созданы")
+        
+        # ✅ НАДЁЖНОЕ ДОБАВЛЕНИЕ КОЛОНОК
+        print(" Проверяю колонки...")
+        
+        # points: comment
+        if not column_exists(c, 'points', 'comment'):
+            c.execute("ALTER TABLE points ADD COLUMN comment TEXT")
+            conn.commit()
+            print("✅ Добавлена колонка comment в points")
+        
+        # points: url
+        if not column_exists(c, 'points', 'url'):
+            c.execute("ALTER TABLE points ADD COLUMN url TEXT")
+            conn.commit()
+            print("✅ Добавлена колонка url в points")
+        
+        # points: assigned_to
+        if not column_exists(c, 'points', 'assigned_to'):
+            c.execute("ALTER TABLE points ADD COLUMN assigned_to TEXT")
+            conn.commit()
+            print("✅ Добавлена колонка assigned_to в points")
+        
+        # parkings: photo_url
+        if not column_exists(c, 'parkings', 'photo_url'):
+            c.execute("ALTER TABLE parkings ADD COLUMN photo_url TEXT")
+            conn.commit()
+            print("✅ Добавлена колонка photo_url в parkings")
+        
+        # zones: assigned_to
+        if not column_exists(c, 'zones', 'assigned_to'):
+            c.execute("ALTER TABLE zones ADD COLUMN assigned_to TEXT")
+            conn.commit()
+            print("✅ Добавлена колонка assigned_to в zones")
+        
+        # routes: temporary
+        if not column_exists(c, 'routes', 'temporary'):
+            c.execute("ALTER TABLE routes ADD COLUMN temporary BOOLEAN DEFAULT FALSE")
+            conn.commit()
+            print("✅ Добавлена колонка temporary в routes")
+        
+        # Настройки
         settings = [('hide_empty_labels', 'false'), ('show_parkings', 'true'), ('show_labels', 'true')]
         for key, value in settings:
             c.execute("INSERT INTO settings (key, value) VALUES (%s, %s) ON CONFLICT (key) DO NOTHING", (key, value))
         conn.commit()
-        conn.close()
+        
         db_initialized = True
-        print("✅ База данных успешно инициализирована!")
+        print("✅ База данных полностью инициализирована!")
     except Exception as e:
         print(f"❌ Ошибка инициализации БД: {e}")
         traceback.print_exc()
@@ -192,7 +241,7 @@ def handle_message(message):
                 conn.commit(); conn.close()
                 bot.reply_to(message, f"✅ Парковка '{title}' добавлена!")
             else:
-                bot.reply_to(message, f"❌ Не найдено: '{location_part}'")
+                bot.reply_to(message, f" Не найдено: '{location_part}'")
         return
 
     if ' - ' in text:
@@ -487,7 +536,7 @@ def get_parkings():
         print(f"✅ /get_parkings: возвращено {len(parkings)} парковок")
         return jsonify(parkings)
     except Exception as e:
-        print(f" /get_parkings: {e}")
+        print(f"❌ /get_parkings: {e}")
         traceback.print_exc()
         return jsonify([]), 200
 
@@ -745,9 +794,7 @@ def remove_departure():
     except Exception as e:
         return jsonify({"error": str(e), "success": False}), 500
 
-# ✅ МАКСИМАЛЬНАЯ ЗАЩИТА ОТ 409
 def stop_bot_safely():
-    """Безопасная остановка бота"""
     global bot_running
     print("🛑 Останавливаю бота...")
     bot_running = False
@@ -767,16 +814,14 @@ def run_bot():
     bot_running = True
     print("🤖 Запускаю бота...")
     
-    # Очищаем webhook
     try:
         bot.remove_webhook()
         print("✅ Webhook очищен")
     except Exception as e:
         print(f"⚠️ Не удалось очистить webhook: {e}")
     
-    # Ждём чтобы Telegram освободил соединение
-    print("⏳ Ожидаю 20 секунд...")
-    time.sleep(20)
+    print(" Ожидаю 15 секунд...")
+    time.sleep(15)
     
     while bot_running:
         try:
@@ -789,7 +834,7 @@ def run_bot():
             )
         except telebot.apihelper.ApiTelegramException as e:
             if e.error_code == 409:
-                print("️ Конфликт 409, жду 90 секунд...")
+                print("⚠️ Конфликт 409, жду 90 секунд...")
                 try:
                     bot.stop_polling()
                 except:
@@ -808,12 +853,10 @@ def run_bot():
             time.sleep(30)
 
 def handle_signal(signum, frame):
-    """Обработчик сигналов завершения"""
     print(f"🛑 Получен сигнал {signum}, завершаю работу...")
     stop_bot_safely()
     sys.exit(0)
 
-# Регистрируем обработчики сигналов
 signal.signal(signal.SIGTERM, handle_signal)
 signal.signal(signal.SIGINT, handle_signal)
 
@@ -821,9 +864,7 @@ if __name__ == '__main__':
     print("🚀 Запуск сервера...")
     print(f"PID процесса: {os.getpid()}")
     
-    # Запускаем бота в отдельном потоке
     bot_thread = threading.Thread(target=run_bot, daemon=True)
     bot_thread.start()
     
-    # Запускаем Flask
     app.run(host='0.0.0.0', port=8080, threaded=True)
