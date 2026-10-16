@@ -9,6 +9,8 @@ import threading
 import os
 import traceback
 import time
+import signal
+import sys
 
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "8803648566:AAG1BL4brhrA8PkJ2TD30qm3CPE4ZNqdnts")
 DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://mapbotuser:r47l5ou0pDueVnus4tiD3d2w7hYQJ1vy@dpg-db4fc5ks728c73ajgig0-a.frankfurt-postgres.render.com/mapbotdb")
@@ -17,6 +19,8 @@ app = Flask(__name__)
 CORS(app)
 
 db_initialized = False
+bot_running = False
+bot_thread = None
 
 @app.before_request
 def handle_options():
@@ -35,7 +39,7 @@ def get_db_connection():
         conn = psycopg.connect(DATABASE_URL)
         return conn
     except Exception as e:
-        print(f"❌ Ошибка подключения к БД: {e}")
+        print(f" Ошибка подключения к БД: {e}")
         return None
 
 def init_db():
@@ -97,7 +101,7 @@ def get_coordinates(address):
         pass
     return None, None
 
-bot = telebot.TeleBot(BOT_TOKEN)
+bot = telebot.TeleBot(BOT_TOKEN, threaded=False)
 
 @bot.message_handler(func=lambda message: True)
 def handle_message(message):
@@ -188,7 +192,7 @@ def handle_message(message):
                 conn.commit(); conn.close()
                 bot.reply_to(message, f"✅ Парковка '{title}' добавлена!")
             else:
-                bot.reply_to(message, f" Не найдено: '{location_part}'")
+                bot.reply_to(message, f"❌ Не найдено: '{location_part}'")
         return
 
     if ' - ' in text:
@@ -483,7 +487,7 @@ def get_parkings():
         print(f"✅ /get_parkings: возвращено {len(parkings)} парковок")
         return jsonify(parkings)
     except Exception as e:
-        print(f"❌ /get_parkings: {e}")
+        print(f" /get_parkings: {e}")
         traceback.print_exc()
         return jsonify([]), 200
 
@@ -741,29 +745,85 @@ def remove_departure():
     except Exception as e:
         return jsonify({"error": str(e), "success": False}), 500
 
-# ✅ УСТОЙЧИВЫЙ ЗАПУСК БОТА С ЗАЩИТОЙ ОТ 409
+# ✅ МАКСИМАЛЬНАЯ ЗАЩИТА ОТ 409
+def stop_bot_safely():
+    """Безопасная остановка бота"""
+    global bot_running
+    print("🛑 Останавливаю бота...")
+    bot_running = False
+    try:
+        bot.stop_polling()
+        print("✅ Polling остановлен")
+    except Exception as e:
+        print(f"⚠️ Ошибка при остановке polling: {e}")
+
 def run_bot():
+    global bot_running
+    
+    if bot_running:
+        print("⚠️ Бот уже запущен, пропускаем")
+        return
+    
+    bot_running = True
     print("🤖 Запускаю бота...")
-    while True:
+    
+    # Очищаем webhook
+    try:
+        bot.remove_webhook()
+        print("✅ Webhook очищен")
+    except Exception as e:
+        print(f"⚠️ Не удалось очистить webhook: {e}")
+    
+    # Ждём чтобы Telegram освободил соединение
+    print("⏳ Ожидаю 20 секунд...")
+    time.sleep(20)
+    
+    while bot_running:
         try:
-            bot.polling(none_stop=True, timeout=60, long_polling_timeout=60)
+            print("🔄 Запускаю polling...")
+            bot.polling(
+                none_stop=True,
+                timeout=120,
+                long_polling_timeout=120,
+                allowed_updates=["message"]
+            )
         except telebot.apihelper.ApiTelegramException as e:
             if e.error_code == 409:
-                print("⚠️ Конфликт 409: другой экземпляр бота активен. Ждём 30 секунд...")
-                time.sleep(30)
+                print("️ Конфликт 409, жду 90 секунд...")
+                try:
+                    bot.stop_polling()
+                except:
+                    pass
+                time.sleep(90)
             else:
-                print(f"❌ Ошибка Telegram API: {e}")
-                traceback.print_exc()
-                time.sleep(10)
+                print(f"❌ Ошибка Telegram API {e.error_code}: {e}")
+                time.sleep(30)
         except Exception as e:
-            print(f" Ошибка polling: {e}")
+            print(f"❌ Ошибка polling: {e}")
             traceback.print_exc()
-            print("⏳ Перезапуск через 10 секунд...")
-            time.sleep(10)
+            try:
+                bot.stop_polling()
+            except:
+                pass
+            time.sleep(30)
+
+def handle_signal(signum, frame):
+    """Обработчик сигналов завершения"""
+    print(f"🛑 Получен сигнал {signum}, завершаю работу...")
+    stop_bot_safely()
+    sys.exit(0)
+
+# Регистрируем обработчики сигналов
+signal.signal(signal.SIGTERM, handle_signal)
+signal.signal(signal.SIGINT, handle_signal)
 
 if __name__ == '__main__':
     print("🚀 Запуск сервера...")
-    bot_thread = threading.Thread(target=run_bot)
-    bot_thread.daemon = True
+    print(f"PID процесса: {os.getpid()}")
+    
+    # Запускаем бота в отдельном потоке
+    bot_thread = threading.Thread(target=run_bot, daemon=True)
     bot_thread.start()
-    app.run(host='0.0.0.0', port=8080)
+    
+    # Запускаем Flask
+    app.run(host='0.0.0.0', port=8080, threaded=True)
