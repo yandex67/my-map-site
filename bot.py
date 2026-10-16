@@ -8,6 +8,7 @@ from flask_cors import CORS
 import threading
 import os
 import traceback
+import time
 
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "8803648566:AAG1BL4brhrA8PkJ2TD30qm3CPE4ZNqdnts")
 DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://mapbotuser:r47l5ou0pDueVnus4tiD3d2w7hYQJ1vy@dpg-db4fc5ks728c73ajgig0-a.frankfurt-postgres.render.com/mapbotdb")
@@ -187,7 +188,7 @@ def handle_message(message):
                 conn.commit(); conn.close()
                 bot.reply_to(message, f"✅ Парковка '{title}' добавлена!")
             else:
-                bot.reply_to(message, f"❌ Не найдено: '{location_part}'")
+                bot.reply_to(message, f" Не найдено: '{location_part}'")
         return
 
     if ' - ' in text:
@@ -252,7 +253,7 @@ def handle_message(message):
             conn.commit(); conn.close()
             bot.reply_to(message, f"✅ Доп инфа добавлена!")
         else:
-            bot.reply_to(message, f" Не найдено: '{location_part}'")
+            bot.reply_to(message, f"❌ Не найдено: '{location_part}'")
         return
 
     if '-' in text:
@@ -312,7 +313,7 @@ def handle_message(message):
         conn = get_db_connection(); c = conn.cursor()
         c.execute("DELETE FROM parkings WHERE id = (SELECT MAX(id) FROM parkings)")
         if c.rowcount > 0:
-            bot.reply_to(message, "️ Последняя парковка удалена.")
+            bot.reply_to(message, "🗑️ Последняя парковка удалена.")
         else:
             bot.reply_to(message, "❌ Парковок нет.")
         conn.commit(); conn.close()
@@ -740,13 +741,25 @@ def remove_departure():
     except Exception as e:
         return jsonify({"error": str(e), "success": False}), 500
 
+# ✅ УСТОЙЧИВЫЙ ЗАПУСК БОТА С ЗАЩИТОЙ ОТ 409
 def run_bot():
     print("🤖 Запускаю бота...")
-    try:
-        bot.polling(none_stop=True)
-    except Exception as e:
-        print(f"❌ Ошибка бота: {e}")
-        traceback.print_exc()
+    while True:
+        try:
+            bot.polling(none_stop=True, timeout=60, long_polling_timeout=60)
+        except telebot.apihelper.ApiTelegramException as e:
+            if e.error_code == 409:
+                print("⚠️ Конфликт 409: другой экземпляр бота активен. Ждём 30 секунд...")
+                time.sleep(30)
+            else:
+                print(f"❌ Ошибка Telegram API: {e}")
+                traceback.print_exc()
+                time.sleep(10)
+        except Exception as e:
+            print(f" Ошибка polling: {e}")
+            traceback.print_exc()
+            print("⏳ Перезапуск через 10 секунд...")
+            time.sleep(10)
 
 if __name__ == '__main__':
     print("🚀 Запуск сервера...")
