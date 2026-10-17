@@ -11,6 +11,7 @@ import traceback
 import time
 import signal
 import sys
+from datetime import datetime
 
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "8803648566:AAG1BL4brhrA8PkJ2TD30qm3CPE4ZNqdnts")
 DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://mapbotuser:r47l5ou0pDueVnus4tiD3d2w7hYQJ1vy@dpg-db4fc5ks728c73ajgig0-a.frankfurt-postgres.render.com/mapbotdb")
@@ -38,11 +39,10 @@ def get_db_connection():
         conn = psycopg.connect(DATABASE_URL)
         return conn
     except Exception as e:
-        print(f" Ошибка подключения к БД: {e}")
+        print(f"❌ Ошибка подключения к БД: {e}")
         return None
 
 def column_exists(c, table, column):
-    """Проверяет существует ли колонка в таблице"""
     try:
         c.execute(f"SELECT column_name FROM information_schema.columns WHERE table_name='{table}' AND column_name='{column}'")
         return c.fetchone() is not None
@@ -61,7 +61,6 @@ def init_db():
             return
         c = conn.cursor()
         
-        # Создаём таблицы
         print("📦 Создаю таблицы...")
         c.execute('''CREATE TABLE IF NOT EXISTS points
                      (id SERIAL PRIMARY KEY, title TEXT, address TEXT, lat REAL, lon REAL, 
@@ -78,49 +77,32 @@ def init_db():
                      (id SERIAL PRIMARY KEY, point_id INTEGER UNIQUE, point_title TEXT, person_name TEXT)''')
         c.execute('''CREATE TABLE IF NOT EXISTS settings
                      (key TEXT PRIMARY KEY, value TEXT)''')
+        # ✅ КОРЗИНА ДЛЯ ОТМЕНЫ УДАЛЕНИЙ
+        c.execute('''CREATE TABLE IF NOT EXISTS trash
+                     (id SERIAL PRIMARY KEY, type TEXT, data JSON, deleted_at TIMESTAMP DEFAULT NOW())''')
         conn.commit()
         print("✅ Таблицы созданы")
         
-        # ✅ НАДЁЖНОЕ ДОБАВЛЕНИЕ КОЛОНОК
-        print(" Проверяю колонки...")
-        
-        # points: comment
+        print("🔧 Проверяю колонки...")
         if not column_exists(c, 'points', 'comment'):
-            c.execute("ALTER TABLE points ADD COLUMN comment TEXT")
-            conn.commit()
+            c.execute("ALTER TABLE points ADD COLUMN comment TEXT"); conn.commit()
             print("✅ Добавлена колонка comment в points")
-        
-        # points: url
         if not column_exists(c, 'points', 'url'):
-            c.execute("ALTER TABLE points ADD COLUMN url TEXT")
-            conn.commit()
+            c.execute("ALTER TABLE points ADD COLUMN url TEXT"); conn.commit()
             print("✅ Добавлена колонка url в points")
-        
-        # points: assigned_to
         if not column_exists(c, 'points', 'assigned_to'):
-            c.execute("ALTER TABLE points ADD COLUMN assigned_to TEXT")
-            conn.commit()
+            c.execute("ALTER TABLE points ADD COLUMN assigned_to TEXT"); conn.commit()
             print("✅ Добавлена колонка assigned_to в points")
-        
-        # parkings: photo_url
         if not column_exists(c, 'parkings', 'photo_url'):
-            c.execute("ALTER TABLE parkings ADD COLUMN photo_url TEXT")
-            conn.commit()
+            c.execute("ALTER TABLE parkings ADD COLUMN photo_url TEXT"); conn.commit()
             print("✅ Добавлена колонка photo_url в parkings")
-        
-        # zones: assigned_to
         if not column_exists(c, 'zones', 'assigned_to'):
-            c.execute("ALTER TABLE zones ADD COLUMN assigned_to TEXT")
-            conn.commit()
+            c.execute("ALTER TABLE zones ADD COLUMN assigned_to TEXT"); conn.commit()
             print("✅ Добавлена колонка assigned_to в zones")
-        
-        # routes: temporary
         if not column_exists(c, 'routes', 'temporary'):
-            c.execute("ALTER TABLE routes ADD COLUMN temporary BOOLEAN DEFAULT FALSE")
-            conn.commit()
+            c.execute("ALTER TABLE routes ADD COLUMN temporary BOOLEAN DEFAULT FALSE"); conn.commit()
             print("✅ Добавлена колонка temporary в routes")
         
-        # Настройки
         settings = [('hide_empty_labels', 'false'), ('show_parkings', 'true'), ('show_labels', 'true')]
         for key, value in settings:
             c.execute("INSERT INTO settings (key, value) VALUES (%s, %s) ON CONFLICT (key) DO NOTHING", (key, value))
@@ -135,6 +117,67 @@ def init_db():
 @app.before_request
 def ensure_db_initialized():
     init_db()
+
+# === КОРЗИНА ===
+def save_to_trash(obj_type, data):
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return
+        c = conn.cursor()
+        c.execute("SELECT COUNT(*) FROM trash WHERE type = %s", (obj_type,))
+        count = c.fetchone()[0]
+        if count >= 5:
+            c.execute("""DELETE FROM trash WHERE id IN 
+                        (SELECT id FROM trash WHERE type = %s ORDER BY deleted_at ASC LIMIT 1)""", 
+                     (obj_type,))
+        c.execute("INSERT INTO trash (type, data) VALUES (%s, %s)", 
+                 (obj_type, json.dumps(data, ensure_ascii=False, default=str)))
+        conn.commit()
+        conn.close()
+        print(f"✅ Сохранено в trash: {obj_type}")
+    except Exception as e:
+        print(f"❌ Ошибка сохранения в trash: {e}")
+
+def restore_from_trash():
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return None, "Нет подключения к БД"
+        c = conn.cursor()
+        c.execute("SELECT id, type, data FROM trash ORDER BY deleted_at DESC LIMIT 1")
+        row = c.fetchone()
+        if not row:
+            conn.close()
+            return None, "Корзина пуста"
+        trash_id, obj_type, data = row
+        data = json.loads(data) if isinstance(data, str) else data
+        
+        if obj_type in ('point', 'info'):
+            c.execute("""INSERT INTO points (title, address, lat, lon, status, comment, url, assigned_to)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING id""",
+                     (data.get('title'), data.get('address'), data.get('lat'), data.get('lon'),
+                      data.get('status', 'active'), data.get('comment', ''), data.get('url', ''),
+                      data.get('assigned_to')))
+            new_id = c.fetchone()[0]
+            c.execute("DELETE FROM trash WHERE id = %s", (trash_id,))
+            conn.commit(); conn.close()
+            return f"✅ Восстановлен объект '{data.get('title')}' (ID: {new_id})", None
+        elif obj_type == 'zone':
+            c.execute("""INSERT INTO zones (coords, comment, assigned_to)
+                        VALUES (%s, %s, %s) RETURNING id""",
+                     (data.get('coords'), data.get('comment', ''), data.get('assigned_to')))
+            new_id = c.fetchone()[0]
+            c.execute("DELETE FROM trash WHERE id = %s", (trash_id,))
+            conn.commit(); conn.close()
+            return f"✅ Восстановлена зона (ID: {new_id})", None
+        else:
+            conn.close()
+            return None, f"Неизвестный тип: {obj_type}"
+    except Exception as e:
+        print(f"❌ Ошибка восстановления: {e}")
+        traceback.print_exc()
+        return None, str(e)
 
 def get_coordinates(address):
     query = f"г. Смоленск, {address}"
@@ -158,6 +201,43 @@ def handle_message(message):
         return
     text = message.text.strip()
     text_lower = text.lower()
+
+    # ✅ КОМАНДА ОТМЕНЫ УДАЛЕНИЯ
+    if text_lower == 'z':
+        result, error = restore_from_trash()
+        if error:
+            bot.reply_to(message, f"❌ {error}")
+        else:
+            bot.reply_to(message, result)
+        return
+
+    # ✅ ПРОСМОТР КОРЗИНЫ
+    if text_lower in ('trash', 'корзина'):
+        try:
+            conn = get_db_connection()
+            c = conn.cursor()
+            c.execute("SELECT type, data, deleted_at FROM trash ORDER BY deleted_at DESC")
+            items = c.fetchall()
+            conn.close()
+            if not items:
+                bot.reply_to(message, " Корзина пуста")
+            else:
+                msg = "📦 Корзина (последние удаления):\n\n"
+                for i, (obj_type, data, deleted_at) in enumerate(items, 1):
+                    data = json.loads(data) if isinstance(data, str) else data
+                    if obj_type == 'point':
+                        name = data.get('title', 'Без названия')
+                        msg += f"{i}. 🛴 Самокат '{name}'\n"
+                    elif obj_type == 'info':
+                        name = data.get('title', 'Без названия')
+                        msg += f"{i}. ℹ️ Доп инфа '{name}'\n"
+                    elif obj_type == 'zone':
+                        msg += f"{i}. 🔴 Зона\n"
+                msg += "\nНапиши Z чтобы восстановить последнее"
+                bot.reply_to(message, msg)
+        except Exception as e:
+            bot.reply_to(message, f"❌ Ошибка: {e}")
+        return
 
     if text_lower == 'off лишнее':
         conn = get_db_connection(); c = conn.cursor()
@@ -250,6 +330,16 @@ def handle_message(message):
         action = parts[1].strip()
         if action.lower() == 'удалить':
             conn = get_db_connection(); c = conn.cursor()
+            c.execute("SELECT id, title, address, lat, lon, available_count, dead_count, broken_count, photo_url FROM parkings WHERE title = %s", (title,))
+            row = c.fetchone()
+            if row:
+                parking_data = {
+                    'id': row[0], 'title': row[1], 'address': row[2],
+                    'lat': row[3], 'lon': row[4],
+                    'available_count': row[5], 'dead_count': row[6],
+                    'broken_count': row[7], 'photo_url': row[8]
+                }
+                save_to_trash('parking', parking_data)
             c.execute("DELETE FROM parkings WHERE title = %s", (title,))
             if c.rowcount > 0:
                 bot.reply_to(message, f"🗑️ Парковка '{title}' удалена.")
@@ -378,15 +468,13 @@ def handle_message(message):
 def get_settings():
     try:
         conn = get_db_connection()
-        if not conn:
-            return jsonify({"error": "DB connection failed"}), 500
+        if not conn: return jsonify({"error": "DB connection failed"}), 500
         c = conn.cursor()
         c.execute("SELECT key, value FROM settings")
         settings = {row[0]: row[1] == 'true' for row in c.fetchall()}
         conn.close()
         return jsonify(settings)
     except Exception as e:
-        print(f"❌ /get_settings: {e}")
         return jsonify({"error": str(e)}), 500
 
 @app.route('/update_setting', methods=['POST'])
@@ -394,8 +482,7 @@ def update_setting():
     try:
         data = request.json
         conn = get_db_connection()
-        if not conn:
-            return jsonify({"error": "DB connection failed"}), 500
+        if not conn: return jsonify({"error": "DB connection failed"}), 500
         c = conn.cursor()
         c.execute("UPDATE settings SET value = %s WHERE key = %s", (str(data.get('value')).lower(), data.get('key')))
         conn.commit(); conn.close()
@@ -408,8 +495,7 @@ def get_points():
     try:
         user = request.args.get('user', '')
         conn = get_db_connection()
-        if not conn:
-            return jsonify([]), 200
+        if not conn: return jsonify([]), 200
         c = conn.cursor()
         if user:
             c.execute("SELECT id, title, address, lat, lon, status, comment, url, assigned_to FROM points WHERE status != 'found' AND (assigned_to = %s OR assigned_to IS NULL)", (user,))
@@ -420,7 +506,7 @@ def get_points():
         print(f"✅ /get_points: возвращено {len(points)} точек")
         return jsonify(points)
     except Exception as e:
-        print(f"❌ /get_points: {e}")
+        print(f" /get_points: {e}")
         traceback.print_exc()
         return jsonify([]), 200
 
@@ -429,8 +515,7 @@ def create_scooter():
     try:
         data = request.json
         conn = get_db_connection()
-        if not conn:
-            return jsonify({"error": "DB connection failed"}), 500
+        if not conn: return jsonify({"error": "DB connection failed"}), 500
         c = conn.cursor()
         c.execute("INSERT INTO points (title, address, lat, lon, status, comment) VALUES (%s, %s, %s, %s, %s, %s)", 
                  (data.get('number', ''), data.get('address', ''), data.get('lat'), data.get('lon'), data.get('status', 'active'), data.get('comment', '')))
@@ -444,8 +529,7 @@ def create_parking():
     try:
         data = request.json
         conn = get_db_connection()
-        if not conn:
-            return jsonify({"error": "DB connection failed"}), 500
+        if not conn: return jsonify({"error": "DB connection failed"}), 500
         c = conn.cursor()
         c.execute("INSERT INTO parkings (title, address, lat, lon) VALUES (%s, %s, %s, %s)", 
                  (data.get('title', ''), data.get('address', ''), data.get('lat'), data.get('lon')))
@@ -459,10 +543,20 @@ def update_status():
     try:
         data = request.json
         conn = get_db_connection()
-        if not conn:
-            return jsonify({"error": "DB connection failed"}), 500
+        if not conn: return jsonify({"error": "DB connection failed"}), 500
         c = conn.cursor()
         if data.get('status') == 'found':
+            c.execute("SELECT id, title, address, lat, lon, status, comment, url, assigned_to FROM points WHERE id = %s", (data.get('id'),))
+            row = c.fetchone()
+            if row:
+                point_data = {
+                    'id': row[0], 'title': row[1], 'address': row[2],
+                    'lat': row[3], 'lon': row[4], 'status': row[5],
+                    'comment': row[6], 'url': row[7], 'assigned_to': row[8]
+                }
+                obj_type = 'info' if row[5] == 'info' else 'point'
+                save_to_trash(obj_type, point_data)
+                print(f"️ Удалён {obj_type} ID {row[0]}, сохранён в trash")
             c.execute("DELETE FROM points WHERE id = %s", (data.get('id'),))
         else:
             c.execute("UPDATE points SET status = %s WHERE id = %s", (data.get('status'), data.get('id')))
@@ -476,8 +570,7 @@ def update_comment():
     try:
         data = request.json
         conn = get_db_connection()
-        if not conn:
-            return jsonify({"error": "DB connection failed"}), 500
+        if not conn: return jsonify({"error": "DB connection failed"}), 500
         c = conn.cursor()
         c.execute("UPDATE points SET comment = %s WHERE id = %s", (data.get('comment', ''), data.get('point_id')))
         conn.commit(); conn.close()
@@ -490,8 +583,7 @@ def update_point_location():
     try:
         data = request.json
         conn = get_db_connection()
-        if not conn:
-            return jsonify({"error": "DB connection failed"}), 500
+        if not conn: return jsonify({"error": "DB connection failed"}), 500
         c = conn.cursor()
         c.execute("UPDATE points SET lat = %s, lon = %s, address = %s WHERE id = %s", 
                  (data.get('lat'), data.get('lon'), data.get('address', ''), data.get('id')))
@@ -505,8 +597,7 @@ def update_parking_location():
     try:
         data = request.json
         conn = get_db_connection()
-        if not conn:
-            return jsonify({"error": "DB connection failed"}), 500
+        if not conn: return jsonify({"error": "DB connection failed"}), 500
         c = conn.cursor()
         c.execute("UPDATE parkings SET lat = %s, lon = %s, address = %s WHERE id = %s", 
                  (data.get('lat'), data.get('lon'), data.get('address', ''), data.get('id')))
@@ -519,8 +610,7 @@ def update_parking_location():
 def get_parkings():
     try:
         conn = get_db_connection()
-        if not conn:
-            return jsonify([]), 200
+        if not conn: return jsonify([]), 200
         c = conn.cursor()
         c.execute("SELECT id, title, address, lat, lon, available_count, dead_count, broken_count, photo_url FROM parkings")
         parkings = []
@@ -545,11 +635,34 @@ def update_parking():
     try:
         data = request.json
         conn = get_db_connection()
-        if not conn:
-            return jsonify({"error": "DB connection failed"}), 500
+        if not conn: return jsonify({"error": "DB connection failed"}), 500
         c = conn.cursor()
         c.execute("UPDATE parkings SET available_count = %s, dead_count = %s, broken_count = %s WHERE id = %s", 
                   (data.get('available', '?'), data.get('dead', '?'), data.get('broken', '?'), data.get('id')))
+        conn.commit(); conn.close()
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"error": str(e), "success": False}), 500
+
+@app.route('/delete_parking', methods=['POST'])
+def delete_parking():
+    try:
+        data = request.json
+        conn = get_db_connection()
+        if not conn: return jsonify({"error": "DB connection failed"}), 500
+        c = conn.cursor()
+        c.execute("SELECT id, title, address, lat, lon, available_count, dead_count, broken_count, photo_url FROM parkings WHERE id = %s", (data.get('id'),))
+        row = c.fetchone()
+        if row:
+            parking_data = {
+                'id': row[0], 'title': row[1], 'address': row[2],
+                'lat': row[3], 'lon': row[4],
+                'available_count': row[5], 'dead_count': row[6],
+                'broken_count': row[7], 'photo_url': row[8]
+            }
+            save_to_trash('parking', parking_data)
+            print(f"️ Удалена парковка ID {row[0]}, сохранена в trash")
+        c.execute("DELETE FROM parkings WHERE id = %s", (data.get('id'),))
         conn.commit(); conn.close()
         return jsonify({"success": True})
     except Exception as e:
@@ -560,8 +673,7 @@ def get_zones():
     try:
         user = request.args.get('user', '')
         conn = get_db_connection()
-        if not conn:
-            return jsonify([]), 200
+        if not conn: return jsonify([]), 200
         c = conn.cursor()
         if user:
             c.execute("SELECT id, coords, comment, assigned_to FROM zones WHERE assigned_to = %s OR assigned_to IS NULL", (user,))
@@ -587,8 +699,7 @@ def add_zone():
     try:
         data = request.json
         conn = get_db_connection()
-        if not conn:
-            return jsonify({"error": "DB connection failed"}), 500
+        if not conn: return jsonify({"error": "DB connection failed"}), 500
         c = conn.cursor()
         c.execute("INSERT INTO zones (coords, comment) VALUES (%s, %s)", (json.dumps(data.get('coords')), data.get('comment', '')))
         conn.commit(); conn.close()
@@ -601,9 +712,14 @@ def delete_zone():
     try:
         data = request.json
         conn = get_db_connection()
-        if not conn:
-            return jsonify({"error": "DB connection failed"}), 500
+        if not conn: return jsonify({"error": "DB connection failed"}), 500
         c = conn.cursor()
+        c.execute("SELECT id, coords, comment, assigned_to FROM zones WHERE id = %s", (data.get('id'),))
+        row = c.fetchone()
+        if row:
+            zone_data = {'id': row[0], 'coords': row[1], 'comment': row[2], 'assigned_to': row[3]}
+            save_to_trash('zone', zone_data)
+            print(f"🗑️ Удалена зона ID {row[0]}, сохранена в trash")
         c.execute("DELETE FROM zones WHERE id = %s", (data.get('id'),))
         conn.commit(); conn.close()
         return jsonify({"success": True})
@@ -615,8 +731,7 @@ def update_zone_location():
     try:
         data = request.json
         conn = get_db_connection()
-        if not conn:
-            return jsonify({"error": "DB connection failed"}), 500
+        if not conn: return jsonify({"error": "DB connection failed"}), 500
         c = conn.cursor()
         c.execute("UPDATE zones SET coords = %s WHERE id = %s", (json.dumps(data.get('coords')), data.get('id')))
         conn.commit(); conn.close()
@@ -628,8 +743,7 @@ def update_zone_location():
 def get_routes():
     try:
         conn = get_db_connection()
-        if not conn:
-            return jsonify([]), 200
+        if not conn: return jsonify([]), 200
         c = conn.cursor()
         c.execute("SELECT id, coords, comment, temporary FROM routes WHERE temporary = FALSE")
         routes = []
@@ -651,8 +765,7 @@ def get_routes():
 def get_temp_routes():
     try:
         conn = get_db_connection()
-        if not conn:
-            return jsonify([]), 200
+        if not conn: return jsonify([]), 200
         c = conn.cursor()
         c.execute("SELECT id, coords, comment FROM routes WHERE temporary = TRUE")
         routes = []
@@ -675,8 +788,7 @@ def add_route():
     try:
         data = request.json
         conn = get_db_connection()
-        if not conn:
-            return jsonify({"error": "DB connection failed"}), 500
+        if not conn: return jsonify({"error": "DB connection failed"}), 500
         c = conn.cursor()
         c.execute("INSERT INTO routes (coords, comment, temporary) VALUES (%s, %s, %s)", 
                  (json.dumps(data.get('coords')), data.get('comment', ''), data.get('temporary', False)))
@@ -690,8 +802,7 @@ def delete_route():
     try:
         data = request.json
         conn = get_db_connection()
-        if not conn:
-            return jsonify({"error": "DB connection failed"}), 500
+        if not conn: return jsonify({"error": "DB connection failed"}), 500
         c = conn.cursor()
         c.execute("DELETE FROM routes WHERE id = %s", (data.get('id'),))
         conn.commit(); conn.close()
@@ -704,8 +815,7 @@ def update_route():
     try:
         data = request.json
         conn = get_db_connection()
-        if not conn:
-            return jsonify({"error": "DB connection failed"}), 500
+        if not conn: return jsonify({"error": "DB connection failed"}), 500
         c = conn.cursor()
         c.execute("UPDATE routes SET coords = %s WHERE id = %s", (json.dumps(data.get('coords')), data.get('id')))
         conn.commit(); conn.close()
@@ -718,8 +828,7 @@ def assign_task():
     try:
         data = request.json
         conn = get_db_connection()
-        if not conn:
-            return jsonify({"error": "DB connection failed"}), 500
+        if not conn: return jsonify({"error": "DB connection failed"}), 500
         c = conn.cursor()
         task_type = data.get('type')
         task_id = data.get('id')
@@ -739,8 +848,7 @@ def clear_assignments():
         data = request.json
         user = data.get('user')
         conn = get_db_connection()
-        if not conn:
-            return jsonify({"error": "DB connection failed"}), 500
+        if not conn: return jsonify({"error": "DB connection failed"}), 500
         c = conn.cursor()
         c.execute("UPDATE points SET assigned_to = NULL WHERE assigned_to = %s", (user,))
         c.execute("UPDATE zones SET assigned_to = NULL WHERE assigned_to = %s", (user,))
@@ -753,8 +861,7 @@ def clear_assignments():
 def get_departures():
     try:
         conn = get_db_connection()
-        if not conn:
-            return jsonify([]), 200
+        if not conn: return jsonify([]), 200
         c = conn.cursor()
         c.execute("SELECT point_id, point_title, person_name FROM departures")
         departures = [{"point_id": r[0], "point_title": r[1], "person_name": r[2]} for r in c.fetchall()]
@@ -769,8 +876,7 @@ def add_departure():
     try:
         data = request.json
         conn = get_db_connection()
-        if not conn:
-            return jsonify({"error": "DB connection failed"}), 500
+        if not conn: return jsonify({"error": "DB connection failed"}), 500
         c = conn.cursor()
         c.execute("""INSERT INTO departures (point_id, point_title, person_name) VALUES (%s, %s, %s)
                      ON CONFLICT (point_id) DO UPDATE SET point_title = EXCLUDED.point_title, person_name = EXCLUDED.person_name""", 
@@ -785,8 +891,7 @@ def remove_departure():
     try:
         data = request.json
         conn = get_db_connection()
-        if not conn:
-            return jsonify({"error": "DB connection failed"}), 500
+        if not conn: return jsonify({"error": "DB connection failed"}), 500
         c = conn.cursor()
         c.execute("DELETE FROM departures WHERE point_id = %s", (data.get('point_id'),))
         conn.commit(); conn.close()
@@ -806,50 +911,36 @@ def stop_bot_safely():
 
 def run_bot():
     global bot_running
-    
     if bot_running:
         print("⚠️ Бот уже запущен, пропускаем")
         return
-    
     bot_running = True
     print("🤖 Запускаю бота...")
-    
     try:
         bot.remove_webhook()
         print("✅ Webhook очищен")
     except Exception as e:
         print(f"⚠️ Не удалось очистить webhook: {e}")
-    
-    print(" Ожидаю 15 секунд...")
+    print("⏳ Ожидаю 15 секунд...")
     time.sleep(15)
-    
     while bot_running:
         try:
             print("🔄 Запускаю polling...")
-            bot.polling(
-                none_stop=True,
-                timeout=120,
-                long_polling_timeout=120,
-                allowed_updates=["message"]
-            )
+            bot.polling(none_stop=True, timeout=120, long_polling_timeout=120, allowed_updates=["message"])
         except telebot.apihelper.ApiTelegramException as e:
             if e.error_code == 409:
                 print("⚠️ Конфликт 409, жду 90 секунд...")
-                try:
-                    bot.stop_polling()
-                except:
-                    pass
+                try: bot.stop_polling()
+                except: pass
                 time.sleep(90)
             else:
-                print(f"❌ Ошибка Telegram API {e.error_code}: {e}")
+                print(f" Ошибка Telegram API {e.error_code}: {e}")
                 time.sleep(30)
         except Exception as e:
             print(f"❌ Ошибка polling: {e}")
             traceback.print_exc()
-            try:
-                bot.stop_polling()
-            except:
-                pass
+            try: bot.stop_polling()
+            except: pass
             time.sleep(30)
 
 def handle_signal(signum, frame):
@@ -863,8 +954,6 @@ signal.signal(signal.SIGINT, handle_signal)
 if __name__ == '__main__':
     print("🚀 Запуск сервера...")
     print(f"PID процесса: {os.getpid()}")
-    
     bot_thread = threading.Thread(target=run_bot, daemon=True)
     bot_thread.start()
-    
     app.run(host='0.0.0.0', port=8080, threaded=True)
