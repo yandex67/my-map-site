@@ -58,7 +58,7 @@ def init_db():
             print("❌ Не удалось подключиться к БД")
             return
         c = conn.cursor()
-        print("📦 Создаю таблицы...")
+        print(" Создаю таблицы...")
         c.execute('''CREATE TABLE IF NOT EXISTS points
                      (id SERIAL PRIMARY KEY, title TEXT, address TEXT, lat REAL, lon REAL, 
                       status TEXT DEFAULT 'active', comment TEXT, url TEXT)''')
@@ -78,19 +78,19 @@ def init_db():
                      (id SERIAL PRIMARY KEY, type TEXT, data JSON, deleted_at TIMESTAMP DEFAULT NOW())''')
         conn.commit()
         print("✅ Таблицы созданы")
-        print("🔧 Проверяю колонки...")
+        print(" Проверяю колонки...")
         if not column_exists(c, 'points', 'comment'):
-            c.execute("ALTER TABLE points ADD COLUMN comment TEXT"); conn.commit(); print("✅ comment в points")
+            c.execute("ALTER TABLE points ADD COLUMN comment TEXT"); conn.commit()
         if not column_exists(c, 'points', 'url'):
-            c.execute("ALTER TABLE points ADD COLUMN url TEXT"); conn.commit(); print("✅ url в points")
+            c.execute("ALTER TABLE points ADD COLUMN url TEXT"); conn.commit()
         if not column_exists(c, 'points', 'assigned_to'):
-            c.execute("ALTER TABLE points ADD COLUMN assigned_to TEXT"); conn.commit(); print("✅ assigned_to в points")
+            c.execute("ALTER TABLE points ADD COLUMN assigned_to TEXT"); conn.commit()
         if not column_exists(c, 'parkings', 'photo_url'):
-            c.execute("ALTER TABLE parkings ADD COLUMN photo_url TEXT"); conn.commit(); print("✅ photo_url в parkings")
+            c.execute("ALTER TABLE parkings ADD COLUMN photo_url TEXT"); conn.commit()
         if not column_exists(c, 'zones', 'assigned_to'):
-            c.execute("ALTER TABLE zones ADD COLUMN assigned_to TEXT"); conn.commit(); print("✅ assigned_to в zones")
+            c.execute("ALTER TABLE zones ADD COLUMN assigned_to TEXT"); conn.commit()
         if not column_exists(c, 'routes', 'temporary'):
-            c.execute("ALTER TABLE routes ADD COLUMN temporary BOOLEAN DEFAULT FALSE"); conn.commit(); print("✅ temporary в routes")
+            c.execute("ALTER TABLE routes ADD COLUMN temporary BOOLEAN DEFAULT FALSE"); conn.commit()
         settings = [('hide_empty_labels', 'false'), ('show_parkings', 'true'), ('show_labels', 'true')]
         for key, value in settings:
             c.execute("INSERT INTO settings (key, value) VALUES (%s, %s) ON CONFLICT (key) DO NOTHING", (key, value))
@@ -209,13 +209,13 @@ def handle_message(message):
             items = c.fetchall()
             conn.close()
             if not items:
-                bot.reply_to(message, "️ Корзина пуста")
+                bot.reply_to(message, "🗑️ Корзина пуста")
             else:
                 msg = "📦 Корзина (последние удаления):\n\n"
                 for i, (obj_type, data, deleted_at) in enumerate(items, 1):
                     data = json.loads(data) if isinstance(data, str) else data
                     if obj_type == 'point':
-                        msg += f"{i}.  Самокат '{data.get('title', '')}'\n"
+                        msg += f"{i}. 🛴 Самокат '{data.get('title', '')}'\n"
                     elif obj_type == 'info':
                         msg += f"{i}. ℹ️ Доп инфа '{data.get('title', '')}'\n"
                     elif obj_type == 'zone':
@@ -240,7 +240,7 @@ def handle_message(message):
         conn = get_db_connection(); c = conn.cursor()
         c.execute("DELETE FROM routes WHERE id = (SELECT MAX(id) FROM routes)")
         if c.rowcount > 0:
-            bot.reply_to(message, "️ Последний маршрут удалён.")
+            bot.reply_to(message, "🗑️ Последний маршрут удалён.")
         else:
             bot.reply_to(message, "❌ Маршрутов нет.")
         conn.commit(); conn.close()
@@ -298,7 +298,7 @@ def handle_message(message):
         conn = get_db_connection(); c = conn.cursor()
         c.execute("UPDATE parkings SET photo_url = NULL WHERE title = %s", (name,))
         conn.commit(); conn.close()
-        bot.reply_to(message, f"🗑️ Ссылка удалена.")
+        bot.reply_to(message, f"️ Ссылка удалена.")
         return
     if ' http' in text or text.startswith('http'):
         parts = text.split(' ', 1)
@@ -328,7 +328,7 @@ def handle_message(message):
                 conn.commit(); conn.close()
                 bot.reply_to(message, f"✅ Парковка '{title}' добавлена!")
             else:
-                bot.reply_to(message, f" Не найдено: '{location_part}'")
+                bot.reply_to(message, f"❌ Не найдено: '{location_part}'")
         return
 
     if ' - ' in text:
@@ -390,7 +390,7 @@ def handle_message(message):
         if coord_match:
             lat, lon = float(coord_match.group(1)), float(coord_match.group(2))
         else:
-            bot.reply_to(message, f" Ищу '{location_part}'...")
+            bot.reply_to(message, f"⏳ Ищу '{location_part}'...")
             lat, lon = get_coordinates(location_part)
         if lat and lon:
             conn = get_db_connection(); c = conn.cursor()
@@ -779,6 +779,20 @@ def get_temp_routes():
         traceback.print_exc()
         return jsonify([]), 200
 
+@app.route('/clear_temp_routes', methods=['POST'])
+def clear_temp_routes():
+    try:
+        conn = get_db_connection()
+        if not conn: return jsonify({"error": "DB connection failed"}), 500
+        c = conn.cursor()
+        c.execute("DELETE FROM routes WHERE temporary = TRUE")
+        count = c.rowcount
+        conn.commit(); conn.close()
+        print(f"️ Очищено {count} временных маршрутов")
+        return jsonify({"success": True, "count": count})
+    except Exception as e:
+        return jsonify({"error": str(e), "success": False}), 500
+
 @app.route('/add_route', methods=['POST'])
 def add_route():
     try:
@@ -786,9 +800,15 @@ def add_route():
         conn = get_db_connection()
         if not conn: return jsonify({"error": "DB connection failed"}), 500
         c = conn.cursor()
+        temp_value = data.get('temporary', False)
+        if isinstance(temp_value, str):
+            temp_value = temp_value.lower() == 'true'
+        else:
+            temp_value = bool(temp_value)
         c.execute("INSERT INTO routes (coords, comment, temporary) VALUES (%s, %s, %s)", 
-                 (json.dumps(data.get('coords')), data.get('comment', ''), data.get('temporary', False)))
+                 (json.dumps(data.get('coords')), data.get('comment', ''), temp_value))
         conn.commit(); conn.close()
+        print(f"✅ Маршрут сохранён, temporary={temp_value}")
         return jsonify({"success": True})
     except Exception as e:
         return jsonify({"error": str(e), "success": False}), 500
@@ -864,7 +884,7 @@ def get_departures():
         conn.close()
         return jsonify(departures)
     except Exception as e:
-        print(f" /get_departures: {e}")
+        print(f"❌ /get_departures: {e}")
         return jsonify([]), 200
 
 @app.route('/add_departure', methods=['POST'])
@@ -903,21 +923,21 @@ def stop_bot_safely():
         bot.stop_polling()
         print("✅ Polling остановлен")
     except Exception as e:
-        print(f"️ Ошибка при остановке polling: {e}")
+        print(f"⚠️ Ошибка при остановке polling: {e}")
 
 def run_bot():
     global bot_running
     if bot_running:
-        print("️ Бот уже запущен, пропускаем")
+        print("⚠️ Бот уже запущен, пропускаем")
         return
     bot_running = True
-    print("🤖 Запускаю бота...")
+    print(" Запускаю бота...")
     try:
         bot.remove_webhook()
         print("✅ Webhook очищен")
     except Exception as e:
         print(f"⚠️ Не удалось очистить webhook: {e}")
-    print("⏳ Ожидаю 15 секунд...")
+    print(" Ожидаю 15 секунд...")
     time.sleep(15)
     while bot_running:
         try:
