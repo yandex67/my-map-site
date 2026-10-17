@@ -56,16 +56,59 @@
         .orange-modal .modal-box h4 { color: white; }
         .orange-modal .modal-box p { color: white; }
         .orange-modal .modal-box .btn-row button { background: white; color: #ff9800; }
-        .confirm-assign-modal .modal-box { background: #f44336; }
-        .confirm-assign-modal .modal-box h4 { color: white; font-size: 18px; }
-        .confirm-assign-modal .modal-box .selected-list { color: white; font-size: 14px; margin: 10px 0 15px 0; max-height: 200px; overflow-y: auto; text-align: left; padding: 0 10px; }
-        .confirm-assign-modal .modal-box .selected-list .item { background: rgba(255,255,255,0.2); padding: 6px 10px; border-radius: 4px; margin: 4px 0; font-size: 13px; }
-        .confirm-assign-modal .modal-box .btn-row button { background: white; color: #f44336; }
+        .confirm-assign-modal {
+            position: fixed;
+            top: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1500;
+            background: transparent !important;
+            pointer-events: none;
+            align-items: flex-start;
+        }
+        .confirm-assign-modal .modal-box {
+            background: #f44336;
+            pointer-events: auto;
+            max-width: 260px;
+            padding: 12px 16px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+        .confirm-assign-modal .modal-box h4 {
+            color: white;
+            font-size: 15px;
+            margin: 0 0 8px 0;
+        }
+        .confirm-assign-modal .modal-box .selected-list {
+            color: white;
+            font-size: 12px;
+            margin: 6px 0;
+            max-height: 120px;
+            overflow-y: auto;
+            text-align: left;
+            padding: 0 5px;
+        }
+        .confirm-assign-modal .modal-box .selected-list .item {
+            background: rgba(255,255,255,0.25);
+            padding: 4px 8px;
+            border-radius: 3px;
+            margin: 3px 0;
+            font-size: 11px;
+        }
+        .confirm-assign-modal .modal-box .btn-row {
+            margin-top: 8px;
+        }
+        .confirm-assign-modal .modal-box .btn-row button {
+            background: white;
+            color: #f44336;
+            padding: 6px 10px;
+            font-size: 13px;
+        }
         .parking-move-preview { width: 18px; height: 18px; background: rgba(255, 152, 0, 0.6); border: 3px solid #ff9800; border-radius: 50%; pointer-events: none; }
+        .scooter-move-preview { width: 18px; height: 18px; background: rgba(255, 59, 48, 0.6); border: 3px solid #ff3b30; border-radius: 50%; pointer-events: none; }
         .custom-div-icon { background: transparent; border: none; }
         .leaflet-popup-content-wrapper { border-radius: 8px; }
         .leaflet-popup-content { margin: 12px; }
-        /* ✅ СТИЛИ ДЛЯ МОДАЛКИ "НАЧЕРТИ ЗОНУ" КАК НА СКРИНЕ */
         .zone-modal-buttons { display: flex; flex-direction: column; gap: 10px; margin-top: 15px; }
         .zone-modal-buttons .btn-zone-mode { background: #4CAF50; color: white; border: none; padding: 14px 20px; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; width: 100%; }
         .zone-modal-buttons .btn-zone-mode:active { background: #45a049; }
@@ -138,7 +181,12 @@
             <div class="btn-row"><button class="btn-cancel" onclick="closeParkingMoveModal()">Отмена</button><button class="btn-ok" onclick="confirmParkingMove()">Ок</button></div>
         </div>
     </div>
-    <!-- ✅ МОДАЛКА "НАЧЕРТИ ЗОНУ" С ДИЗАЙНОМ КАК НА СКРИНЕ -->
+    <div class="modal-overlay orange-modal" id="scooterMoveModal">
+        <div class="modal-box">
+            <h4>Кликните туда где должен быть самокат?</h4>
+            <div class="btn-row"><button class="btn-cancel" onclick="closeScooterMoveModal()">Отмена</button><button class="btn-ok" onclick="confirmScooterMove()">Ок</button></div>
+        </div>
+    </div>
     <div class="modal-overlay" id="zoneModalOverlay">
         <div class="modal-box">
             <h4>Начерти зону</h4>
@@ -241,8 +289,9 @@
         var currentCommentPointId = null, currentCommentType = null;
         var rightClickCoords = null;
         var movingPointId = null, movingPointData = null, movingType = null;
-        var movingZoneId = null, movingParkingId = null;
+        var movingZoneId = null, movingParkingId = null, movingScooterId = null;
         var parkingMoveMode = false, parkingMovePreview = null;
+        var scooterMoveMode = false, scooterMovePreview = null;
         var deleteRouteId = null, deleteZoneId = null, deleteScooterId = null, deleteParkingId = null, deleteInfoId = null;
         var contextMenuHandled = false;
         var isDrawingZone = false, drawMode = 1, zonePoints = [], zonePolygon = null, zonePolyline = null, zonePointMarkers = [];
@@ -267,36 +316,42 @@
             osmMap = L.map('osmMap', { center: [54.7818, 32.0401], zoom: 12, zoomControl: false });
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap', maxZoom: 19 }).addTo(osmMap);
             L.control.zoom({ position: 'topright' }).addTo(osmMap);
-            loadDeparturesFromServer(); loadPoints(); loadParkings(); loadZones(); loadRoutes(); loadSettings();
+            loadDeparturesFromServer(); loadPoints(); loadParkings(); loadZones();
+            fetch(API_URL + '/clear_temp_routes', { method: 'POST' }).catch(function() {});
+            loadRoutes(); loadSettings();
             setTimeout(function() { myMap.setCenter([54.7818, 32.0401], 12); }, 800);
 
             myMap.events.add('contextmenu', function(e) {
-                if (movingPointId || parkingMoveMode) return;
+                if (movingPointId || parkingMoveMode || scooterMoveMode) return;
                 if (contextMenuHandled) { contextMenuHandled = false; return; }
                 e.get('domEvent').preventDefault();
                 rightClickCoords = e.get('coords');
                 showContextMenu();
             });
             osmMap.on('contextmenu', function(e) {
-                if (movingPointId || parkingMoveMode) return;
+                if (movingPointId || parkingMoveMode || scooterMoveMode) return;
                 if (contextMenuHandled) { contextMenuHandled = false; return; }
                 rightClickCoords = [e.latlng.lat, e.latlng.lng];
                 showContextMenu();
             });
             myMap.events.add('mousemove', function(e) {
                 if (parkingMoveMode && movingParkingId) showParkingMovePreview(e.get('coords'));
+                if (scooterMoveMode && movingScooterId) showScooterMovePreview(e.get('coords'));
                 if (isDrawingFreehand) addZonePoint(e.get('coords'));
             });
             osmMap.on('mousemove', function(e) {
                 if (parkingMoveMode && movingParkingId) showOsmParkingMovePreview([e.latlng.lat, e.latlng.lng]);
+                if (scooterMoveMode && movingScooterId) showOsmScooterMovePreview([e.latlng.lat, e.latlng.lng]);
             });
             myMap.events.add('click', function(e) { 
+                if (scooterMoveMode && movingScooterId) { performScooterMove(e.get('coords')); return; }
                 if (parkingMoveMode && movingParkingId) { performParkingMove(e.get('coords')); return; }
                 if (movingPointId) { performMove(e.get('coords')); return; }
                 if (isDrawingZone && drawMode === 1 && !isZoneConfirmed) addZonePoint(e.get('coords'));
                 if (isDrawingRoute && !isZoneConfirmed) addRoutePoint(e.get('coords'));
             });
             osmMap.on('click', function(e) {
+                if (scooterMoveMode && movingScooterId) { performScooterMove([e.latlng.lat, e.latlng.lng]); return; }
                 if (parkingMoveMode && movingParkingId) { performParkingMove([e.latlng.lat, e.latlng.lng]); return; }
                 if (movingPointId) { performMove([e.latlng.lat, e.latlng.lng]); return; }
                 if (isDrawingRoute && !isZoneConfirmed) addRoutePoint([e.latlng.lat, e.latlng.lng]);
@@ -336,6 +391,30 @@
                 parkingMovePreview = null;
             }
         }
+        function showScooterMovePreview(coords) {
+            if (!scooterMovePreview) {
+                scooterMovePreview = new ymaps.Placemark(coords, {}, {
+                    iconLayout: ymaps.templateLayoutFactory.createClass('<div class="scooter-move-preview"></div>'),
+                    iconShape: { type: 'Circle', coordinates: [9, 9], radius: 9 }, zIndex: 2000
+                });
+                myMap.geoObjects.add(scooterMovePreview);
+            } else { scooterMovePreview.geometry.setCoordinates(coords); }
+        }
+        function showOsmScooterMovePreview(coords) {
+            if (!scooterMovePreview) {
+                scooterMovePreview = L.marker(coords, {
+                    icon: L.divIcon({ className: 'custom-div-icon', html: '<div class="scooter-move-preview"></div>', iconSize: [18, 18], iconAnchor: [9, 9] }),
+                    interactive: false, zIndexOffset: 2000
+                }).addTo(osmMap);
+            } else { scooterMovePreview.setLatLng(coords); }
+        }
+        function removeScooterMovePreview() {
+            if (scooterMovePreview) {
+                if (myMap) myMap.geoObjects.remove(scooterMovePreview);
+                if (osmMap) osmMap.removeLayer(scooterMovePreview);
+                scooterMovePreview = null;
+            }
+        }
 
         function performMove(newCoords) {
             if (!movingPointId) return;
@@ -372,10 +451,8 @@
             if (myMap) myMap.balloon.close();
             if (osmMap) osmMap.closePopup();
         }
-        // ✅ ИСПРАВЛЕНО: удаление зоны через кнопку "Удалить" в модалке
         function deleteMovingPoint() {
             if (movingZoneId) {
-                // ✅ УДАЛЕНИЕ ЗОНЫ
                 if (!confirm('Удалить зону?')) return;
                 fetch(API_URL + '/delete_zone', {
                     method: 'POST',
@@ -463,6 +540,54 @@
                     }
                 });
         }
+        function openScooterMoveModal(scooterId, scooterData) {
+            movingScooterId = scooterId;
+            scooterMoveMode = true;
+            document.getElementById('scooterMoveModal').style.display = 'flex';
+        }
+        function closeScooterMoveModal() {
+            document.getElementById('scooterMoveModal').style.display = 'none';
+            movingScooterId = null;
+            scooterMoveMode = false;
+            removeScooterMovePreview();
+        }
+        function confirmScooterMove() {
+            document.getElementById('scooterMoveModal').style.display = 'none';
+            document.getElementById('moveHint').textContent = 'Кликните куда переместить';
+            document.getElementById('moveHint').style.display = 'block';
+            if (myMap) {
+                myMap.balloon.close();
+                myMap.behaviors.disable('drag'); myMap.behaviors.disable('multiTouch');
+                myMap.behaviors.disable('scrollZoom'); myMap.behaviors.disable('dblClickZoom');
+            }
+            if (osmMap) {
+                osmMap.closePopup();
+                osmMap.dragging.disable(); osmMap.scrollWheelZoom.disable(); osmMap.doubleClickZoom.disable();
+            }
+        }
+        function performScooterMove(newCoords) {
+            if (!movingScooterId) return;
+            var lat = newCoords[0], lon = newCoords[1];
+            var address = lat.toFixed(6) + ', ' + lon.toFixed(6);
+            removeScooterMovePreview();
+            fetch(API_URL + '/update_point_location', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: movingScooterId, lat: lat, lon: lon, address: address }) })
+                .then(function(r) { return r.json(); }).then(function(data) {
+                    if (data.success) {
+                        movingScooterId = null;
+                        scooterMoveMode = false;
+                        document.getElementById('moveHint').style.display = 'none';
+                        document.getElementById('moveHint').textContent = 'Кликните по карте, куда переместить';
+                        if (myMap) {
+                            myMap.behaviors.enable('drag'); myMap.behaviors.enable('multiTouch');
+                            myMap.behaviors.enable('scrollZoom'); myMap.behaviors.enable('dblClickZoom');
+                        }
+                        if (osmMap) {
+                            osmMap.dragging.enable(); osmMap.scrollWheelZoom.enable(); osmMap.doubleClickZoom.enable();
+                        }
+                        loadPoints();
+                    }
+                });
+        }
 
         function attachScooterContextMenu(pm, point) {
             pm.events.add('contextmenu', function(e) {
@@ -538,7 +663,7 @@
                     });
                     polygon.events.add('click', function(e) { 
                         e.stopImmediatePropagation(); 
-                        if (assigningUser) { toggleAssignZone(z); }
+                        if (assigningUser) { toggleAssignZone(z); myMap.balloon.close(); }
                         else { openZoneMoveModal(z.id, z); }
                     });
                     myMap.geoObjects.add(polygon);
@@ -782,12 +907,12 @@
         }
         function calculateArrowAngle(from, to) {
             var dx = to[1] - from[1], dy = to[0] - from[0];
-            return Math.atan2(dy, dx) * 180 / Math.PI + 90;
+            return Math.atan2(-dy, dx) * 180 / Math.PI + 90;
         }
         function createArrowMarker(lastPoint, prevPoint) {
             var angle = calculateArrowAngle(prevPoint, lastPoint);
             var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" style="transform: rotate(' + angle + 'deg); transform-origin: 12px 12px;">' +
-                '<polygon points="12,2 22,20 12,15 2,20" fill="#ff3b30" stroke="#cc0000" stroke-width="0.5"/>' +
+                '<polygon points="12,2 22,20 12,15 2,20" fill="#ff3b30"/>' +
                 '</svg>';
             return new ymaps.Placemark(lastPoint, {}, {
                 iconLayout: ymaps.templateLayoutFactory.createClass('<div style="width:24px; height:24px; display:flex; align-items:center; justify-content:center;">' + svg + '</div>'),
@@ -950,9 +1075,19 @@
                         var infoIcon = { iconLayout: ymaps.templateLayoutFactory.createClass('<div style="width: 18px; height: 18px; text-align: center; line-height: 18px;"><img src="' + BASE_URL + 'info.png" style="width: 18px; height: 18px; display: block;"></div>'), iconShape: { type: 'Circle', coordinates: [9, 9], radius: 9 } };
                         var pm = new ymaps.Placemark([point.lat, point.lon], { balloonContent: buildInfoBalloonContent(point) }, infoIcon);
                         pm.properties.set('infoData', point);
-                        pm.events.add('click', function(e) { if (assigningUser) { e.get('domEvent').stopPropagation(); toggleAssignInfo(point); } });
-                        pm.events.add('dblclick', function(e) { if (assigningUser) { e.get('domEvent').stopPropagation(); toggleAssignInfo(point); } else { e.get('domEvent').stopPropagation(); openAssignModal(point.id, 'point'); } });
-                        pm.events.add('contextmenu', function(e) { e.get('domEvent').preventDefault(); e.get('domEvent').stopPropagation(); contextMenuHandled = true; deleteInfoId = point.id; document.getElementById('deleteInfoModal').style.display = 'flex'; });
+                        pm.events.add('click', function(e) {
+                            if (assigningUser) { e.get('domEvent').stopPropagation(); toggleAssignInfo(point); myMap.balloon.close(); }
+                        });
+                        pm.events.add('dblclick', function(e) {
+                            if (assigningUser) { e.get('domEvent').stopPropagation(); toggleAssignInfo(point); myMap.balloon.close(); }
+                            else { e.get('domEvent').stopPropagation(); openAssignModal(point.id, 'point'); }
+                        });
+                        pm.events.add('contextmenu', function(e) {
+                            e.get('domEvent').preventDefault(); e.get('domEvent').stopPropagation();
+                            contextMenuHandled = true;
+                            deleteInfoId = point.id;
+                            document.getElementById('deleteInfoModal').style.display = 'flex';
+                        });
                         myMap.geoObjects.add(pm); infoMarkers.push(pm);
                         var osmInfoIcon = L.divIcon({ className: 'custom-div-icon', html: '<img src="' + BASE_URL + 'info.png" style="width: 18px; height: 18px; display: block;">', iconSize: [18, 18], iconAnchor: [9, 9] });
                         var osmPm = L.marker([point.lat, point.lon], { icon: osmInfoIcon }).addTo(osmMap);
@@ -972,8 +1107,13 @@
                         }
                         var pm = new ymaps.Placemark([point.lat, point.lon], { balloonContent: buildBalloonContent(point, isBooked) }, iconOptions);
                         pm.properties.set('pointData', point);
-                        pm.events.add('click', function(e) { if (assigningUser) { e.get('domEvent').stopPropagation(); toggleAssignPoint(point); } });
-                        pm.events.add('dblclick', function(e) { if (assigningUser) { e.get('domEvent').stopPropagation(); toggleAssignPoint(point); } else { e.get('domEvent').stopPropagation(); openAssignModal(point.id, 'point'); } });
+                        pm.events.add('click', function(e) {
+                            if (assigningUser) { e.get('domEvent').stopPropagation(); toggleAssignPoint(point); myMap.balloon.close(); }
+                        });
+                        pm.events.add('dblclick', function(e) {
+                            if (assigningUser) { e.get('domEvent').stopPropagation(); toggleAssignPoint(point); myMap.balloon.close(); }
+                            else { e.get('domEvent').stopPropagation(); openAssignModal(point.id, 'point'); }
+                        });
                         myMap.geoObjects.add(pm); markers.push(pm);
                         attachScooterContextMenu(pm, point);
                         var osmIcon = createOsmScooterIcon(point.status, point.title.trim());
@@ -985,7 +1125,10 @@
                         var popup = L.popup({ closeOnClick: false, autoClose: false }).setContent(buildBalloonContent(point, isBooked));
                         osmPm.bindPopup(popup); osmPm.pointData = point;
                         osmPm.on('click', function(e) { if (assigningUser) { L.DomEvent.stopPropagation(e); toggleAssignPoint(point); } });
-                        osmPm.on('dblclick', function(e) { if (assigningUser) { L.DomEvent.stopPropagation(e); toggleAssignPoint(point); } else { L.DomEvent.stopPropagation(e); openAssignModal(point.id, 'point'); } });
+                        osmPm.on('dblclick', function(e) {
+                            if (assigningUser) { L.DomEvent.stopPropagation(e); toggleAssignPoint(point); }
+                            else { L.DomEvent.stopPropagation(e); openAssignModal(point.id, 'point'); }
+                        });
                         osmMarkers.push(osmPm);
                         attachOsmScooterContextMenu(osmPm, point);
                     }
@@ -1016,16 +1159,6 @@
                     osmRoutes.push({ id: route.id, layer: osmPolyline });
                 });
             });
-            safeFetch(API_URL + '/get_temp_routes').then(function(data) {
-                if (!Array.isArray(data)) return;
-                data.forEach(function(route) {
-                    if (!route.coords || route.coords.length < 2) return;
-                    var polyline = new ymaps.Polyline(route.coords, {}, { strokeColor: '#ff3b30', strokeWidth: 4, strokeStyle: 'solid' });
-                    myMap.geoObjects.add(polyline); tempRoutes.push({ id: route.id, polyline: polyline });
-                    var osmPolyline = L.polyline(route.coords, { color: '#ff3b30', weight: 4 }).addTo(osmMap);
-                    osmTempRoutes.push({ id: route.id, layer: osmPolyline });
-                });
-            });
         }
 
         function buildInfoBalloonContent(info) {
@@ -1035,6 +1168,7 @@
             if (info.comment) h += '<div style="color: #000; font-size: 14px; display: block; margin: 5px 0;">' + info.comment + '</div>';
             h += '<div style="display: flex; flex-direction: column; align-items: center; gap: 4px; margin-top: 10px;">';
             h += '<button onclick="event.stopPropagation(); openInfoCommentModal(' + info.id + ')" style="background: #707070; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Комментарий</button>';
+            h += '<button onclick="event.stopPropagation(); openScooterMoveModal(' + info.id + ', ' + JSON.stringify(info).replace(/"/g, '&quot;') + ')" style="background: #9E9E9E; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Переместить</button>';
             h += '</div></div>';
             return h;
         }
@@ -1059,6 +1193,7 @@
             h += '<button onclick="event.stopPropagation(); updateStatus(' + point.id + ', \'not_found\')" style="background: #212121; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Не нашёл</button>';
             h += '<button onclick="event.stopPropagation(); updateStatus(' + point.id + ', \'rented\')" style="background: #9E9E9E; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Уехал в аренду</button>';
             h += '<button onclick="event.stopPropagation(); openCommentModal(' + point.id + ')" style="background: #707070; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px; margin-top: 4px;">Комментарий</button>';
+            h += '<button onclick="event.stopPropagation(); openScooterMoveModal(' + point.id + ', ' + JSON.stringify(point).replace(/"/g, '&quot;') + ')" style="background: #9E9E9E; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Переместить</button>';
             if (isBooked) {
                 h += '<button onclick="event.stopPropagation(); resetDeparture(' + point.id + ')" style="background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Выехал ' + departures[point.id].name + '</button>';
             } else {
@@ -1458,6 +1593,7 @@
             if (e.target.id === 'commentModalOverlay') closeCommentModal();
             if (e.target.id === 'movePointModal') closeMovePointModal();
             if (e.target.id === 'parkingMoveModal') closeParkingMoveModal();
+            if (e.target.id === 'scooterMoveModal') closeScooterMoveModal();
             if (e.target.id === 'deleteZoneModal') cancelDeleteZone();
             if (e.target.id === 'deleteScooterModal') cancelDeleteScooter();
             if (e.target.id === 'deleteParkingModal') cancelDeleteParking();
@@ -1466,14 +1602,18 @@
             if (e.target.id === 'maxDeadModal') closeMaxDeadModal();
             if (e.target.id === 'nameSelectModal') closeNameSelectModal();
             if (e.target.id === 'orangeModal') closeOrangeModal();
-            if (e.target.id === 'confirmAssignModal') closeConfirmAssignModal();
         });
 
         document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape' && movingZoneId) {
-                var zone = zones.find(function(z) { return z.id === movingZoneId; });
-                if (zone) { zone.polygon.options.set('draggable', false); zone.polygon.options.set('zIndex', 1000); myMap.behaviors.enable('drag'); myMap.behaviors.enable('multiTouch'); myMap.behaviors.enable('scrollZoom'); myMap.behaviors.enable('dblClickZoom'); }
-                movingZoneId = null; loadZones();
+            if (e.key === 'Escape') {
+                if (document.getElementById('confirmAssignModal').style.display === 'flex') {
+                    closeConfirmAssignModal();
+                }
+                if (movingZoneId) {
+                    var zone = zones.find(function(z) { return z.id === movingZoneId; });
+                    if (zone) { zone.polygon.options.set('draggable', false); zone.polygon.options.set('zIndex', 1000); myMap.behaviors.enable('drag'); myMap.behaviors.enable('multiTouch'); myMap.behaviors.enable('scrollZoom'); myMap.behaviors.enable('dblClickZoom'); }
+                    movingZoneId = null; loadZones();
+                }
             }
         });
 
