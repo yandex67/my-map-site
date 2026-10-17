@@ -78,7 +78,7 @@ def init_db():
                      (id SERIAL PRIMARY KEY, type TEXT, data JSON, deleted_at TIMESTAMP DEFAULT NOW())''')
         conn.commit()
         print("✅ Таблицы созданы")
-        print(" Проверяю колонки...")
+        print("🔧 Проверяю колонки...")
         if not column_exists(c, 'points', 'comment'):
             c.execute("ALTER TABLE points ADD COLUMN comment TEXT"); conn.commit(); print("✅ comment в points")
         if not column_exists(c, 'points', 'url'):
@@ -193,7 +193,6 @@ def handle_message(message):
     text = message.text.strip()
     text_lower = text.lower()
 
-    # ✅ КОМАНДА ОТМЕНЫ УДАЛЕНИЯ
     if text_lower == 'z':
         result, error = restore_from_trash()
         if error:
@@ -202,7 +201,6 @@ def handle_message(message):
             bot.reply_to(message, result)
         return
 
-    # ✅ ПРОСМОТР КОРЗИНЫ
     if text_lower in ('trash', 'корзина'):
         try:
             conn = get_db_connection()
@@ -211,13 +209,13 @@ def handle_message(message):
             items = c.fetchall()
             conn.close()
             if not items:
-                bot.reply_to(message, "🗑️ Корзина пуста")
+                bot.reply_to(message, "️ Корзина пуста")
             else:
                 msg = "📦 Корзина (последние удаления):\n\n"
                 for i, (obj_type, data, deleted_at) in enumerate(items, 1):
                     data = json.loads(data) if isinstance(data, str) else data
                     if obj_type == 'point':
-                        msg += f"{i}. 🛴 Самокат '{data.get('title', '')}'\n"
+                        msg += f"{i}.  Самокат '{data.get('title', '')}'\n"
                     elif obj_type == 'info':
                         msg += f"{i}. ℹ️ Доп инфа '{data.get('title', '')}'\n"
                     elif obj_type == 'zone':
@@ -230,7 +228,6 @@ def handle_message(message):
             bot.reply_to(message, f"❌ Ошибка: {e}")
         return
 
-    # ✅ УДАЛЕНИЕ МАРШРУТОВ
     if text_lower == 'off все маршруты':
         conn = get_db_connection(); c = conn.cursor()
         c.execute("DELETE FROM routes")
@@ -243,9 +240,9 @@ def handle_message(message):
         conn = get_db_connection(); c = conn.cursor()
         c.execute("DELETE FROM routes WHERE id = (SELECT MAX(id) FROM routes)")
         if c.rowcount > 0:
-            bot.reply_to(message, "🗑️ Последний маршрут удалён.")
+            bot.reply_to(message, "️ Последний маршрут удалён.")
         else:
-            bot.reply_to(message, " Маршрутов нет.")
+            bot.reply_to(message, "❌ Маршрутов нет.")
         conn.commit(); conn.close()
         return
 
@@ -331,7 +328,7 @@ def handle_message(message):
                 conn.commit(); conn.close()
                 bot.reply_to(message, f"✅ Парковка '{title}' добавлена!")
             else:
-                bot.reply_to(message, f"❌ Не найдено: '{location_part}'")
+                bot.reply_to(message, f" Не найдено: '{location_part}'")
         return
 
     if ' - ' in text:
@@ -393,7 +390,7 @@ def handle_message(message):
         if coord_match:
             lat, lon = float(coord_match.group(1)), float(coord_match.group(2))
         else:
-            bot.reply_to(message, f"⏳ Ищу '{location_part}'...")
+            bot.reply_to(message, f" Ищу '{location_part}'...")
             lat, lon = get_coordinates(location_part)
         if lat and lon:
             conn = get_db_connection(); c = conn.cursor()
@@ -462,7 +459,7 @@ def handle_message(message):
         conn = get_db_connection(); c = conn.cursor()
         c.execute("DELETE FROM parkings WHERE id = (SELECT MAX(id) FROM parkings)")
         if c.rowcount > 0:
-            bot.reply_to(message, "️ Последняя парковка удалена.")
+            bot.reply_to(message, "🗑️ Последняя парковка удалена.")
         else:
             bot.reply_to(message, "❌ Парковок нет.")
         conn.commit(); conn.close()
@@ -718,7 +715,7 @@ def delete_zone():
         if row:
             zone_data = {'id': row[0], 'coords': row[1], 'comment': row[2], 'assigned_to': row[3]}
             save_to_trash('zone', zone_data)
-            print(f"️ Удалена зона ID {row[0]}, сохранена в trash")
+            print(f"🗑️ Удалена зона ID {row[0]}, сохранена в trash")
         c.execute("DELETE FROM zones WHERE id = %s", (data.get('id'),))
         conn.commit(); conn.close()
         return jsonify({"success": True})
@@ -867,7 +864,7 @@ def get_departures():
         conn.close()
         return jsonify(departures)
     except Exception as e:
-        print(f"❌ /get_departures: {e}")
+        print(f" /get_departures: {e}")
         return jsonify([]), 200
 
 @app.route('/add_departure', methods=['POST'])
@@ -906,12 +903,12 @@ def stop_bot_safely():
         bot.stop_polling()
         print("✅ Polling остановлен")
     except Exception as e:
-        print(f"⚠️ Ошибка при остановке polling: {e}")
+        print(f"️ Ошибка при остановке polling: {e}")
 
 def run_bot():
     global bot_running
     if bot_running:
-        print("⚠️ Бот уже запущен, пропускаем")
+        print("️ Бот уже запущен, пропускаем")
         return
     bot_running = True
     print("🤖 Запускаю бота...")
@@ -943,7 +940,7 @@ def run_bot():
             time.sleep(30)
 
 def handle_signal(signum, frame):
-    print(f"🛑 Получен сигнал {signum}, завершаю работу...")
+    print(f" Получен сигнал {signum}, завершаю работу...")
     stop_bot_safely()
     sys.exit(0)
 
