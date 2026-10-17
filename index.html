@@ -35,7 +35,6 @@
         .modal-box .btn-secondary { background: #9E9E9E; color: white; }
         .modal-box .btn-secondary:active { background: #757575; }
         .modal-box .btn-delete { background: #f44336; color: white; width: 100%; padding: 10px; border: none; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; margin-top: 10px; }
-        
         .drawing-indicator { display: none; position: fixed; top: 80px; left: 50%; transform: translateX(-50%); background: #f44336; color: white; padding: 10px 20px; border-radius: 8px; font-size: 14px; font-weight: bold; z-index: 1500; box-shadow: 0 2px 8px rgba(0,0,0,0.3); min-width: 250px; max-width: 350px; align-items: center; gap: 4px; box-sizing: border-box; flex-direction: column; }
         .drawing-indicator .mode-buttons { display: flex; flex-direction: column; gap: 8px; width: 100%; }
         .drawing-indicator button { background: #4CAF50; color: white; border: none; padding: 10px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px; width: 100%; }
@@ -44,32 +43,20 @@
         .drawing-indicator .comment-input { display: none; width: 100%; padding: 8px; border: 2px solid #333; border-radius: 4px; text-align: center; font-size: 14px; box-sizing: border-box; margin-top: 5px; }
         .drawing-indicator .action-buttons { display: flex; gap: 10px; width: 100%; margin-top: 2px; }
         .drawing-indicator .action-buttons button { background: white; color: #f44336; }
-
         .delete-zone-modal { top: 80px; align-items: flex-start; }
         .delete-zone-modal .modal-box { margin-top: 10px; }
         .delete-zone-modal .modal-actions { display: flex; gap: 10px; margin-top: 15px; }
         .delete-zone-modal .modal-actions button { flex: 1; margin-top: 0; padding: 10px; border: none; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; }
-
         .max-dead-modal { top: 80px; align-items: flex-start; }
         .max-dead-modal .modal-box { margin-top: 10px; }
         .max-dead-modal .modal-actions { display: flex; gap: 10px; margin-top: 15px; }
         .max-dead-modal .modal-actions button { flex: 1; margin-top: 0; padding: 10px; background: #4CAF50; color: white; border: none; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; }
-
         .move-hint { display: none; position: fixed; top: 90px; left: 50%; transform: translateX(-50%); background: #ff9800; color: white; padding: 12px 20px; border-radius: 8px; font-size: 14px; font-weight: bold; z-index: 1600; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
-
         .orange-modal .modal-box { background: #ff9800; }
         .orange-modal .modal-box h4 { color: white; }
         .orange-modal .modal-box p { color: white; }
         .orange-modal .modal-box .btn-row button { background: white; color: #ff9800; }
-
-        .parking-move-preview {
-            width: 18px; height: 18px;
-            background: rgba(255, 152, 0, 0.6);
-            border: 3px solid #ff9800;
-            border-radius: 50%;
-            pointer-events: none;
-        }
-
+        .parking-move-preview { width: 18px; height: 18px; background: rgba(255, 152, 0, 0.6); border: 3px solid #ff9800; border-radius: 50%; pointer-events: none; }
         .custom-div-icon { background: transparent; border: none; }
         .leaflet-popup-content-wrapper { border-radius: 8px; }
         .leaflet-popup-content { margin: 12px; }
@@ -78,16 +65,13 @@
 <body>
     <div id="map"></div>
     <div id="osmMap"></div>
-
     <div class="move-hint" id="moveHint">Кликните по карте, куда переместить</div>
-
     <div class="controls" id="controlsPanel">
-        <h3 onclick="onTasksHeaderClick()">Задачи на сегодня</h3>
-        <br>
+        <h3 onclick="onTasksHeaderClick()">Задачи на сегодня</h3><br>
         <div class="info" onclick="onInfoClick()">Всего: <span id="pointCount">0</span></div>
     </div>
     <div class="bottom-panel" id="bottomPanel">
-        <button class="close-btn" onclick="closeBottomPanel()">✕</button>
+        <button class="close-btn" onclick="closeBottomPanel()"></button>
         <div id="userFilterText" class="user-filter-text" style="display:none;"></div>
         <div id="bottomDeparturesList"></div>
         <div class="dead-info" id="deadInfo" onclick="onDeadInfoClick()">Севшие на парковке: <span id="deadCount">0</span></div>
@@ -97,80 +81,52 @@
         <div class="modal-box">
             <h4>Введите имя</h4>
             <input type="text" id="modalInput" placeholder="Имя" autocomplete="off">
-            <div class="btn-row">
-                <button class="btn-secondary" onclick="closeCustomInputModal()">Отмена</button>
-                <button class="btn-ok" onclick="confirmModalInput()">Ок</button>
-            </div>
+            <div class="btn-row"><button class="btn-secondary" onclick="closeCustomInputModal()">Отмена</button><button class="btn-ok" onclick="confirmModalInput()">Ок</button></div>
         </div>
     </div>
-
     <div class="modal-overlay" id="commentModalOverlay">
         <div class="modal-box">
             <h4>Введите комментарий</h4>
             <input type="text" id="commentModalInput" autocomplete="off">
-            <div class="btn-row">
-                <button class="btn-secondary" onclick="closeCommentModal()">Отмена</button>
-                <button class="btn-ok" onclick="confirmCommentModal()">Ок</button>
-            </div>
+            <div class="btn-row"><button class="btn-secondary" onclick="closeCommentModal()">Отмена</button><button class="btn-ok" onclick="confirmCommentModal()">Ок</button></div>
         </div>
     </div>
-
     <div class="modal-overlay" id="createScooterModal">
         <div class="modal-box">
             <h4>Создать самокат</h4>
             <input type="text" id="scooterNumber" placeholder="Номер самоката" autocomplete="off">
             <input type="text" id="scooterComment" placeholder="Комментарий" autocomplete="off">
             <input type="text" id="scooterRed" placeholder="red или sev?" autocomplete="off">
-            <div class="btn-row">
-                <button class="btn-secondary" onclick="closeCreateScooterModal()">Отмена</button>
-                <button class="btn-ok" onclick="confirmCreateScooter()">Ок</button>
-            </div>
+            <div class="btn-row"><button class="btn-secondary" onclick="closeCreateScooterModal()">Отмена</button><button class="btn-ok" onclick="confirmCreateScooter()">Ок</button></div>
         </div>
     </div>
-
     <div class="modal-overlay" id="createParkingModal">
         <div class="modal-box">
             <h4>Создать парковку</h4>
             <input type="text" id="parkingName" placeholder="Название парковки" autocomplete="off">
-            <div class="btn-row">
-                <button class="btn-secondary" onclick="closeCreateParkingModal()">Отмена</button>
-                <button class="btn-ok" onclick="confirmCreateParking()">Ок</button>
-            </div>
+            <div class="btn-row"><button class="btn-secondary" onclick="closeCreateParkingModal()">Отмена</button><button class="btn-ok" onclick="confirmCreateParking()">Ок</button></div>
         </div>
     </div>
-
     <div class="modal-overlay" id="createInfoModal">
         <div class="modal-box">
             <h4>Создать доп инфу</h4>
             <input type="text" id="infoComment" placeholder="Комментарий" autocomplete="off">
-            <div class="btn-row">
-                <button class="btn-secondary" onclick="closeCreateInfoModal()">Отмена</button>
-                <button class="btn-ok" onclick="confirmCreateInfo()">Ок</button>
-            </div>
+            <div class="btn-row"><button class="btn-secondary" onclick="closeCreateInfoModal()">Отмена</button><button class="btn-ok" onclick="confirmCreateInfo()">Ок</button></div>
         </div>
     </div>
-
     <div class="modal-overlay" id="movePointModal">
         <div class="modal-box">
             <h4 id="movePointTitle">Изменить расположение?</h4>
-            <div class="btn-row">
-                <button class="btn-secondary" onclick="closeMovePointModal()">Отмена</button>
-                <button class="btn-ok" onclick="confirmMovePoint()">Ок</button>
-            </div>
+            <div class="btn-row"><button class="btn-secondary" onclick="closeMovePointModal()">Отмена</button><button class="btn-ok" onclick="confirmMovePoint()">Ок</button></div>
             <button class="btn-delete" onclick="deleteMovingPoint()">Удалить</button>
         </div>
     </div>
-
     <div class="modal-overlay orange-modal" id="parkingMoveModal">
         <div class="modal-box">
             <h4>Кликните туда где должна быть парковка?</h4>
-            <div class="btn-row">
-                <button class="btn-cancel" onclick="closeParkingMoveModal()">Отмена</button>
-                <button class="btn-ok" onclick="confirmParkingMove()">Ок</button>
-            </div>
+            <div class="btn-row"><button class="btn-cancel" onclick="closeParkingMoveModal()">Отмена</button><button class="btn-ok" onclick="confirmParkingMove()">Ок</button></div>
         </div>
     </div>
-
     <div class="modal-overlay" id="zoneModalOverlay">
         <div class="modal-box">
             <h4>Начерти зону</h4>
@@ -182,7 +138,6 @@
             <button class="btn-secondary" onclick="closeZoneModal()">Отмена</button>
         </div>
     </div>
-
     <div class="drawing-indicator" id="drawingIndicator">
         <span class="indicator-text" id="indicatorText" style="display: block; width: 100%; text-align: center; margin-bottom: 2px;">Рисование...</span>
         <div class="mode-buttons" id="modeButtonsContainer" style="display: none; width: 100%;">
@@ -197,37 +152,43 @@
             <button id="finishZoneBtn" onclick="finishZone()">Ок</button>
         </div>
     </div>
-
     <div class="modal-overlay delete-zone-modal" id="deleteZoneModal">
         <div class="modal-box">
             <h4>Удалить зону?</h4>
-            <div class="modal-actions">
-                <button class="btn-secondary" onclick="cancelDeleteZone()">Отмена</button>
-                <button class="btn-ok" onclick="confirmDeleteZone()">Ок</button>
-            </div>
+            <div class="modal-actions"><button class="btn-secondary" onclick="cancelDeleteZone()">Отмена</button><button class="btn-ok" onclick="confirmDeleteZone()">Ок</button></div>
         </div>
     </div>
-
+    <div class="modal-overlay delete-zone-modal" id="deleteScooterModal">
+        <div class="modal-box">
+            <h4>Удалить самокат?</h4>
+            <div class="modal-actions"><button class="btn-secondary" onclick="cancelDeleteScooter()">Отмена</button><button class="btn-ok" onclick="confirmDeleteScooter()">Ок</button></div>
+        </div>
+    </div>
+    <div class="modal-overlay delete-zone-modal" id="deleteParkingModal">
+        <div class="modal-box">
+            <h4>Удалить парковку?</h4>
+            <div class="modal-actions"><button class="btn-secondary" onclick="cancelDeleteParking()">Отмена</button><button class="btn-ok" onclick="confirmDeleteParking()">Ок</button></div>
+        </div>
+    </div>
+    <div class="modal-overlay delete-zone-modal" id="deleteInfoModal">
+        <div class="modal-box">
+            <h4>Удалить доп инфу?</h4>
+            <div class="modal-actions"><button class="btn-secondary" onclick="cancelDeleteInfo()">Отмена</button><button class="btn-ok" onclick="confirmDeleteInfo()">Ок</button></div>
+        </div>
+    </div>
     <div class="modal-overlay delete-zone-modal" id="deleteRouteModal">
         <div class="modal-box">
             <h4>Удалить маршрут?</h4>
-            <div class="modal-actions">
-                <button class="btn-secondary" onclick="cancelDeleteRoute()">Отмена</button>
-                <button class="btn-ok" onclick="confirmDeleteRoute()">Ок</button>
-            </div>
+            <div class="modal-actions"><button class="btn-secondary" onclick="cancelDeleteRoute()">Отмена</button><button class="btn-ok" onclick="confirmDeleteRoute()">Ок</button></div>
         </div>
     </div>
-
     <div class="modal-overlay max-dead-modal" id="maxDeadModal">
         <div class="modal-box">
             <h4 id="maxDeadTitle">Севшие на парковке</h4>
             <p id="maxDeadText" style="color: #333; font-size: 14px; margin: 0 0 15px 0;"></p>
-            <div class="modal-actions">
-                <button onclick="closeMaxDeadModal()">Ок</button>
-            </div>
+            <div class="modal-actions"><button onclick="closeMaxDeadModal()">Ок</button></div>
         </div>
     </div>
-
     <div class="modal-overlay" id="nameSelectModal">
         <div class="modal-box">
             <h4 id="nameSelectTitle">Выберите имя</h4>
@@ -235,15 +196,11 @@
             <button class="btn-secondary" onclick="closeNameSelectModal()" style="width: 100%; margin-top: 12px; padding: 10px; border: none; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer;">Отмена</button>
         </div>
     </div>
-
     <div class="modal-overlay orange-modal" id="orangeModal">
         <div class="modal-box">
             <h4 id="orangeModalTitle">Выберите задачи</h4>
             <p style="color: white; font-size: 13px; margin: 0 0 15px 0;">Кликайте по объектам на карте</p>
-            <div class="btn-row">
-                <button class="btn-cancel" onclick="closeOrangeModal()">Отмена</button>
-                <button class="btn-ok" onclick="confirmOrangeModal()">Ок</button>
-            </div>
+            <div class="btn-row"><button class="btn-cancel" onclick="closeOrangeModal()">Отмена</button><button class="btn-ok" onclick="confirmOrangeModal()">Ок</button></div>
         </div>
     </div>
 
@@ -259,46 +216,24 @@
         var API_URL = 'https://mapbot-api.onrender.com';
         var departures = {};
         var currentModalPointId = null, currentModalPointTitle = null;
-        var currentCommentPointId = null;
-        var currentCommentType = null;
+        var currentCommentPointId = null, currentCommentType = null;
         var rightClickCoords = null;
-        
-        var movingPointId = null;
-        var movingPointData = null;
-        var movingType = null;
-        var movingZoneId = null;
-        var movingParkingId = null;
-        var parkingMoveMode = false;
-        var parkingMovePreview = null;
-        var deleteRouteId = null;
-        var deleteZoneId = null;
-        
+        var movingPointId = null, movingPointData = null, movingType = null;
+        var movingZoneId = null, movingParkingId = null;
+        var parkingMoveMode = false, parkingMovePreview = null;
+        var deleteRouteId = null, deleteZoneId = null, deleteScooterId = null, deleteParkingId = null, deleteInfoId = null;
         var isDrawingZone = false, drawMode = 1, zonePoints = [], zonePolygon = null, zonePolyline = null, zonePointMarkers = [];
         var isDrawingRoute = false, routePoints = [], routePolyline = null, routePointMarkers = [], isTempRoute = false;
         var isDrawingFreehand = false, freehandStartPoint = null;
-        var zoneComment = "", willSaveZone = false;
-        var isZoneConfirmed = false;
-        var drawModeSelected = false;
-        var isMode3SubMode = false;
-        var routeEditMode = false;
-
+        var zoneComment = "", willSaveZone = false, isZoneConfirmed = false;
+        var drawModeSelected = false, isMode3SubMode = false, routeEditMode = false;
         var tasksHeaderClickCount = 0, tasksHeaderClickTimer = null;
-        var infoClickCount = 0, infoClickTimer = null;
-        var mapMode = 0;
-        
+        var infoClickCount = 0, infoClickTimer = null, mapMode = 0;
         var deadClickCount = 0, deadClickTimer = null;
         var BASE_URL = 'https://yandex67.github.io/my-map-site/';
         var ZOOM_THRESHOLD = window.innerWidth <= 768 ? 15 : 14.8;
-
-        var appSettings = {
-            hide_empty_labels: false,
-            show_parkings: true,
-            show_labels: true
-        };
-
-        var currentUserFilter = null;
-        var assigningUser = null;
-        var selectedForAssignment = [];
+        var appSettings = { hide_empty_labels: false, show_parkings: true, show_labels: true };
+        var currentUserFilter = null, assigningUser = null, selectedForAssignment = [];
         var ALL_NAMES = ['Андрей', 'Антон', 'Миша', 'Илья', 'Саша', 'Кирилл'];
 
         ymaps.ready(init);
@@ -306,28 +241,11 @@
         function init() {
             myMap = new ymaps.Map("map", { center: [54.7818, 32.0401], zoom: 12, type: 'yandex#map', controls: ['zoomControl', 'fullscreenControl'] });
             myMap.behaviors.enable('drag'); myMap.behaviors.enable('multiTouch'); myMap.behaviors.enable('scrollZoom'); myMap.behaviors.enable('dblClickZoom');
-            
-            osmMap = L.map('osmMap', {
-                center: [54.7818, 32.0401],
-                zoom: 12,
-                zoomControl: false
-            });
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; OpenStreetMap',
-                maxZoom: 19
-            }).addTo(osmMap);
+            osmMap = L.map('osmMap', { center: [54.7818, 32.0401], zoom: 12, zoomControl: false });
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap', maxZoom: 19 }).addTo(osmMap);
             L.control.zoom({ position: 'topright' }).addTo(osmMap);
-
-            loadDeparturesFromServer();
-            loadPoints();
-            loadParkings();
-            loadZones();
-            loadRoutes();
-            loadSettings();
-
-            setTimeout(function() {
-                myMap.setCenter([54.7818, 32.0401], 12);
-            }, 800);
+            loadDeparturesFromServer(); loadPoints(); loadParkings(); loadZones(); loadRoutes(); loadSettings();
+            setTimeout(function() { myMap.setCenter([54.7818, 32.0401], 12); }, 800);
 
             myMap.events.add('contextmenu', function(e) {
                 if (movingPointId || parkingMoveMode) return;
@@ -340,55 +258,32 @@
                 rightClickCoords = [e.latlng.lat, e.latlng.lng];
                 showContextMenu();
             });
-
             myMap.events.add('mousemove', function(e) {
-                if (parkingMoveMode && movingParkingId) {
-                    showParkingMovePreview(e.get('coords'));
-                }
-                if (isDrawingFreehand) { addZonePoint(e.get('coords')); }
+                if (parkingMoveMode && movingParkingId) showParkingMovePreview(e.get('coords'));
+                if (isDrawingFreehand) addZonePoint(e.get('coords'));
             });
             osmMap.on('mousemove', function(e) {
-                if (parkingMoveMode && movingParkingId) {
-                    showOsmParkingMovePreview([e.latlng.lat, e.latlng.lng]);
-                }
+                if (parkingMoveMode && movingParkingId) showOsmParkingMovePreview([e.latlng.lat, e.latlng.lng]);
             });
-
             myMap.events.add('click', function(e) { 
-                if (parkingMoveMode && movingParkingId) {
-                    performParkingMove(e.get('coords'));
-                    return;
-                }
-                if (movingPointId) {
-                    performMove(e.get('coords'));
-                    return;
-                }
-                if (isDrawingZone && drawMode === 1 && !isZoneConfirmed) { addZonePoint(e.get('coords')); }
-                if (isDrawingRoute && !isZoneConfirmed) { addRoutePoint(e.get('coords')); }
+                if (parkingMoveMode && movingParkingId) { performParkingMove(e.get('coords')); return; }
+                if (movingPointId) { performMove(e.get('coords')); return; }
+                if (isDrawingZone && drawMode === 1 && !isZoneConfirmed) addZonePoint(e.get('coords'));
+                if (isDrawingRoute && !isZoneConfirmed) addRoutePoint(e.get('coords'));
             });
             osmMap.on('click', function(e) {
-                if (parkingMoveMode && movingParkingId) {
-                    performParkingMove([e.latlng.lat, e.latlng.lng]);
-                    return;
-                }
-                if (movingPointId) {
-                    performMove([e.latlng.lat, e.latlng.lng]);
-                    return;
-                }
-                if (isDrawingRoute && !isZoneConfirmed) { addRoutePoint([e.latlng.lat, e.latlng.lng]); }
+                if (parkingMoveMode && movingParkingId) { performParkingMove([e.latlng.lat, e.latlng.lng]); return; }
+                if (movingPointId) { performMove([e.latlng.lat, e.latlng.lng]); return; }
+                if (isDrawingRoute && !isZoneConfirmed) addRoutePoint([e.latlng.lat, e.latlng.lng]);
             });
-
             myMap.events.add('mousedown', function(e) {
                 if (isDrawingZone && drawMode === 2 && !isZoneConfirmed) { 
                     if (!freehandStartPoint) { freehandStartPoint = e.get('coords'); addZonePoint(freehandStartPoint); }
                     isDrawingFreehand = true; 
                 }
             });
-            myMap.events.add('mouseup', function(e) {
-                if (isDrawingFreehand) { isDrawingFreehand = false; closeFreehandZone(); }
-            });
-            document.addEventListener('mouseup', function(e) {
-                if (isDrawingFreehand) { isDrawingFreehand = false; closeFreehandZone(); }
-            });
+            myMap.events.add('mouseup', function(e) { if (isDrawingFreehand) { isDrawingFreehand = false; closeFreehandZone(); } });
+            document.addEventListener('mouseup', function(e) { if (isDrawingFreehand) { isDrawingFreehand = false; closeFreehandZone(); } });
             myMap.events.add('boundschange', function() { updateZoneTextVisibility(); });
         }
 
@@ -396,32 +291,19 @@
             if (!parkingMovePreview) {
                 parkingMovePreview = new ymaps.Placemark(coords, {}, {
                     iconLayout: ymaps.templateLayoutFactory.createClass('<div class="parking-move-preview"></div>'),
-                    iconShape: { type: 'Circle', coordinates: [9, 9], radius: 9 },
-                    zIndex: 2000
+                    iconShape: { type: 'Circle', coordinates: [9, 9], radius: 9 }, zIndex: 2000
                 });
                 myMap.geoObjects.add(parkingMovePreview);
-            } else {
-                parkingMovePreview.geometry.setCoordinates(coords);
-            }
+            } else { parkingMovePreview.geometry.setCoordinates(coords); }
         }
-
         function showOsmParkingMovePreview(coords) {
             if (!parkingMovePreview) {
                 parkingMovePreview = L.marker(coords, {
-                    icon: L.divIcon({
-                        className: 'custom-div-icon',
-                        html: '<div class="parking-move-preview"></div>',
-                        iconSize: [18, 18],
-                        iconAnchor: [9, 9]
-                    }),
-                    interactive: false,
-                    zIndexOffset: 2000
+                    icon: L.divIcon({ className: 'custom-div-icon', html: '<div class="parking-move-preview"></div>', iconSize: [18, 18], iconAnchor: [9, 9] }),
+                    interactive: false, zIndexOffset: 2000
                 }).addTo(osmMap);
-            } else {
-                parkingMovePreview.setLatLng(coords);
-            }
+            } else { parkingMovePreview.setLatLng(coords); }
         }
-
         function removeParkingMovePreview() {
             if (parkingMovePreview) {
                 if (myMap) myMap.geoObjects.remove(parkingMovePreview);
@@ -432,43 +314,27 @@
 
         function performMove(newCoords) {
             if (!movingPointId) return;
-            var lat = newCoords[0];
-            var lon = newCoords[1];
+            var lat = newCoords[0], lon = newCoords[1];
             var address = lat.toFixed(6) + ', ' + lon.toFixed(6);
-            
             var url = movingType === 'parking' ? '/update_parking_location' : '/update_point_location';
-            
-            fetch(API_URL + url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: movingPointId, lat: lat, lon: lon, address: address })
-            }).then(function(r) { return r.json(); }).then(function(data) {
-                if (data.success) {
-                    movingPointId = null;
-                    movingPointData = null;
-                    movingType = null;
-                    document.getElementById('moveHint').style.display = 'none';
-                    loadPoints();
-                }
-            });
+            fetch(API_URL + url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: movingPointId, lat: lat, lon: lon, address: address }) })
+                .then(function(r) { return r.json(); }).then(function(data) {
+                    if (data.success) {
+                        movingPointId = null; movingPointData = null; movingType = null;
+                        document.getElementById('moveHint').style.display = 'none';
+                        loadPoints();
+                    }
+                });
         }
-
         function openMovePointModal(pointId, pointData, type) {
-            movingPointId = pointId;
-            movingPointData = pointData;
-            movingType = type;
+            movingPointId = pointId; movingPointData = pointData; movingType = type;
             document.getElementById('movePointTitle').textContent = 'Изменить расположение?';
             document.getElementById('movePointModal').style.display = 'flex';
         }
-
         function closeMovePointModal() {
             document.getElementById('movePointModal').style.display = 'none';
-            movingPointId = null;
-            movingPointData = null;
-            movingType = null;
-            movingZoneId = null;
+            movingPointId = null; movingPointData = null; movingType = null; movingZoneId = null;
         }
-
         function confirmMovePoint() {
             if (movingZoneId) {
                 document.getElementById('movePointModal').style.display = 'none';
@@ -481,121 +347,102 @@
             if (myMap) myMap.balloon.close();
             if (osmMap) osmMap.closePopup();
         }
-
         function deleteMovingPoint() {
             if (!movingPointId) return;
             if (!confirm('Удалить?')) return;
-            
-            if (movingType === 'parking') {
-                alert('Для удаления парковки используйте Telegram: Название - Удалить');
-                closeMovePointModal();
-                return;
-            }
-            
-            fetch(API_URL + '/update_status', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: movingPointId, status: 'found' })
-            }).then(function(r) { return r.json(); }).then(function(data) {
-                if (data.success) {
-                    closeMovePointModal();
-                    loadPoints();
-                }
-            });
+            if (movingType === 'parking') { alert('Для удаления парковки используйте Telegram: Название - Удалить'); closeMovePointModal(); return; }
+            fetch(API_URL + '/update_status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: movingPointId, status: 'found' }) })
+                .then(function(r) { return r.json(); }).then(function(data) { if (data.success) { closeMovePointModal(); loadPoints(); } });
         }
-
         function enableZoneDrag(zoneId) {
             var zone = zones.find(function(z) { return z.id === zoneId; });
-            if (zone) {
-                zone.polygon.options.set('draggable', true);
-                zone.polygon.events.add('dragend', function(e) {
-                    var newCoords = zone.polygon.geometry.getCoordinates()[0];
-                    fetch(API_URL + '/update_zone_location', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ id: zoneId, coords: newCoords })
-                    }).then(function(r) { return r.json(); }).then(function(data) {
+            if (!zone) return;
+            console.log("🔧 Включаю перетаскивание зоны", zoneId);
+            myMap.behaviors.disable('drag'); myMap.behaviors.disable('multiTouch');
+            myMap.behaviors.disable('scrollZoom'); myMap.behaviors.disable('dblClickZoom');
+            myMap.container.getElement().style.cursor = 'move';
+            zone.polygon.options.set('draggable', true);
+            zone.polygon.options.set('zIndex', 3000);
+            zone.polygon.events.add('dragend', function(e) {
+                var newCoords = zone.polygon.geometry.getCoordinates()[0];
+                fetch(API_URL + '/update_zone_location', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: zoneId, coords: newCoords }) })
+                    .then(function(r) { return r.json(); }).then(function(data) {
                         if (data.success) {
                             zone.polygon.options.set('draggable', false);
+                            zone.polygon.options.set('zIndex', 1000);
+                            myMap.behaviors.enable('drag'); myMap.behaviors.enable('multiTouch');
+                            myMap.behaviors.enable('scrollZoom'); myMap.behaviors.enable('dblClickZoom');
+                            myMap.container.getElement().style.cursor = '';
                             loadZones();
                         }
                     });
-                });
-            }
+            });
         }
-
         function openParkingMoveModal(parkingId, parkingData) {
-            movingParkingId = parkingId;
-            parkingMoveMode = true;
+            movingParkingId = parkingId; parkingMoveMode = true;
             document.getElementById('parkingMoveModal').style.display = 'flex';
         }
-
         function closeParkingMoveModal() {
             document.getElementById('parkingMoveModal').style.display = 'none';
-            movingParkingId = null;
-            parkingMoveMode = false;
+            movingParkingId = null; parkingMoveMode = false;
             removeParkingMovePreview();
         }
-
         function confirmParkingMove() {
             closeParkingMoveModal();
             document.getElementById('moveHint').textContent = 'Кликните куда переместить парковку';
             document.getElementById('moveHint').style.display = 'block';
             if (myMap) {
                 myMap.balloon.close();
+                myMap.behaviors.disable('drag'); myMap.behaviors.disable('multiTouch');
+                myMap.behaviors.disable('scrollZoom'); myMap.behaviors.disable('dblClickZoom');
                 myMap.container.getElement().style.cursor = 'crosshair';
             }
             if (osmMap) {
                 osmMap.closePopup();
+                osmMap.dragging.disable(); osmMap.scrollWheelZoom.disable(); osmMap.doubleClickZoom.disable();
                 osmMap.getContainer().style.cursor = 'crosshair';
             }
         }
-
         function performParkingMove(newCoords) {
             if (!movingParkingId) return;
-            var lat = newCoords[0];
-            var lon = newCoords[1];
+            var lat = newCoords[0], lon = newCoords[1];
             var address = lat.toFixed(6) + ', ' + lon.toFixed(6);
-            
             removeParkingMovePreview();
-            
-            fetch(API_URL + '/update_parking_location', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: movingParkingId, lat: lat, lon: lon, address: address })
-            }).then(function(r) { return r.json(); }).then(function(data) {
-                if (data.success) {
-                    movingParkingId = null;
-                    parkingMoveMode = false;
-                    document.getElementById('moveHint').style.display = 'none';
-                    document.getElementById('moveHint').textContent = 'Кликните по карте, куда переместить';
-                    if (myMap) myMap.container.getElement().style.cursor = '';
-                    if (osmMap) osmMap.getContainer().style.cursor = '';
-                    loadParkings();
-                }
-            });
+            fetch(API_URL + '/update_parking_location', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: movingParkingId, lat: lat, lon: lon, address: address }) })
+                .then(function(r) { return r.json(); }).then(function(data) {
+                    if (data.success) {
+                        movingParkingId = null; parkingMoveMode = false;
+                        document.getElementById('moveHint').style.display = 'none';
+                        document.getElementById('moveHint').textContent = 'Кликните по карте, куда переместить';
+                        if (myMap) {
+                            myMap.behaviors.enable('drag'); myMap.behaviors.enable('multiTouch');
+                            myMap.behaviors.enable('scrollZoom'); myMap.behaviors.enable('dblClickZoom');
+                            myMap.container.getElement().style.cursor = '';
+                        }
+                        if (osmMap) {
+                            osmMap.dragging.enable(); osmMap.scrollWheelZoom.enable(); osmMap.doubleClickZoom.enable();
+                            osmMap.getContainer().style.cursor = '';
+                        }
+                        loadParkings();
+                    }
+                });
         }
 
         function attachScooterContextMenu(pm, point) {
             pm.events.add('contextmenu', function(e) {
-                e.get('domEvent').preventDefault();
-                e.get('domEvent').stopPropagation();
-                openMovePointModal(point.id, point, 'point');
+                e.get('domEvent').preventDefault(); e.get('domEvent').stopPropagation();
+                deleteScooterId = point.id;
+                document.getElementById('deleteScooterModal').style.display = 'flex';
             });
         }
-
         function attachOsmScooterContextMenu(osmPm, point) {
             osmPm.on('contextmenu', function(e) {
-                L.DomEvent.preventDefault(e);
-                L.DomEvent.stopPropagation(e);
-                openMovePointModal(point.id, point, 'point');
+                L.DomEvent.preventDefault(e); L.DomEvent.stopPropagation(e);
+                deleteScooterId = point.id;
+                document.getElementById('deleteScooterModal').style.display = 'flex';
             });
             var touchTimer = null;
-            osmPm.on('touchstart', function(e) {
-                touchTimer = setTimeout(function() {
-                    openMovePointModal(point.id, point, 'point');
-                }, 500);
-            });
+            osmPm.on('touchstart', function(e) { touchTimer = setTimeout(function() { deleteScooterId = point.id; document.getElementById('deleteScooterModal').style.display = 'flex'; }, 500); });
             osmPm.on('touchend', function(e) { clearTimeout(touchTimer); });
             osmPm.on('touchmove', function(e) { clearTimeout(touchTimer); });
         }
@@ -603,21 +450,14 @@
         function showContextMenu() {
             var menu = document.createElement('div');
             menu.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); z-index: 3000; min-width: 250px;';
-            menu.innerHTML = `
-                <h4 style="margin: 0 0 15px 0; text-align: center; font-size: 16px;">Создать</h4>
-                <button onclick="openCreateScooterModal()" style="width: 100%; padding: 10px; background: #0140ff; color: white; border: none; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; margin-bottom: 8px;">Создать самокат</button>
-                <button onclick="openCreateParkingModal()" style="width: 100%; padding: 10px; background: #0140ff; color: white; border: none; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; margin-bottom: 8px;">Создать парковку</button>
-                <button onclick="openCreateInfoModal()" style="width: 100%; padding: 10px; background: #0140ff; color: white; border: none; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; margin-bottom: 8px;">Создать доп инфу</button>
-                <button onclick="closeContextMenu()" style="width: 100%; padding: 10px; background: #9E9E9E; color: white; border: none; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer;">Отмена</button>
-            `;
-            document.body.appendChild(menu);
-            menu.id = 'contextMenu';
+            menu.innerHTML = '<h4 style="margin: 0 0 15px 0; text-align: center; font-size: 16px;">Создать</h4>' +
+                '<button onclick="openCreateScooterModal()" style="width: 100%; padding: 10px; background: #0140ff; color: white; border: none; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; margin-bottom: 8px;">Создать самокат</button>' +
+                '<button onclick="openCreateParkingModal()" style="width: 100%; padding: 10px; background: #0140ff; color: white; border: none; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; margin-bottom: 8px;">Создать парковку</button>' +
+                '<button onclick="openCreateInfoModal()" style="width: 100%; padding: 10px; background: #0140ff; color: white; border: none; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; margin-bottom: 8px;">Создать доп инфу</button>' +
+                '<button onclick="closeContextMenu()" style="width: 100%; padding: 10px; background: #9E9E9E; color: white; border: none; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer;">Отмена</button>';
+            document.body.appendChild(menu); menu.id = 'contextMenu';
         }
-
-        function closeContextMenu() {
-            var menu = document.getElementById('contextMenu');
-            if (menu) menu.remove();
-        }
+        function closeContextMenu() { var menu = document.getElementById('contextMenu'); if (menu) menu.remove(); }
 
         function safeFetch(url) {
             return fetch(url).then(function(r) {
@@ -636,45 +476,28 @@
                 loadParkings();
             });
         }
-
         function updateZoneTextVisibility() {
             var currentZoom = myMap.getZoom();
-            zones.forEach(function(z) {
-                if (z.text) {
-                    z.text.options.set('visible', currentZoom >= ZOOM_THRESHOLD);
-                }
-            });
+            zones.forEach(function(z) { if (z.text) z.text.options.set('visible', currentZoom >= ZOOM_THRESHOLD); });
         }
-
         function loadZones() {
             zones.forEach(function(z) { myMap.geoObjects.remove(z.polygon); if(z.text) myMap.geoObjects.remove(z.text); });
             zones = []; zoneTextMarkers = [];
             osmZones.forEach(function(z) { osmMap.removeLayer(z.layer); if(z.text) osmMap.removeLayer(z.text); });
             osmZones = [];
-            
             var url = currentUserFilter ? API_URL + '/get_zones?user=' + encodeURIComponent(currentUserFilter) : API_URL + '/get_zones';
-            
             safeFetch(url).then(function(data) {
                 if (!Array.isArray(data)) return;
                 data.forEach(function(z) {
                     if (!z.coords || !Array.isArray(z.coords) || z.coords.length === 0) return;
-                    var polygon = new ymaps.Polygon([z.coords], {}, {
-                        fillColor: '#FFB6C1', fillOpacity: 0.5,
-                        strokeColor: '#ff3b30', strokeWidth: 3, strokeStyle: 'solid', draggable: false
-                    });
+                    var polygon = new ymaps.Polygon([z.coords], {}, { fillColor: '#FFB6C1', fillOpacity: 0.5, strokeColor: '#ff3b30', strokeWidth: 3, strokeStyle: 'solid', draggable: false });
                     var zoneObj = { id: z.id, polygon: polygon, text: null, assigned_to: z.assigned_to };
-                    
                     polygon.events.add('contextmenu', function(e) {
-                        e.get('domEvent').preventDefault();
-                        e.get('domEvent').stopPropagation();
+                        e.get('domEvent').preventDefault(); e.get('domEvent').stopPropagation();
                         deleteZoneId = z.id;
                         document.getElementById('deleteZoneModal').style.display = 'flex';
                     });
-                    
-                    polygon.events.add('click', function(e) {
-                        e.stopImmediatePropagation();
-                        openZoneMoveModal(z.id, z);
-                    });
+                    polygon.events.add('click', function(e) { e.stopImmediatePropagation(); openZoneMoveModal(z.id, z); });
                     myMap.geoObjects.add(polygon);
                     if (z.comment && z.comment.trim() !== '') {
                         var bounds = polygon.geometry.getBounds();
@@ -684,36 +507,18 @@
                             iconOffset: [-100, -10], iconShape: { type: 'Rectangle', coordinates: [[0, 0], [200, 20]] },
                             visible: myMap.getZoom() >= ZOOM_THRESHOLD
                         });
-                        myMap.geoObjects.add(textPlacemark);
-                        zoneObj.text = textPlacemark;
+                        myMap.geoObjects.add(textPlacemark); zoneObj.text = textPlacemark;
                     }
                     zones.push(zoneObj);
-
-                    var osmPolygon = L.polygon(z.coords, {
-                        color: '#ff3b30', weight: 3, fillColor: '#FFB6C1', fillOpacity: 0.5
-                    }).addTo(osmMap);
+                    var osmPolygon = L.polygon(z.coords, { color: '#ff3b30', weight: 3, fillColor: '#FFB6C1', fillOpacity: 0.5 }).addTo(osmMap);
                     var osmZoneObj = { id: z.id, layer: osmPolygon, text: null, assigned_to: z.assigned_to };
-                    
-                    osmPolygon.on('contextmenu', function(e) {
-                        L.DomEvent.preventDefault(e);
-                        L.DomEvent.stopPropagation(e);
-                        deleteZoneId = z.id;
-                        document.getElementById('deleteZoneModal').style.display = 'flex';
-                    });
-                    
-                    osmPolygon.on('click', function(e) {
-                        L.DomEvent.stopPropagation(e);
-                        openZoneMoveModal(z.id, z);
-                    });
+                    osmPolygon.on('contextmenu', function(e) { L.DomEvent.preventDefault(e); L.DomEvent.stopPropagation(e); deleteZoneId = z.id; document.getElementById('deleteZoneModal').style.display = 'flex'; });
+                    osmPolygon.on('click', function(e) { L.DomEvent.stopPropagation(e); openZoneMoveModal(z.id, z); });
                     if (z.comment && z.comment.trim() !== '') {
                         var osmBounds = osmPolygon.getBounds();
                         var osmCenter = osmBounds.getCenter();
                         var osmText = L.marker(osmCenter, {
-                            icon: L.divIcon({
-                                className: 'custom-div-icon',
-                                html: '<div style="color: #640000; font-weight: bold; font-size: 12px; text-align: center; white-space: nowrap; pointer-events: none; padding-left: 30px;">' + z.comment + '</div>',
-                                iconSize: [200, 20], iconAnchor: [100, 10]
-                            }),
+                            icon: L.divIcon({ className: 'custom-div-icon', html: '<div style="color: #640000; font-weight: bold; font-size: 12px; text-align: center; white-space: nowrap; pointer-events: none; padding-left: 30px;">' + z.comment + '</div>', iconSize: [200, 20], iconAnchor: [100, 10] }),
                             interactive: false
                         }).addTo(osmMap);
                         osmZoneObj.text = osmText;
@@ -722,10 +527,8 @@
                 });
             });
         }
-
         function openZoneMoveModal(zoneId, zoneData) {
-            movingZoneId = zoneId;
-            movingPointData = zoneData;
+            movingZoneId = zoneId; movingPointData = zoneData;
             document.getElementById('movePointTitle').textContent = 'Изменить расположение?';
             document.getElementById('movePointModal').style.display = 'flex';
         }
@@ -740,7 +543,6 @@
             if (zonePolygon) { myMap.geoObjects.remove(zonePolygon); zonePolygon = null; }
             if (zonePolyline) { myMap.geoObjects.remove(zonePolyline); zonePolyline = null; }
             zoneComment = ""; freehandStartPoint = null; isDrawingFreehand = false;
-
             myMap.behaviors.disable('drag'); myMap.behaviors.disable('multiTouch'); myMap.behaviors.disable('scrollZoom'); myMap.behaviors.disable('dblClickZoom');
             var indicator = document.getElementById('drawingIndicator');
             indicator.style.display = 'flex';
@@ -749,7 +551,6 @@
             document.getElementById('indicatorText').style.display = 'block';
             document.getElementById('finishZoneBtn').style.display = 'block';
             document.getElementById('finishZoneBtn').textContent = 'Ок';
-
             if (mode === 3) {
                 document.getElementById('indicatorText').textContent = 'Выберите способ рисования:';
                 document.getElementById('selectMode1Btn').style.display = 'block';
@@ -760,18 +561,13 @@
                 document.getElementById('finishZoneBtn').style.display = 'none';
             } else { selectDrawMode(mode); }
         }
-
         function startRouteDrawing(isTemp) {
             closeZoneModal();
-            isDrawingRoute = true;
-            isTempRoute = isTemp;
-            isDrawingZone = false;
-            isZoneConfirmed = false;
-            routeEditMode = false;
+            isDrawingRoute = true; isTempRoute = isTemp;
+            isDrawingZone = false; isZoneConfirmed = false; routeEditMode = false;
             routePoints = [];
             routePointMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); routePointMarkers = [];
             if (routePolyline) { myMap.geoObjects.remove(routePolyline); routePolyline = null; }
-
             myMap.behaviors.disable('drag'); myMap.behaviors.disable('multiTouch'); myMap.behaviors.disable('scrollZoom'); myMap.behaviors.disable('dblClickZoom');
             var indicator = document.getElementById('drawingIndicator');
             indicator.style.display = 'flex';
@@ -782,25 +578,21 @@
             document.getElementById('finishZoneBtn').style.display = 'block';
             document.getElementById('finishZoneBtn').textContent = 'Ок';
         }
-
         function addRoutePoint(coords) {
             routePoints.push(coords);
             var pointMarker = new ymaps.Placemark(coords, {}, {
                 iconLayout: ymaps.templateLayoutFactory.createClass('<div style="width: 14px; height: 14px; background: #ff3b30; border: 2px solid white; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,0.4); cursor: move;"></div>'),
                 iconShape: { type: 'Circle', coordinates: [7, 7], radius: 7 }
             });
-            myMap.geoObjects.add(pointMarker);
-            routePointMarkers.push(pointMarker);
+            myMap.geoObjects.add(pointMarker); routePointMarkers.push(pointMarker);
             updateRoutePreview();
         }
-
         function updateRoutePreview() {
             if (routePolyline) { myMap.geoObjects.remove(routePolyline); routePolyline = null; }
             if (routePoints.length < 2) return;
             routePolyline = new ymaps.Polyline(routePoints, {}, { strokeColor: '#ff3b30', strokeWidth: 4, strokeStyle: 'solid' });
             myMap.geoObjects.add(routePolyline);
         }
-
         function selectDrawMode(mode) {
             drawMode = mode; drawModeSelected = true;
             document.getElementById('selectMode1Btn').style.display = 'none';
@@ -822,12 +614,8 @@
             }
             if (mode === 2) myMap.behaviors.disable('drag');
         }
-
         function activateCommentInput() {
-            if (!drawModeSelected) {
-                document.getElementById('indicatorText').textContent = 'Сначала выберите способ рисования:';
-                document.getElementById('indicatorText').style.display = 'block'; return;
-            }
+            if (!drawModeSelected) { document.getElementById('indicatorText').textContent = 'Сначала выберите способ рисования:'; document.getElementById('indicatorText').style.display = 'block'; return; }
             document.getElementById('indicatorText').style.display = 'none';
             document.getElementById('finishZoneBtn').style.display = 'none';
             document.getElementById('commentBtn').style.display = 'none';
@@ -836,7 +624,6 @@
             document.getElementById('commentInput').value = '';
             document.getElementById('commentInput').focus();
         }
-
         function finishComment() {
             zoneComment = document.getElementById('commentInput').value.trim();
             document.getElementById('commentInput').style.display = 'none';
@@ -847,7 +634,6 @@
             document.getElementById('indicatorText').style.display = 'block';
             document.getElementById('finishZoneBtn').style.display = (drawMode === 2) ? 'none' : 'block';
         }
-
         function addZonePoint(coords) {
             if (drawMode === 2 && zonePoints.length > 0) {
                 var last = zonePoints[zonePoints.length - 1];
@@ -863,7 +649,6 @@
             }
             updateZonePreview();
         }
-
         function updateZonePreview() {
             if (zonePolygon) { myMap.geoObjects.remove(zonePolygon); zonePolygon = null; }
             if (zonePolyline) { myMap.geoObjects.remove(zonePolyline); zonePolyline = null; }
@@ -871,7 +656,6 @@
             zonePolyline = new ymaps.Polyline(zonePoints, {}, { strokeColor: '#ff3b30', strokeWidth: 3, strokeStyle: 'solid' });
             myMap.geoObjects.add(zonePolyline);
         }
-
         function enableVertexEditing() {
             zonePointMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); zonePointMarkers = [];
             for (var i = 0; i < zonePoints.length; i++) {
@@ -889,7 +673,6 @@
                 })(i);
             }
         }
-
         function enableRouteVertexEditing() {
             routePointMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); routePointMarkers = [];
             for (var i = 0; i < routePoints.length; i++) {
@@ -903,12 +686,10 @@
                         routePoints[index] = e.get('target').geometry.getCoordinates();
                         updateRoutePreview();
                     });
-                    myMap.geoObjects.add(marker);
-                    routePointMarkers.push(marker);
+                    myMap.geoObjects.add(marker); routePointMarkers.push(marker);
                 })(i);
             }
         }
-
         function closeFreehandZone() {
             if (zonePoints.length < 3) { cancelZoneDrawing(); return; }
             if (zonePolyline) { myMap.geoObjects.remove(zonePolyline); zonePolyline = null; }
@@ -916,15 +697,10 @@
             myMap.geoObjects.add(zonePolygon);
             isZoneConfirmed = true;
             zonePointMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); zonePointMarkers = [];
-            if (willSaveZone) { saveZoneToServer(); } 
-            else { exitDrawingModeKeepPolygon(); }
+            if (willSaveZone) { saveZoneToServer(); } else { exitDrawingModeKeepPolygon(); }
         }
-
         function finishZone() {
-            if (isDrawingRoute) {
-                finishRoute();
-                return;
-            }
+            if (isDrawingRoute) { finishRoute(); return; }
             if (!isZoneConfirmed) {
                 if (drawMode === 1 && zonePoints.length < 3) { alert('Нужно минимум 3 точки!'); return; }
                 if (zonePolyline) { myMap.geoObjects.remove(zonePolyline); zonePolyline = null; }
@@ -934,30 +710,23 @@
                 document.getElementById('indicatorText').textContent = 'Точно всё?';
             } else {
                 zonePointMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); zonePointMarkers = [];
-                if (willSaveZone) { saveZoneToServer(); } 
-                else { exitDrawingModeKeepPolygon(); }
+                if (willSaveZone) { saveZoneToServer(); } else { exitDrawingModeKeepPolygon(); }
             }
         }
-
         function finishRoute() {
             if (routePoints.length < 2) { cancelZoneDrawing(); return; }
-            
             if (!routeEditMode) {
                 if (routePolyline) { myMap.geoObjects.remove(routePolyline); routePolyline = null; }
                 routePolyline = new ymaps.Polyline(routePoints, {}, { strokeColor: '#ff3b30', strokeWidth: 4, strokeStyle: 'solid' });
                 myMap.geoObjects.add(routePolyline);
-                enableRouteVertexEditing();
-                routeEditMode = true;
+                enableRouteVertexEditing(); routeEditMode = true;
                 document.getElementById('indicatorText').textContent = 'Точно всё?';
                 return;
             }
-            
             routePointMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); routePointMarkers = [];
             if (routePolyline) { myMap.geoObjects.remove(routePolyline); routePolyline = null; }
-            
             routePolyline = new ymaps.Polyline(routePoints, {}, { strokeColor: '#ff3b30', strokeWidth: 4, strokeStyle: 'solid' });
             myMap.geoObjects.add(routePolyline);
-            
             var lastPoint = routePoints[routePoints.length - 1];
             var prevPoint = routePoints[routePoints.length - 2];
             var angle = calculateArrowAngle(prevPoint, lastPoint);
@@ -966,30 +735,18 @@
                 iconOffset: [-8, -8]
             });
             myMap.geoObjects.add(arrowMarker);
-            
             saveRouteToServer(arrowMarker);
         }
-
         function calculateArrowAngle(from, to) {
-            var dx = to[1] - from[1];
-            var dy = to[0] - from[0];
-            var angle = Math.atan2(dy, dx) * 180 / Math.PI + 90;
-            return angle;
+            var dx = to[1] - from[1], dy = to[0] - from[0];
+            return Math.atan2(dy, dx) * 180 / Math.PI + 90;
         }
-
         function saveRouteToServer(arrowMarker) {
-            fetch(API_URL + '/add_route', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ coords: routePoints, comment: '', temporary: isTempRoute })
-            }).then(function(r) { return r.json(); }).then(function(data) {
-                if (data.success) {
-                    resetDrawingState();
-                    document.getElementById('drawingIndicator').style.display = 'none';
-                    loadRoutes();
-                }
-            });
+            fetch(API_URL + '/add_route', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ coords: routePoints, comment: '', temporary: isTempRoute }) })
+                .then(function(r) { return r.json(); }).then(function(data) {
+                    if (data.success) { resetDrawingState(); document.getElementById('drawingIndicator').style.display = 'none'; loadRoutes(); }
+                });
         }
-
         function exitDrawingModeKeepPolygon() {
             isDrawingZone = false; drawMode = 1; willSaveZone = false; isZoneConfirmed = false;
             drawModeSelected = false; isMode3SubMode = false; zonePoints = []; zoneComment = "";
@@ -999,7 +756,6 @@
             document.getElementById('drawingIndicator').style.display = 'none';
             myMap.container.getElement().style.cursor = '';
         }
-
         function resetDrawingState() {
             isDrawingZone = false; isDrawingRoute = false; drawMode = 1; willSaveZone = false; isZoneConfirmed = false;
             drawModeSelected = false; isMode3SubMode = false; isTempRoute = false; routeEditMode = false;
@@ -1014,55 +770,42 @@
             document.getElementById('drawingIndicator').style.display = 'none';
             myMap.container.getElement().style.cursor = '';
         }
-
         function cancelZoneDrawing() { resetDrawingState(); }
-
         function saveZoneToServer() {
             var finalCoords = zonePolygon ? zonePolygon.geometry.getCoordinates()[0] : zonePoints;
-            fetch(API_URL + '/add_zone', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ coords: finalCoords, comment: zoneComment })
-            }).then(function(r) { return r.json(); }).then(function(data) {
-                if (data.success) { resetDrawingState(); loadZones(); }
-            });
+            fetch(API_URL + '/add_zone', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ coords: finalCoords, comment: zoneComment }) })
+                .then(function(r) { return r.json(); }).then(function(data) { if (data.success) { resetDrawingState(); loadZones(); } });
         }
-
-        function cancelDeleteZone() { 
-            deleteZoneId = null; 
-            document.getElementById('deleteZoneModal').style.display = 'none'; 
-        }
-
+        function cancelDeleteZone() { deleteZoneId = null; document.getElementById('deleteZoneModal').style.display = 'none'; }
         function confirmDeleteZone() {
             if (!deleteZoneId) return;
-            fetch(API_URL + '/delete_zone', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: deleteZoneId })
-            }).then(function(r) { return r.json(); }).then(function(data) {
-                if (data.success) { 
-                    cancelDeleteZone(); 
-                    loadZones(); 
-                }
-            });
+            fetch(API_URL + '/delete_zone', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: deleteZoneId }) })
+                .then(function(r) { return r.json(); }).then(function(data) { if (data.success) { cancelDeleteZone(); loadZones(); } });
         }
-
-        function cancelDeleteRoute() { 
-            deleteRouteId = null; 
-            document.getElementById('deleteRouteModal').style.display = 'none'; 
+        function cancelDeleteScooter() { deleteScooterId = null; document.getElementById('deleteScooterModal').style.display = 'none'; }
+        function confirmDeleteScooter() {
+            if (!deleteScooterId) return;
+            fetch(API_URL + '/update_status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: deleteScooterId, status: 'found' }) })
+                .then(function(r) { return r.json(); }).then(function(data) { if (data.success) { cancelDeleteScooter(); loadPoints(); } });
         }
-
+        function cancelDeleteParking() { deleteParkingId = null; document.getElementById('deleteParkingModal').style.display = 'none'; }
+        function confirmDeleteParking() {
+            if (!deleteParkingId) return;
+            fetch(API_URL + '/delete_parking', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: deleteParkingId }) })
+                .then(function(r) { return r.json(); }).then(function(data) { if (data.success) { cancelDeleteParking(); loadParkings(); } });
+        }
+        function cancelDeleteInfo() { deleteInfoId = null; document.getElementById('deleteInfoModal').style.display = 'none'; }
+        function confirmDeleteInfo() {
+            if (!deleteInfoId) return;
+            fetch(API_URL + '/update_status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: deleteInfoId, status: 'found' }) })
+                .then(function(r) { return r.json(); }).then(function(data) { if (data.success) { cancelDeleteInfo(); loadPoints(); } });
+        }
+        function cancelDeleteRoute() { deleteRouteId = null; document.getElementById('deleteRouteModal').style.display = 'none'; }
         function confirmDeleteRoute() {
             if (!deleteRouteId) return;
-            fetch(API_URL + '/delete_route', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: deleteRouteId })
-            }).then(function(r) { return r.json(); }).then(function(data) {
-                if (data.success) { 
-                    cancelDeleteRoute(); 
-                    loadRoutes(); 
-                }
-            });
+            fetch(API_URL + '/delete_route', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: deleteRouteId }) })
+                .then(function(r) { return r.json(); }).then(function(data) { if (data.success) { cancelDeleteRoute(); loadRoutes(); } });
         }
-
         function closeMaxDeadModal() { document.getElementById('maxDeadModal').style.display = 'none'; }
 
         function getScooterImage(status) {
@@ -1072,29 +815,16 @@
             if (status === 'rented') return BASE_URL + 'ser.png';
             return BASE_URL + 'green.png';
         }
-
         function createScooterIcon(status, taskNumber) {
             var imgUrl = getScooterImage(status);
             var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="50" viewBox="0 0 36 50">' +
                 '<image href="' + imgUrl + '" x="0" y="0" width="36" height="36" preserveAspectRatio="xMidYMid meet"/>' +
-                '<text x="18" y="48" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="black" text-anchor="middle">' + taskNumber + '</text>' +
-                '</svg>';
-            return {
-                iconLayout: ymaps.templateLayoutFactory.createClass('<div style="width:36px; height:50px;">' + svg + '</div>'),
-                iconShape: { type: 'Circle', coordinates: [18, 18], radius: 18 }
-            };
+                '<text x="18" y="48" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="black" text-anchor="middle">' + taskNumber + '</text></svg>';
+            return { iconLayout: ymaps.templateLayoutFactory.createClass('<div style="width:36px; height:50px;">' + svg + '</div>'), iconShape: { type: 'Circle', coordinates: [18, 18], radius: 18 } };
         }
-
         function createOsmScooterIcon(status, taskNumber) {
             var imgUrl = getScooterImage(status);
-            return L.divIcon({
-                className: 'custom-div-icon',
-                html: '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="50" viewBox="0 0 36 50">' +
-                    '<image href="' + imgUrl + '" x="0" y="0" width="36" height="36" preserveAspectRatio="xMidYMid meet"/>' +
-                    '<text x="18" y="48" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="black" text-anchor="middle">' + taskNumber + '</text>' +
-                    '</svg>',
-                iconSize: [36, 50], iconAnchor: [18, 50]
-            });
+            return L.divIcon({ className: 'custom-div-icon', html: '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="50" viewBox="0 0 36 50"><image href="' + imgUrl + '" x="0" y="0" width="36" height="36" preserveAspectRatio="xMidYMid meet"/><text x="18" y="48" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="black" text-anchor="middle">' + taskNumber + '</text></svg>', iconSize: [36, 50], iconAnchor: [18, 50] });
         }
 
         function loadPoints() {
@@ -1102,39 +832,24 @@
             osmLabelMarkers.forEach(function(m) { osmMap.removeLayer(m); }); osmLabelMarkers = [];
             infoMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); infoMarkers = [];
             osmInfoMarkers.forEach(function(m) { osmMap.removeLayer(m); }); osmInfoMarkers = [];
-            
             var url = currentUserFilter ? API_URL + '/get_points?user=' + encodeURIComponent(currentUserFilter) : API_URL + '/get_points';
-            
             safeFetch(url).then(function(data) {
                 if (!Array.isArray(data)) return;
                 markers.forEach(function(m) { myMap.geoObjects.remove(m); }); markers = [];
                 osmMarkers.forEach(function(m) { osmMap.removeLayer(m); }); osmMarkers = [];
-                
                 var scooterCount = 0;
-                
                 data.forEach(function(point) {
                     if (point.status === 'info') {
-                        var infoIcon = {
-                            iconLayout: ymaps.templateLayoutFactory.createClass('<div style="width: 18px; height: 18px; text-align: center; line-height: 18px;"><img src="' + BASE_URL + 'info.png" style="width: 18px; height: 18px; display: block;"></div>'),
-                            iconShape: { type: 'Circle', coordinates: [9, 9], radius: 9 }
-                        };
+                        var infoIcon = { iconLayout: ymaps.templateLayoutFactory.createClass('<div style="width: 18px; height: 18px; text-align: center; line-height: 18px;"><img src="' + BASE_URL + 'info.png" style="width: 18px; height: 18px; display: block;"></div>'), iconShape: { type: 'Circle', coordinates: [9, 9], radius: 9 } };
                         var pm = new ymaps.Placemark([point.lat, point.lon], { balloonContent: buildInfoBalloonContent(point) }, infoIcon);
                         pm.properties.set('infoData', point);
-                        pm.events.add('dblclick', function(e) {
-                            e.get('domEvent').stopPropagation();
-                            openAssignModal(point.id, 'point');
-                        });
+                        pm.events.add('dblclick', function(e) { e.get('domEvent').stopPropagation(); openAssignModal(point.id, 'point'); });
                         myMap.geoObjects.add(pm); infoMarkers.push(pm);
-
-                        var osmInfoIcon = L.divIcon({
-                            className: 'custom-div-icon',
-                            html: '<img src="' + BASE_URL + 'info.png" style="width: 18px; height: 18px; display: block;">',
-                            iconSize: [18, 18], iconAnchor: [9, 9]
-                        });
+                        var osmInfoIcon = L.divIcon({ className: 'custom-div-icon', html: '<img src="' + BASE_URL + 'info.png" style="width: 18px; height: 18px; display: block;">', iconSize: [18, 18], iconAnchor: [9, 9] });
                         var osmPm = L.marker([point.lat, point.lon], { icon: osmInfoIcon }).addTo(osmMap);
                         var popup = L.popup({ closeOnClick: false, autoClose: false }).setContent(buildInfoBalloonContent(point));
-                        osmPm.bindPopup(popup);
-                        osmPm.infoData = point;
+                        osmPm.bindPopup(popup); osmPm.infoData = point;
+                        osmPm.on('contextmenu', function(e) { L.DomEvent.preventDefault(e); L.DomEvent.stopPropagation(e); deleteInfoId = point.id; document.getElementById('deleteInfoModal').style.display = 'flex'; });
                         osmInfoMarkers.push(osmPm);
                     } else {
                         scooterCount++;
@@ -1147,96 +862,55 @@
                         }
                         var pm = new ymaps.Placemark([point.lat, point.lon], { balloonContent: buildBalloonContent(point, isBooked) }, iconOptions);
                         pm.properties.set('pointData', point);
-                        pm.events.add('dblclick', function(e) {
-                            e.get('domEvent').stopPropagation();
-                            openAssignModal(point.id, 'point');
-                        });
+                        pm.events.add('dblclick', function(e) { e.get('domEvent').stopPropagation(); openAssignModal(point.id, 'point'); });
                         myMap.geoObjects.add(pm); markers.push(pm);
                         attachScooterContextMenu(pm, point);
-
                         var osmIcon = createOsmScooterIcon(point.status, point.title.trim());
                         if (isBooked) {
-                            var osmLabel = L.marker([point.lat, point.lon], {
-                                icon: L.divIcon({
-                                    className: 'custom-div-icon',
-                                    html: '<div style="background: black; color: white; font-size: 8px; font-weight: bold; padding: 3px 4px; border-radius: 3px; text-align: center; width: 44px; box-sizing: border-box; line-height: 1.2;">Выехали</div>',
-                                    iconSize: [44, 16], iconAnchor: [22, 92]
-                                }),
-                                interactive: false
-                            }).addTo(osmMap);
+                            var osmLabel = L.marker([point.lat, point.lon], { icon: L.divIcon({ className: 'custom-div-icon', html: '<div style="background: black; color: white; font-size: 8px; font-weight: bold; padding: 3px 4px; border-radius: 3px; text-align: center; width: 44px; box-sizing: border-box; line-height: 1.2;">Выехали</div>', iconSize: [44, 16], iconAnchor: [22, 92] }), interactive: false }).addTo(osmMap);
                             osmLabelMarkers.push(osmLabel);
                         }
                         var osmPm = L.marker([point.lat, point.lon], { icon: osmIcon }).addTo(osmMap);
                         var popup = L.popup({ closeOnClick: false, autoClose: false }).setContent(buildBalloonContent(point, isBooked));
-                        osmPm.bindPopup(popup);
-                        osmPm.pointData = point;
-                        osmPm.on('dblclick', function(e) {
-                            L.DomEvent.stopPropagation(e);
-                            openAssignModal(point.id, 'point');
-                        });
+                        osmPm.bindPopup(popup); osmPm.pointData = point;
+                        osmPm.on('dblclick', function(e) { L.DomEvent.stopPropagation(e); openAssignModal(point.id, 'point'); });
                         osmMarkers.push(osmPm);
                         attachOsmScooterContextMenu(osmPm, point);
                     }
                 });
-                
                 document.getElementById('pointCount').textContent = scooterCount;
             });
         }
 
         function loadRoutes() {
-            routes.forEach(function(r) { myMap.geoObjects.remove(r.polyline); if(r.arrow) myMap.geoObjects.remove(r.arrow); });
-            routes = [];
-            osmRoutes.forEach(function(r) { osmMap.removeLayer(r.layer); });
-            osmRoutes = [];
-            tempRoutes.forEach(function(r) { myMap.geoObjects.remove(r.polyline); if(r.arrow) myMap.geoObjects.remove(r.arrow); });
-            tempRoutes = [];
-            osmTempRoutes.forEach(function(r) { osmMap.removeLayer(r.layer); });
-            osmTempRoutes = [];
-            
+            routes.forEach(function(r) { myMap.geoObjects.remove(r.polyline); if(r.arrow) myMap.geoObjects.remove(r.arrow); }); routes = [];
+            osmRoutes.forEach(function(r) { osmMap.removeLayer(r.layer); }); osmRoutes = [];
+            tempRoutes.forEach(function(r) { myMap.geoObjects.remove(r.polyline); if(r.arrow) myMap.geoObjects.remove(r.arrow); }); tempRoutes = [];
+            osmTempRoutes.forEach(function(r) { osmMap.removeLayer(r.layer); }); osmTempRoutes = [];
             safeFetch(API_URL + '/get_routes').then(function(data) {
                 if (!Array.isArray(data)) return;
                 data.forEach(function(route) {
                     if (!route.coords || route.coords.length < 2) return;
                     var polyline = new ymaps.Polyline(route.coords, {}, { strokeColor: '#ff3b30', strokeWidth: 4, strokeStyle: 'solid' });
                     myMap.geoObjects.add(polyline);
-                    
                     var lastPoint = route.coords[route.coords.length - 1];
                     var prevPoint = route.coords[route.coords.length - 2];
                     var angle = calculateArrowAngle(prevPoint, lastPoint);
-                    var arrowMarker = new ymaps.Placemark(lastPoint, {}, {
-                        iconLayout: ymaps.templateLayoutFactory.createClass('<div style="width: 0; height: 0; border-left: 8px solid transparent; border-right: 8px solid transparent; border-bottom: 16px solid #ff3b30; transform: rotate(' + angle + 'deg);"></div>'),
-                        iconOffset: [-8, -8]
-                    });
+                    var arrowMarker = new ymaps.Placemark(lastPoint, {}, { iconLayout: ymaps.templateLayoutFactory.createClass('<div style="width: 0; height: 0; border-left: 8px solid transparent; border-right: 8px solid transparent; border-bottom: 16px solid #ff3b30; transform: rotate(' + angle + 'deg);"></div>'), iconOffset: [-8, -8] });
                     myMap.geoObjects.add(arrowMarker);
-                    
-                    polyline.events.add('contextmenu', function(e) {
-                        e.get('domEvent').preventDefault();
-                        e.get('domEvent').stopPropagation();
-                        deleteRouteId = route.id;
-                        document.getElementById('deleteRouteModal').style.display = 'flex';
-                    });
-                    
+                    polyline.events.add('contextmenu', function(e) { e.get('domEvent').preventDefault(); e.get('domEvent').stopPropagation(); deleteRouteId = route.id; document.getElementById('deleteRouteModal').style.display = 'flex'; });
                     routes.push({ id: route.id, polyline: polyline, arrow: arrowMarker });
-                    
                     var osmPolyline = L.polyline(route.coords, { color: '#ff3b30', weight: 4 }).addTo(osmMap);
-                    osmPolyline.on('contextmenu', function(e) {
-                        L.DomEvent.preventDefault(e);
-                        L.DomEvent.stopPropagation(e);
-                        deleteRouteId = route.id;
-                        document.getElementById('deleteRouteModal').style.display = 'flex';
-                    });
+                    osmPolyline.on('contextmenu', function(e) { L.DomEvent.preventDefault(e); L.DomEvent.stopPropagation(e); deleteRouteId = route.id; document.getElementById('deleteRouteModal').style.display = 'flex'; });
                     osmRoutes.push({ id: route.id, layer: osmPolyline });
                 });
             });
-            
             safeFetch(API_URL + '/get_temp_routes').then(function(data) {
                 if (!Array.isArray(data)) return;
                 data.forEach(function(route) {
                     if (!route.coords || route.coords.length < 2) return;
                     var polyline = new ymaps.Polyline(route.coords, {}, { strokeColor: '#ff3b30', strokeWidth: 4, strokeStyle: 'solid' });
-                    myMap.geoObjects.add(polyline);
-                    tempRoutes.push({ id: route.id, polyline: polyline });
-                    
+                    myMap.geoObjects.add(polyline); tempRoutes.push({ id: route.id, polyline: polyline });
                     var osmPolyline = L.polyline(route.coords, { color: '#ff3b30', weight: 4 }).addTo(osmMap);
                     osmTempRoutes.push({ id: route.id, layer: osmPolyline });
                 });
@@ -1247,35 +921,18 @@
             var h = '<div style="min-width: 200px; padding: 12px; box-sizing: border-box; text-align: center;" onclick="event.stopPropagation()">';
             h += '<b style="font-size: 16px; display: block; font-weight: bold;">ДОП ИНФА</b>';
             h += '<div style="color: #555; font-size: 14px; margin: 8px 0;">' + info.address + '</div>';
-            if (info.comment) {
-                h += '<div style="color: #000; font-size: 14px; display: block; margin: 5px 0;">' + info.comment + '</div>';
-            }
+            if (info.comment) h += '<div style="color: #000; font-size: 14px; display: block; margin: 5px 0;">' + info.comment + '</div>';
             h += '<div style="display: flex; flex-direction: column; align-items: center; gap: 4px; margin-top: 10px;">';
             h += '<button onclick="event.stopPropagation(); openInfoCommentModal(' + info.id + ')" style="background: #707070; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Комментарий</button>';
-            h += '<button onclick="event.stopPropagation(); deleteInfoPoint(' + info.id + ')" style="background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Удалить</button>';
             h += '</div></div>';
             return h;
         }
-
         function openInfoCommentModal(infoId) {
-            currentCommentPointId = infoId;
-            currentCommentType = 'info';
+            currentCommentPointId = infoId; currentCommentType = 'info';
             var modal = document.getElementById('commentModalOverlay');
             var input = document.getElementById('commentModalInput');
-            input.value = ''; 
-            modal.style.display = 'flex';
+            input.value = ''; modal.style.display = 'flex';
             setTimeout(function() { input.focus(); }, 100);
-        }
-
-        function deleteInfoPoint(id) {
-            if (!confirm('Удалить эту доп инфу?')) return;
-            fetch(API_URL + '/update_status', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: id, status: 'found' })
-            }).then(function(r) { return r.json(); }).then(function(data) {
-                if (data.success) loadPoints();
-            });
         }
 
         function buildBalloonContent(point, isBooked) {
@@ -1309,18 +966,13 @@
                             if (pm) { myMap.geoObjects.remove(pm); markers = markers.filter(function(m) { return m !== pm; }); }
                             var osmPm = osmMarkers.find(function(m) { return m.pointData && m.pointData.id === pointId; });
                             if (osmPm) { osmMap.removeLayer(osmPm); osmMarkers = osmMarkers.filter(function(m) { return m !== osmPm; }); }
-                            if (departures[pointId]) {
-                                fetch(API_URL + '/remove_departure', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ point_id: pointId }) });
-                                delete departures[pointId]; renderBottomPanel();
-                            }
+                            if (departures[pointId]) { fetch(API_URL + '/remove_departure', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ point_id: pointId }) }); delete departures[pointId]; renderBottomPanel(); }
                             var countEl = document.getElementById('pointCount');
                             var count = parseInt(countEl.textContent, 10);
                             countEl.textContent = Math.max(0, count - 1);
                         } else {
-                            if (departures[pointId]) {
-                                fetch(API_URL + '/remove_departure', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ point_id: pointId }) })
-                                    .then(function() { delete departures[pointId]; renderBottomPanel(); loadPoints(); });
-                            } else { loadPoints(); }
+                            if (departures[pointId]) { fetch(API_URL + '/remove_departure', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ point_id: pointId }) }).then(function() { delete departures[pointId]; renderBottomPanel(); loadPoints(); }); }
+                            else { loadPoints(); }
                         }
                     }
                 });
@@ -1337,14 +989,10 @@
                 h += '<small style="color: #999; display: block;">Статус: ' + point.status + '</small>';
                 h += '<div style="display: flex; flex-direction: column; align-items: center; gap: 4px; margin-top: 10px;">';
                 h += '<button disabled style="background: #f44336; color: white; border: none; border-radius: 4px; cursor: not-allowed; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px; opacity: 0.7;">Кто вы?</button>';
-                ALL_NAMES.forEach(function(name) {
-                    h += '<button onclick="event.stopPropagation(); selectName(' + pointId + ', \'' + esc + '\', \'' + name + '\')" style="background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">' + name + '</button>';
-                });
+                ALL_NAMES.forEach(function(name) { h += '<button onclick="event.stopPropagation(); selectName(' + pointId + ', \'' + esc + '\', \'' + name + '\')" style="background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">' + name + '</button>'; });
                 h += '<button onclick="event.stopPropagation(); openCustomInputModal(' + pointId + ', \'' + esc + '\')" style="background: #9E9E9E; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Ввести своё</button>';
                 h += '</div></div>';
-                pm.properties.set('balloonContent', h); 
-                pm.balloon.open();
-                return;
+                pm.properties.set('balloonContent', h); pm.balloon.open(); return;
             }
             var osmPm = osmMarkers.find(function(m) { return m.pointData && m.pointData.id === pointId; });
             if (osmPm) {
@@ -1356,85 +1004,39 @@
                 h += '<small style="color: #999; display: block;">Статус: ' + point.status + '</small>';
                 h += '<div style="display: flex; flex-direction: column; align-items: center; gap: 4px; margin-top: 10px;">';
                 h += '<button disabled style="background: #f44336; color: white; border: none; border-radius: 4px; cursor: not-allowed; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px; opacity: 0.7;">Кто вы?</button>';
-                ALL_NAMES.forEach(function(name) {
-                    h += '<button onclick="event.stopPropagation(); selectName(' + pointId + ', \'' + esc + '\', \'' + name + '\')" style="background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">' + name + '</button>';
-                });
+                ALL_NAMES.forEach(function(name) { h += '<button onclick="event.stopPropagation(); selectName(' + pointId + ', \'' + esc + '\', \'' + name + '\')" style="background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">' + name + '</button>'; });
                 h += '<button onclick="event.stopPropagation(); openCustomInputModal(' + pointId + ', \'' + esc + '\')" style="background: #9E9E9E; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Ввести своё</button>';
                 h += '</div></div>';
-                osmPm.setPopupContent(h);
-                osmPm.openPopup();
+                osmPm.setPopupContent(h); osmPm.openPopup();
             }
         }
 
-        function createParkingIcon() {
-            return {
-                iconLayout: ymaps.templateLayoutFactory.createClass('<div style="width: 18px; height: 18px; text-align: center; line-height: 18px;"><img src="' + BASE_URL + 'p.png" style="width: 18px; height: 18px; display: block;"></div>'),
-                iconShape: { type: 'Circle', coordinates: [9, 9], radius: 9 }
-            };
-        }
-
-        function createOsmParkingIcon() {
-            return L.divIcon({
-                className: 'custom-div-icon',
-                html: '<img src="' + BASE_URL + 'p.png" style="width: 18px; height: 18px; display: block;">',
-                iconSize: [18, 18], iconAnchor: [9, 9]
-            });
-        }
+        function createParkingIcon() { return { iconLayout: ymaps.templateLayoutFactory.createClass('<div style="width: 18px; height: 18px; text-align: center; line-height: 18px;"><img src="' + BASE_URL + 'p.png" style="width: 18px; height: 18px; display: block;"></div>'), iconShape: { type: 'Circle', coordinates: [9, 9], radius: 9 } }; }
+        function createOsmParkingIcon() { return L.divIcon({ className: 'custom-div-icon', html: '<img src="' + BASE_URL + 'p.png" style="width: 18px; height: 18px; display: block;">', iconSize: [18, 18], iconAnchor: [9, 9] }); }
 
         function buildLabelsHtml(available, dead, broken) {
-            var items = [
-                { value: available, label: 'В доступе', color: '#4CAF50' },
-                { value: broken, label: 'Поломки', color: '#7E0000' },
-                { value: dead, label: 'Севшие', color: '#f44336' }
-            ];
-            items.sort(function(a, b) {
-                var aEmpty = (a.value === '?' || a.value === undefined || a.value === '');
-                var bEmpty = (b.value === '?' || b.value === undefined || b.value === '');
-                if (aEmpty && !bEmpty) return -1;
-                if (!aEmpty && bEmpty) return 1;
-                return 0;
-            });
-            var html = '';
-            var hasVisible = false;
-            items.forEach(function(item) {
-                var isEmpty = (item.value === '?' || item.value === undefined || item.value === '');
-                if (appSettings.hide_empty_labels && isEmpty) return;
-                hasVisible = true;
-                html += '<div style="background: ' + item.color + '; color: white; font-size: 9px; font-weight: bold; padding: 2px 6px; border-radius: 3px; white-space: nowrap; margin-bottom: 2px;">' + item.label + ': ' + (item.value || '?') + '</div>';
-            });
+            var items = [{ value: available, label: 'В доступе', color: '#4CAF50' }, { value: broken, label: 'Поломки', color: '#7E0000' }, { value: dead, label: 'Севшие', color: '#f44336' }];
+            items.sort(function(a, b) { var aEmpty = (a.value === '?' || a.value === undefined || a.value === ''); var bEmpty = (b.value === '?' || b.value === undefined || b.value === ''); if (aEmpty && !bEmpty) return -1; if (!aEmpty && bEmpty) return 1; return 0; });
+            var html = ''; var hasVisible = false;
+            items.forEach(function(item) { var isEmpty = (item.value === '?' || item.value === undefined || item.value === ''); if (appSettings.hide_empty_labels && isEmpty) return; hasVisible = true; html += '<div style="background: ' + item.color + '; color: white; font-size: 9px; font-weight: bold; padding: 2px 6px; border-radius: 3px; white-space: nowrap; margin-bottom: 2px;">' + item.label + ': ' + (item.value || '?') + '</div>'; });
             return hasVisible ? html : null;
         }
-
         function createParkingLabels(lat, lon, available, dead, broken, pId) {
             var html = buildLabelsHtml(available, dead, broken);
             if (!html) return null;
             var visibleCount = 0;
-            [available, broken, dead].forEach(function(v) {
-                var isEmpty = (v === '?' || v === undefined || v === '');
-                if (!(appSettings.hide_empty_labels && isEmpty)) visibleCount++;
-            });
+            [available, broken, dead].forEach(function(v) { var isEmpty = (v === '?' || v === undefined || v === ''); if (!(appSettings.hide_empty_labels && isEmpty)) visibleCount++; });
             var offset = visibleCount * 17 + 5;
             var layout = ymaps.templateLayoutFactory.createClass('<div style="display: flex; flex-direction: column; align-items: center; gap: 2px; width: 100px;">' + html + '</div>');
-            return new ymaps.Placemark([lat, lon], {}, {
-                iconLayout: layout, iconOffset: [-41, -offset], iconShape: { type: 'Rectangle', coordinates: [[0, 0], [100, offset]] }
-            });
+            return new ymaps.Placemark([lat, lon], {}, { iconLayout: layout, iconOffset: [-41, -offset], iconShape: { type: 'Rectangle', coordinates: [[0, 0], [100, offset]] } });
         }
-
         function createOsmParkingLabels(available, dead, broken) {
             var html = buildLabelsHtml(available, dead, broken);
             if (!html) return null;
             var visibleCount = 0;
-            [available, broken, dead].forEach(function(v) {
-                var isEmpty = (v === '?' || v === undefined || v === '');
-                if (!(appSettings.hide_empty_labels && isEmpty)) visibleCount++;
-            });
-            var totalHeight = visibleCount * 17;
-            var extraOffset = 22;
-            return L.divIcon({
-                className: 'custom-div-icon',
-                html: '<div style="display: flex; flex-direction: column; align-items: center; gap: 2px; width: 100px;">' + html + '</div>',
-                iconSize: [100, totalHeight], iconAnchor: [51, totalHeight + extraOffset]
-            });
+            [available, broken, dead].forEach(function(v) { var isEmpty = (v === '?' || v === undefined || v === ''); if (!(appSettings.hide_empty_labels && isEmpty)) visibleCount++; });
+            var totalHeight = visibleCount * 17; var extraOffset = 22;
+            return L.divIcon({ className: 'custom-div-icon', html: '<div style="display: flex; flex-direction: column; align-items: center; gap: 2px; width: 100px;">' + html + '</div>', iconSize: [100, totalHeight], iconAnchor: [51, totalHeight + extraOffset] });
         }
 
         function loadParkings() {
@@ -1442,7 +1044,6 @@
             parkingLabelMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); parkingLabelMarkers = [];
             osmParkingMarkers.forEach(function(m) { osmMap.removeLayer(m); }); osmParkingMarkers = [];
             osmParkingLabelMarkers.forEach(function(m) { osmMap.removeLayer(m); }); osmParkingLabelMarkers = [];
-            
             safeFetch(API_URL + '/get_parkings').then(function(data) {
                 if (!Array.isArray(data)) return;
                 var totalDead = 0, maxDead = 0, maxDeadParkings = [];
@@ -1455,28 +1056,23 @@
                         if (appSettings.show_parkings) {
                             var pm = new ymaps.Placemark([p.lat, p.lon], { balloonContent: buildParkingBalloon(p) }, createParkingIcon());
                             pm.properties.set('parkingData', p);
+                            pm.events.add('contextmenu', function(e) { e.get('domEvent').preventDefault(); e.get('domEvent').stopPropagation(); deleteParkingId = p.id; document.getElementById('deleteParkingModal').style.display = 'flex'; });
                             myMap.geoObjects.add(pm); parkingMarkers.push(pm);
                             var osmPm = L.marker([p.lat, p.lon], { icon: createOsmParkingIcon() }).addTo(osmMap);
                             var popup = L.popup({ closeOnClick: false, autoClose: false }).setContent(buildParkingBalloon(p));
-                            osmPm.bindPopup(popup);
-                            osmPm.parkingData = p;
+                            osmPm.bindPopup(popup); osmPm.parkingData = p;
+                            osmPm.on('contextmenu', function(e) { L.DomEvent.preventDefault(e); L.DomEvent.stopPropagation(e); deleteParkingId = p.id; document.getElementById('deleteParkingModal').style.display = 'flex'; });
                             osmParkingMarkers.push(osmPm);
                         }
                         if (appSettings.show_labels) {
                             var pl = createParkingLabels(p.lat, p.lon, p.available, p.dead, p.broken, p.id);
                             if (pl) { myMap.geoObjects.add(pl); parkingLabelMarkers.push(pl); }
                             var osmPl = createOsmParkingLabels(p.available, p.dead, p.broken);
-                            if (osmPl) {
-                                var osmLabel = L.marker([p.lat, p.lon], { icon: osmPl, interactive: false }).addTo(osmMap);
-                                osmParkingLabelMarkers.push(osmLabel);
-                            }
+                            if (osmPl) { var osmLabel = L.marker([p.lat, p.lon], { icon: osmPl, interactive: false }).addTo(osmMap); osmParkingLabelMarkers.push(osmLabel); }
                         }
                         var deadNum = parseInt(p.dead, 10); if (isNaN(deadNum)) deadNum = 0;
                         totalDead += deadNum;
-                        if (deadNum >= 3) {
-                            if (deadNum > maxDead) { maxDead = deadNum; maxDeadParkings = [p.title]; }
-                            else if (deadNum === maxDead) { maxDeadParkings.push(p.title); }
-                        }
+                        if (deadNum >= 3) { if (deadNum > maxDead) { maxDead = deadNum; maxDeadParkings = [p.title]; } else if (deadNum === maxDead) { maxDeadParkings.push(p.title); } }
                     } catch (err) { console.error('Ошибка парковки ID:', p.id, err); }
                 });
                 document.getElementById('deadCount').textContent = totalDead;
@@ -1486,23 +1082,11 @@
 
         function toggleExtraVisibility() {
             appSettings.hide_empty_labels = !appSettings.hide_empty_labels;
-            fetch(API_URL + '/update_setting', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ key: 'hide_empty_labels', value: appSettings.hide_empty_labels })
-            }).then(function() { loadParkings(); });
+            fetch(API_URL + '/update_setting', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: 'hide_empty_labels', value: appSettings.hide_empty_labels }) }).then(function() { loadParkings(); });
         }
-
         function resetParking(id) {
-            fetch(API_URL + '/update_parking', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: id, available: '?', dead: '?', broken: '?' })
-            }).then(function(r) { return r.json(); }).then(function(data) { 
-                if (data.success) {
-                    loadParkings();
-                    if (myMap) myMap.balloon.close();
-                    if (osmMap) osmMap.closePopup();
-                }
-            });
+            fetch(API_URL + '/update_parking', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: id, available: '?', dead: '?', broken: '?' }) })
+                .then(function(r) { return r.json(); }).then(function(data) { if (data.success) { loadParkings(); if (myMap) myMap.balloon.close(); if (osmMap) osmMap.closePopup(); } });
         }
 
         function onDeadInfoClick() {
@@ -1557,9 +1141,7 @@
                 html += '<input id="inp_broken_' + id + '" type="number" onclick="event.stopPropagation()" style="display: none; width: 100%; padding: 10px; border: 2px solid #333; border-radius: 4px; text-align: center; font-size: 16px; box-sizing: border-box;"></div>';
                 html += '<button onclick="event.stopPropagation(); saveParking(' + id + ')" style="background: #4CAF50; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%; font-size: 14px;">ОК</button>';
                 html += '</div></div>';
-                pm.properties.set('balloonContent', html); 
-                pm.balloon.open();
-                return;
+                pm.properties.set('balloonContent', html); pm.balloon.open(); return;
             }
             var osmPm = osmParkingMarkers.find(function(m) { return m.parkingData && m.parkingData.id === id; });
             if (osmPm) {
@@ -1575,92 +1157,47 @@
                 html += '<input id="osm_inp_broken_' + id + '" type="number" onclick="event.stopPropagation()" style="display: none; width: 100%; padding: 10px; border: 2px solid #333; border-radius: 4px; text-align: center; font-size: 16px; box-sizing: border-box;"></div>';
                 html += '<button onclick="event.stopPropagation(); saveOsmParking(' + id + ')" style="background: #4CAF50; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%; font-size: 14px;">ОК</button>';
                 html += '</div></div>';
-                osmPm.setPopupContent(html);
-                osmPm.openPopup();
+                osmPm.setPopupContent(html); osmPm.openPopup();
             }
         }
-
-        function activateInput(type, id) {
-            document.getElementById('btn_' + type + '_' + id).style.display = 'none';
-            var inp = document.getElementById('inp_' + type + '_' + id);
-            inp.style.display = 'block'; inp.value = ''; inp.focus();
-        }
-
-        function activateOsmInput(type, id) {
-            document.getElementById('osm_btn_' + type + '_' + id).style.display = 'none';
-            var inp = document.getElementById('osm_inp_' + type + '_' + id);
-            inp.style.display = 'block'; inp.value = ''; inp.focus();
-        }
-
+        function activateInput(type, id) { document.getElementById('btn_' + type + '_' + id).style.display = 'none'; var inp = document.getElementById('inp_' + type + '_' + id); inp.style.display = 'block'; inp.value = ''; inp.focus(); }
+        function activateOsmInput(type, id) { document.getElementById('osm_btn_' + type + '_' + id).style.display = 'none'; var inp = document.getElementById('osm_inp_' + type + '_' + id); inp.style.display = 'block'; inp.value = ''; inp.focus(); }
         function saveParking(id) {
-            var inpAvail = document.getElementById('inp_avail_' + id);
-            var inpDead = document.getElementById('inp_dead_' + id);
-            var inpBroken = document.getElementById('inp_broken_' + id);
+            var inpAvail = document.getElementById('inp_avail_' + id); var inpDead = document.getElementById('inp_dead_' + id); var inpBroken = document.getElementById('inp_broken_' + id);
             var pm = parkingMarkers.find(function(m) { var d = m.properties.get('parkingData'); return d && d.id === id; });
             var oldData = pm ? pm.properties.get('parkingData') : {available: '?', dead: '?', broken: '?'};
             var newAvail = inpAvail.style.display !== 'none' && inpAvail.value.trim() !== '' ? inpAvail.value.trim() : oldData.available;
             var newDead = inpDead.style.display !== 'none' && inpDead.value.trim() !== '' ? inpDead.value.trim() : oldData.dead;
             var newBroken = inpBroken.style.display !== 'none' && inpBroken.value.trim() !== '' ? inpBroken.value.trim() : oldData.broken;
-            fetch(API_URL + '/update_parking', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: id, available: newAvail, dead: newDead, broken: newBroken })
-            }).then(function(r) { return r.json(); }).then(function(data) { if (data.success) loadParkings(); });
+            fetch(API_URL + '/update_parking', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: id, available: newAvail, dead: newDead, broken: newBroken }) }).then(function(r) { return r.json(); }).then(function(data) { if (data.success) loadParkings(); });
         }
-
         function saveOsmParking(id) {
-            var inpAvail = document.getElementById('osm_inp_avail_' + id);
-            var inpDead = document.getElementById('osm_inp_dead_' + id);
-            var inpBroken = document.getElementById('osm_inp_broken_' + id);
+            var inpAvail = document.getElementById('osm_inp_avail_' + id); var inpDead = document.getElementById('osm_inp_dead_' + id); var inpBroken = document.getElementById('osm_inp_broken_' + id);
             var osmPm = osmParkingMarkers.find(function(m) { return m.parkingData && m.parkingData.id === id; });
             var oldData = osmPm ? osmPm.parkingData : {available: '?', dead: '?', broken: '?'};
             var newAvail = inpAvail.style.display !== 'none' && inpAvail.value.trim() !== '' ? inpAvail.value.trim() : oldData.available;
             var newDead = inpDead.style.display !== 'none' && inpDead.value.trim() !== '' ? inpDead.value.trim() : oldData.dead;
             var newBroken = inpBroken.style.display !== 'none' && inpBroken.value.trim() !== '' ? inpBroken.value.trim() : oldData.broken;
-            fetch(API_URL + '/update_parking', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: id, available: newAvail, dead: newDead, broken: newBroken })
-            }).then(function(r) { return r.json(); }).then(function(data) { if (data.success) loadParkings(); });
+            fetch(API_URL + '/update_parking', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: id, available: newAvail, dead: newDead, broken: newBroken }) }).then(function(r) { return r.json(); }).then(function(data) { if (data.success) loadParkings(); });
         }
 
         function onTasksHeaderClick() {
             tasksHeaderClickCount++;
             if (tasksHeaderClickTimer) clearTimeout(tasksHeaderClickTimer);
             tasksHeaderClickTimer = setTimeout(function() { tasksHeaderClickCount = 0; }, 1000);
-            if (tasksHeaderClickCount >= 3) { 
-                tasksHeaderClickCount = 0; 
-                openZoneModal();
-            }
+            if (tasksHeaderClickCount >= 3) { tasksHeaderClickCount = 0; openZoneModal(); }
         }
-
         function onInfoClick() {
             infoClickCount++;
             if (infoClickTimer) clearTimeout(infoClickTimer);
             infoClickTimer = setTimeout(function() { infoClickCount = 0; }, 1000);
             if (infoClickCount >= 3) {
-                infoClickCount = 0;
-                mapMode = (mapMode + 1) % 3;
-                if (mapMode === 0) {
-                    document.getElementById('map').style.display = 'block';
-                    document.getElementById('osmMap').style.display = 'none';
-                    myMap.setType('yandex#map');
-                } else if (mapMode === 1) {
-                    document.getElementById('map').style.display = 'block';
-                    document.getElementById('osmMap').style.display = 'none';
-                    myMap.setType('yandex#hybrid');
-                } else if (mapMode === 2) {
-                    document.getElementById('map').style.display = 'none';
-                    document.getElementById('osmMap').style.display = 'block';
-                    setTimeout(function() { 
-                        osmMap.invalidateSize();
-                        loadPoints();
-                        loadParkings();
-                        loadZones();
-                        loadRoutes();
-                    }, 200);
-                }
+                infoClickCount = 0; mapMode = (mapMode + 1) % 3;
+                if (mapMode === 0) { document.getElementById('map').style.display = 'block'; document.getElementById('osmMap').style.display = 'none'; myMap.setType('yandex#map'); }
+                else if (mapMode === 1) { document.getElementById('map').style.display = 'block'; document.getElementById('osmMap').style.display = 'none'; myMap.setType('yandex#hybrid'); }
+                else if (mapMode === 2) { document.getElementById('map').style.display = 'none'; document.getElementById('osmMap').style.display = 'block'; setTimeout(function() { osmMap.invalidateSize(); loadPoints(); loadParkings(); loadZones(); loadRoutes(); }, 200); }
             }
         }
-
         function openZoneModal() { document.getElementById('zoneModalOverlay').style.display = 'flex'; }
         function closeZoneModal() { document.getElementById('zoneModalOverlay').style.display = 'none'; }
 
@@ -1672,157 +1209,62 @@
                 renderBottomPanel();
             });
         }
-
         function renderBottomPanel() {
             var panel = document.getElementById('bottomPanel');
             var list = document.getElementById('bottomDeparturesList');
             var keys = Object.keys(departures);
             var html = '';
-            for (var i = 0; i < keys.length; i++) {
-                var d = departures[keys[i]];
-                html += '<div class="departure-item">За ' + d.title + ' ым выехал ' + d.name + '</div>';
-            }
-            list.innerHTML = html;
-            panel.style.display = 'block';
+            for (var i = 0; i < keys.length; i++) { var d = departures[keys[i]]; html += '<div class="departure-item">За ' + d.title + ' ым выехал ' + d.name + '</div>'; }
+            list.innerHTML = html; panel.style.display = 'block';
         }
         function closeBottomPanel() { document.getElementById('bottomPanel').style.display = 'none'; }
 
-        function openCustomInputModal(pointId, pointTitle) {
-            currentModalPointId = pointId; 
-            currentModalPointTitle = pointTitle;
-            var modal = document.getElementById('modalOverlay');
-            var input = document.getElementById('modalInput');
-            input.value = ''; 
-            modal.style.display = 'flex';
-            setTimeout(function() { input.focus(); }, 100);
-        }
+        function openCustomInputModal(pointId, pointTitle) { currentModalPointId = pointId; currentModalPointTitle = pointTitle; var modal = document.getElementById('modalOverlay'); var input = document.getElementById('modalInput'); input.value = ''; modal.style.display = 'flex'; setTimeout(function() { input.focus(); }, 100); }
+        function closeCustomInputModal() { document.getElementById('modalOverlay').style.display = 'none'; currentModalPointId = null; currentModalPointTitle = null; }
+        function confirmModalInput() { var input = document.getElementById('modalInput'); var name = input.value.trim(); if (!name) { input.style.borderColor = '#f44336'; setTimeout(function() { input.style.borderColor = '#ddd'; }, 1000); return; } closeCustomInputModal(); selectName(currentModalPointId, currentModalPointTitle, name); }
 
-        function closeCustomInputModal() {
-            document.getElementById('modalOverlay').style.display = 'none';
-            currentModalPointId = null; 
-            currentModalPointTitle = null;
-        }
-
-        function confirmModalInput() {
-            var input = document.getElementById('modalInput');
-            var name = input.value.trim();
-            if (!name) { input.style.borderColor = '#f44336'; setTimeout(function() { input.style.borderColor = '#ddd'; }, 1000); return; }
-            closeCustomInputModal();
-            selectName(currentModalPointId, currentModalPointTitle, name);
-        }
-
-        function openCommentModal(pointId) {
-            currentCommentPointId = pointId;
-            currentCommentType = 'scooter';
-            var modal = document.getElementById('commentModalOverlay');
-            var input = document.getElementById('commentModalInput');
-            input.value = ''; 
-            modal.style.display = 'flex';
-            setTimeout(function() { input.focus(); }, 100);
-        }
-
-        function closeCommentModal() {
-            document.getElementById('commentModalOverlay').style.display = 'none';
-            currentCommentPointId = null;
-            currentCommentType = null;
-        }
-
+        function openCommentModal(pointId) { currentCommentPointId = pointId; currentCommentType = 'scooter'; var modal = document.getElementById('commentModalOverlay'); var input = document.getElementById('commentModalInput'); input.value = ''; modal.style.display = 'flex'; setTimeout(function() { input.focus(); }, 100); }
+        function closeCommentModal() { document.getElementById('commentModalOverlay').style.display = 'none'; currentCommentPointId = null; currentCommentType = null; }
         function confirmCommentModal() {
             var input = document.getElementById('commentModalInput');
             var commentText = input.value.trim();
             if (!currentCommentPointId) return;
-            fetch(API_URL + '/update_comment', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ point_id: currentCommentPointId, comment: commentText })
-            }).then(function(r) { return r.json(); }).then(function(data) {
-                if (data.success) {
-                    loadPoints();
-                    closeCommentModal();
-                }
-            });
+            fetch(API_URL + '/update_comment', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ point_id: currentCommentPointId, comment: commentText }) })
+                .then(function(r) { return r.json(); }).then(function(data) { if (data.success) { loadPoints(); closeCommentModal(); } });
         }
 
-        function openCreateScooterModal() {
-            closeContextMenu();
-            document.getElementById('createScooterModal').style.display = 'flex';
-            setTimeout(function() { document.getElementById('scooterNumber').focus(); }, 100);
-        }
-
-        function closeCreateScooterModal() {
-            document.getElementById('createScooterModal').style.display = 'none';
-            document.getElementById('scooterNumber').value = '';
-            document.getElementById('scooterComment').value = '';
-            document.getElementById('scooterRed').value = '';
-        }
-
+        function openCreateScooterModal() { closeContextMenu(); document.getElementById('createScooterModal').style.display = 'flex'; setTimeout(function() { document.getElementById('scooterNumber').focus(); }, 100); }
+        function closeCreateScooterModal() { document.getElementById('createScooterModal').style.display = 'none'; document.getElementById('scooterNumber').value = ''; document.getElementById('scooterComment').value = ''; document.getElementById('scooterRed').value = ''; }
         function confirmCreateScooter() {
             var number = document.getElementById('scooterNumber').value.trim();
             var comment = document.getElementById('scooterComment').value.trim();
             var redInput = document.getElementById('scooterRed').value.trim().toLowerCase();
-            
             if (!number) { alert('Заполните номер!'); return; }
             if (!rightClickCoords) { alert('Координаты не захвачены!'); return; }
-            
             var status = 'active';
-            if (redInput === 'red') status = 'red';
-            else if (redInput === 'sev') status = 'sev';
-            
-            fetch(API_URL + '/create_scooter', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ number: number, address: rightClickCoords.join(', '), lat: rightClickCoords[0], lon: rightClickCoords[1], status: status, comment: comment })
-            }).then(function(r) { return r.json(); }).then(function(data) {
-                if (data.success) { closeCreateScooterModal(); loadPoints(); }
-            });
+            if (redInput === 'red') status = 'red'; else if (redInput === 'sev') status = 'sev';
+            fetch(API_URL + '/create_scooter', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ number: number, address: rightClickCoords.join(', '), lat: rightClickCoords[0], lon: rightClickCoords[1], status: status, comment: comment }) })
+                .then(function(r) { return r.json(); }).then(function(data) { if (data.success) { closeCreateScooterModal(); loadPoints(); } });
         }
 
-        function openCreateParkingModal() {
-            closeContextMenu();
-            document.getElementById('createParkingModal').style.display = 'flex';
-            setTimeout(function() { document.getElementById('parkingName').focus(); }, 100);
-        }
-
-        function closeCreateParkingModal() {
-            document.getElementById('createParkingModal').style.display = 'none';
-            document.getElementById('parkingName').value = '';
-        }
-
+        function openCreateParkingModal() { closeContextMenu(); document.getElementById('createParkingModal').style.display = 'flex'; setTimeout(function() { document.getElementById('parkingName').focus(); }, 100); }
+        function closeCreateParkingModal() { document.getElementById('createParkingModal').style.display = 'none'; document.getElementById('parkingName').value = ''; }
         function confirmCreateParking() {
             var name = document.getElementById('parkingName').value.trim();
             if (!name) { alert('Заполните название!'); return; }
             if (!rightClickCoords) { alert('Координаты не захвачены!'); return; }
-            fetch(API_URL + '/create_parking', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ title: name, address: rightClickCoords.join(', '), lat: rightClickCoords[0], lon: rightClickCoords[1] })
-            }).then(function(r) { return r.json(); }).then(function(data) {
-                if (data.success) { closeCreateParkingModal(); loadParkings(); }
-            });
+            fetch(API_URL + '/create_parking', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: name, address: rightClickCoords.join(', '), lat: rightClickCoords[0], lon: rightClickCoords[1] }) })
+                .then(function(r) { return r.json(); }).then(function(data) { if (data.success) { closeCreateParkingModal(); loadParkings(); } });
         }
 
-        function openCreateInfoModal() {
-            closeContextMenu();
-            document.getElementById('createInfoModal').style.display = 'flex';
-            setTimeout(function() { document.getElementById('infoComment').focus(); }, 100);
-        }
-
-        function closeCreateInfoModal() {
-            document.getElementById('createInfoModal').style.display = 'none';
-            document.getElementById('infoComment').value = '';
-        }
-
+        function openCreateInfoModal() { closeContextMenu(); document.getElementById('createInfoModal').style.display = 'flex'; setTimeout(function() { document.getElementById('infoComment').focus(); }, 100); }
+        function closeCreateInfoModal() { document.getElementById('createInfoModal').style.display = 'none'; document.getElementById('infoComment').value = ''; }
         function confirmCreateInfo() {
             var comment = document.getElementById('infoComment').value.trim();
             if (!comment) { alert('Заполните комментарий!'); return; }
             if (!rightClickCoords) { alert('Координаты не захвачены!'); return; }
-            fetch(API_URL + '/create_scooter', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ number: 'ДОП ИНФА', address: rightClickCoords.join(', '), lat: rightClickCoords[0], lon: rightClickCoords[1], status: 'info', comment: comment })
-            }).then(function(r) { return r.json(); }).then(function(data) {
-                if (data.success) { closeCreateInfoModal(); loadPoints(); }
-            });
+            fetch(API_URL + '/create_scooter', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ number: 'ДОП ИНФА', address: rightClickCoords.join(', '), lat: rightClickCoords[0], lon: rightClickCoords[1], status: 'info', comment: comment }) })
+                .then(function(r) { return r.json(); }).then(function(data) { if (data.success) { closeCreateInfoModal(); loadPoints(); } });
         }
 
         function openNameSelectModal(mode) {
@@ -1833,100 +1275,44 @@
                 btn.textContent = name;
                 btn.style.cssText = 'background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 100%; padding: 10px;';
                 btn.onclick = function() {
-                    if (mode === 'view') {
-                        currentUserFilter = name;
-                        document.getElementById('userFilterText').textContent = 'Вы смотрите Задачи для ' + name;
-                        document.getElementById('userFilterText').style.display = 'block';
-                        closeNameSelectModal();
-                        loadPoints();
-                        loadZones();
-                    } else if (mode === 'assign') {
-                        assigningUser = name;
-                        selectedForAssignment = [];
-                        document.getElementById('orangeModalTitle').textContent = 'Выберите Актуальные задачи на сегодня для ' + name;
-                        document.getElementById('orangeModal').style.display = 'flex';
-                        closeNameSelectModal();
-                    }
+                    if (mode === 'view') { currentUserFilter = name; document.getElementById('userFilterText').textContent = 'Вы смотрите Задачи для ' + name; document.getElementById('userFilterText').style.display = 'block'; closeNameSelectModal(); loadPoints(); loadZones(); }
+                    else if (mode === 'assign') { assigningUser = name; selectedForAssignment = []; document.getElementById('orangeModalTitle').textContent = 'Выберите Актуальные задачи на сегодня для ' + name; document.getElementById('orangeModal').style.display = 'flex'; closeNameSelectModal(); }
                 };
                 container.appendChild(btn);
             });
             document.getElementById('nameSelectTitle').textContent = mode === 'view' ? 'Выберите имя для просмотра' : 'Выберите имя для назначения';
             document.getElementById('nameSelectModal').style.display = 'flex';
         }
-
-        function closeNameSelectModal() {
-            document.getElementById('nameSelectModal').style.display = 'none';
-        }
-
-        function closeOrangeModal() {
-            document.getElementById('orangeModal').style.display = 'none';
-            assigningUser = null;
-            selectedForAssignment = [];
-        }
-
-        function openAssignModal(taskId, taskType) {
-            if (!assigningUser) return;
-            selectedForAssignment.push({ id: taskId, type: taskType });
-        }
-
+        function closeNameSelectModal() { document.getElementById('nameSelectModal').style.display = 'none'; }
+        function closeOrangeModal() { document.getElementById('orangeModal').style.display = 'none'; assigningUser = null; selectedForAssignment = []; }
+        function openAssignModal(taskId, taskType) { if (!assigningUser) return; selectedForAssignment.push({ id: taskId, type: taskType }); }
         function confirmOrangeModal() {
             if (!assigningUser) return;
-            fetch(API_URL + '/clear_assignments', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ user: assigningUser })
-            }).then(function() {
-                var promises = selectedForAssignment.map(function(task) {
-                    return fetch(API_URL + '/assign_task', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ id: task.id, type: task.type, user: assigningUser })
-                    });
-                });
+            fetch(API_URL + '/clear_assignments', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user: assigningUser }) }).then(function() {
+                var promises = selectedForAssignment.map(function(task) { return fetch(API_URL + '/assign_task', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: task.id, type: task.type, user: assigningUser }) }); });
                 return Promise.all(promises);
-            }).then(function() {
-                document.getElementById('userFilterText').textContent = 'Вы выбираете Задачи для ' + assigningUser;
-                document.getElementById('userFilterText').style.display = 'block';
-                closeOrangeModal();
-                loadPoints();
-                loadZones();
-            });
+            }).then(function() { document.getElementById('userFilterText').textContent = 'Вы выбираете Задачи для ' + assigningUser; document.getElementById('userFilterText').style.display = 'block'; closeOrangeModal(); loadPoints(); loadZones(); });
         }
 
         document.addEventListener('DOMContentLoaded', function() {
             var controlsPanel = document.getElementById('controlsPanel');
             var bottomPanel = document.getElementById('bottomPanel');
-            var controlsClickCount = 0;
-            var controlsClickTimer = null;
-            var bottomClickCount = 0;
-            var bottomClickTimer = null;
-            
+            var controlsClickCount = 0, controlsClickTimer = null;
+            var bottomClickCount = 0, bottomClickTimer = null;
             controlsPanel.addEventListener('click', function(e) {
                 if (e.target.tagName === 'H3' || e.target.classList.contains('info')) return;
                 controlsClickCount++;
                 if (controlsClickTimer) clearTimeout(controlsClickTimer);
                 controlsClickTimer = setTimeout(function() { controlsClickCount = 0; }, 600);
-                if (controlsClickCount >= 3) {
-                    controlsClickCount = 0;
-                    openNameSelectModal('view');
-                }
+                if (controlsClickCount >= 3) { controlsClickCount = 0; openNameSelectModal('view'); }
             });
-            
             bottomPanel.addEventListener('click', function(e) {
                 if (e.target.classList.contains('dead-info') || e.target.classList.contains('close-btn')) return;
                 bottomClickCount++;
                 if (bottomClickTimer) clearTimeout(bottomClickTimer);
                 bottomClickTimer = setTimeout(function() { bottomClickCount = 0; }, 600);
-                if (bottomClickCount >= 3) {
-                    bottomClickCount = 0;
-                    currentUserFilter = null;
-                    document.getElementById('userFilterText').style.display = 'none';
-                    loadPoints();
-                    loadZones();
-                    openNameSelectModal('assign');
-                }
+                if (bottomClickCount >= 3) { bottomClickCount = 0; currentUserFilter = null; document.getElementById('userFilterText').style.display = 'none'; loadPoints(); loadZones(); openNameSelectModal('assign'); }
             });
-            
             document.getElementById('modalInput').addEventListener('keypress', function(e) { if (e.key === 'Enter') { e.preventDefault(); confirmModalInput(); } });
             document.getElementById('commentModalInput').addEventListener('keypress', function(e) { if (e.key === 'Enter') { e.preventDefault(); confirmCommentModal(); } });
         });
@@ -1937,29 +1323,30 @@
             if (e.target.id === 'movePointModal') closeMovePointModal();
             if (e.target.id === 'parkingMoveModal') closeParkingMoveModal();
             if (e.target.id === 'deleteZoneModal') cancelDeleteZone();
+            if (e.target.id === 'deleteScooterModal') cancelDeleteScooter();
+            if (e.target.id === 'deleteParkingModal') cancelDeleteParking();
+            if (e.target.id === 'deleteInfoModal') cancelDeleteInfo();
             if (e.target.id === 'deleteRouteModal') cancelDeleteRoute();
             if (e.target.id === 'maxDeadModal') closeMaxDeadModal();
             if (e.target.id === 'nameSelectModal') closeNameSelectModal();
             if (e.target.id === 'orangeModal') closeOrangeModal();
         });
 
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && movingZoneId) {
+                var zone = zones.find(function(z) { return z.id === movingZoneId; });
+                if (zone) { zone.polygon.options.set('draggable', false); zone.polygon.options.set('zIndex', 1000); myMap.behaviors.enable('drag'); myMap.behaviors.enable('multiTouch'); myMap.behaviors.enable('scrollZoom'); myMap.behaviors.enable('dblClickZoom'); myMap.container.getElement().style.cursor = ''; }
+                movingZoneId = null; loadZones();
+            }
+        });
+
         function selectName(pointId, pointTitle, name) {
             fetch(API_URL + '/add_departure', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ point_id: pointId, point_title: pointTitle, person_name: name }) })
-                .then(function(r) { return r.json(); }).then(function(data) {
-                    if (data.success) {
-                        departures[pointId] = { title: pointTitle, name: name };
-                        renderBottomPanel(); loadPoints();
-                    }
-                });
+                .then(function(r) { return r.json(); }).then(function(data) { if (data.success) { departures[pointId] = { title: pointTitle, name: name }; renderBottomPanel(); loadPoints(); } });
         }
-
         function resetDeparture(pointId) {
             fetch(API_URL + '/remove_departure', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ point_id: pointId }) })
-                .then(function(r) { return r.json(); }).then(function(data) {
-                    if (data.success) {
-                        delete departures[pointId]; renderBottomPanel(); loadPoints();
-                    }
-                });
+                .then(function(r) { return r.json(); }).then(function(data) { if (data.success) { delete departures[pointId]; renderBottomPanel(); loadPoints(); } });
         }
     </script>
 </body>
