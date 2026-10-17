@@ -65,6 +65,12 @@
         .custom-div-icon { background: transparent; border: none; }
         .leaflet-popup-content-wrapper { border-radius: 8px; }
         .leaflet-popup-content { margin: 12px; }
+        /* ✅ СТИЛИ ДЛЯ МОДАЛКИ "НАЧЕРТИ ЗОНУ" КАК НА СКРИНЕ */
+        .zone-modal-buttons { display: flex; flex-direction: column; gap: 10px; margin-top: 15px; }
+        .zone-modal-buttons .btn-zone-mode { background: #4CAF50; color: white; border: none; padding: 14px 20px; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; width: 100%; }
+        .zone-modal-buttons .btn-zone-mode:active { background: #45a049; }
+        .zone-modal-buttons .btn-zone-cancel { background: #9E9E9E; color: white; border: none; padding: 14px 20px; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; width: 100%; }
+        .zone-modal-buttons .btn-zone-cancel:active { background: #757575; }
     </style>
 </head>
 <body>
@@ -132,15 +138,19 @@
             <div class="btn-row"><button class="btn-cancel" onclick="closeParkingMoveModal()">Отмена</button><button class="btn-ok" onclick="confirmParkingMove()">Ок</button></div>
         </div>
     </div>
+    <!-- ✅ МОДАЛКА "НАЧЕРТИ ЗОНУ" С ДИЗАЙНОМ КАК НА СКРИНЕ -->
     <div class="modal-overlay" id="zoneModalOverlay">
         <div class="modal-box">
             <h4>Начерти зону</h4>
             <p style="color: #666; font-size: 13px; margin: 0 0 15px 0;">Выберите режим:</p>
-            <button class="btn-ok" onclick="startZoneDrawing(1)">Режим 1</button>
-            <button class="btn-ok" onclick="startZoneDrawing(2)">Режим 2</button>
-            <button class="btn-ok" onclick="startRouteDrawing(false)">Маршрут</button>
-            <button class="btn-ok" onclick="startRouteDrawing(true)">Временный Маршрут</button>
-            <button class="btn-secondary" onclick="closeZoneModal()">Отмена</button>
+            <div class="zone-modal-buttons">
+                <button class="btn-zone-mode" onclick="startZoneDrawing(1)">Режим 1</button>
+                <button class="btn-zone-mode" onclick="startZoneDrawing(2)">Режим 2</button>
+                <button class="btn-zone-mode" onclick="startZoneDrawing(3)">Режим 3</button>
+                <button class="btn-zone-mode" onclick="startRouteDrawing(false)">Маршрут</button>
+                <button class="btn-zone-mode" onclick="startRouteDrawing(true)">Временный Маршрут</button>
+                <button class="btn-zone-cancel" onclick="closeZoneModal()">Отмена</button>
+            </div>
         </div>
     </div>
     <div class="drawing-indicator" id="drawingIndicator">
@@ -362,7 +372,23 @@
             if (myMap) myMap.balloon.close();
             if (osmMap) osmMap.closePopup();
         }
+        // ✅ ИСПРАВЛЕНО: удаление зоны через кнопку "Удалить" в модалке
         function deleteMovingPoint() {
+            if (movingZoneId) {
+                // ✅ УДАЛЕНИЕ ЗОНЫ
+                if (!confirm('Удалить зону?')) return;
+                fetch(API_URL + '/delete_zone', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: movingZoneId })
+                }).then(function(r) { return r.json(); }).then(function(data) {
+                    if (data.success) {
+                        closeMovePointModal();
+                        loadZones();
+                    }
+                });
+                return;
+            }
             if (!movingPointId) return;
             if (!confirm('Удалить?')) return;
             if (movingType === 'parking') { alert('Для удаления парковки используйте Telegram: Название - Удалить'); closeMovePointModal(); return; }
@@ -409,12 +435,10 @@
                 myMap.balloon.close();
                 myMap.behaviors.disable('drag'); myMap.behaviors.disable('multiTouch');
                 myMap.behaviors.disable('scrollZoom'); myMap.behaviors.disable('dblClickZoom');
-                myMap.container.getElement().style.cursor = 'crosshair';
             }
             if (osmMap) {
                 osmMap.closePopup();
                 osmMap.dragging.disable(); osmMap.scrollWheelZoom.disable(); osmMap.doubleClickZoom.disable();
-                osmMap.getContainer().style.cursor = 'crosshair';
             }
         }
         function performParkingMove(newCoords) {
@@ -431,11 +455,9 @@
                         if (myMap) {
                             myMap.behaviors.enable('drag'); myMap.behaviors.enable('multiTouch');
                             myMap.behaviors.enable('scrollZoom'); myMap.behaviors.enable('dblClickZoom');
-                            myMap.container.getElement().style.cursor = '';
                         }
                         if (osmMap) {
                             osmMap.dragging.enable(); osmMap.scrollWheelZoom.enable(); osmMap.doubleClickZoom.enable();
-                            osmMap.getContainer().style.cursor = '';
                         }
                         loadParkings();
                     }
@@ -895,13 +917,9 @@
             var html = '<b>Выбраны:</b><br>';
             selectedForAssignment.forEach(function(item) {
                 var label = '';
-                if (item.type === 'point') {
-                    label = 'Самокат ' + (item.title || '');
-                } else if (item.type === 'info') {
-                    label = 'Доп инфа' + (item.comment ? ' (' + item.comment + ')' : '');
-                } else if (item.type === 'zone') {
-                    label = 'Зона' + (item.comment ? ' (' + item.comment + ')' : '');
-                }
+                if (item.type === 'point') label = 'Самокат ' + (item.title || '');
+                else if (item.type === 'info') label = 'Доп инфа' + (item.comment ? ' (' + item.comment + ')' : '');
+                else if (item.type === 'zone') label = 'Зона' + (item.comment ? ' (' + item.comment + ')' : '');
                 html += '<div class="item">' + label + '</div>';
             });
             listEl.innerHTML = html;
@@ -932,19 +950,9 @@
                         var infoIcon = { iconLayout: ymaps.templateLayoutFactory.createClass('<div style="width: 18px; height: 18px; text-align: center; line-height: 18px;"><img src="' + BASE_URL + 'info.png" style="width: 18px; height: 18px; display: block;"></div>'), iconShape: { type: 'Circle', coordinates: [9, 9], radius: 9 } };
                         var pm = new ymaps.Placemark([point.lat, point.lon], { balloonContent: buildInfoBalloonContent(point) }, infoIcon);
                         pm.properties.set('infoData', point);
-                        pm.events.add('click', function(e) {
-                            if (assigningUser) { e.get('domEvent').stopPropagation(); toggleAssignInfo(point); }
-                        });
-                        pm.events.add('dblclick', function(e) {
-                            if (assigningUser) { e.get('domEvent').stopPropagation(); toggleAssignInfo(point); }
-                            else { e.get('domEvent').stopPropagation(); openAssignModal(point.id, 'point'); }
-                        });
-                        pm.events.add('contextmenu', function(e) {
-                            e.get('domEvent').preventDefault(); e.get('domEvent').stopPropagation();
-                            contextMenuHandled = true;
-                            deleteInfoId = point.id;
-                            document.getElementById('deleteInfoModal').style.display = 'flex';
-                        });
+                        pm.events.add('click', function(e) { if (assigningUser) { e.get('domEvent').stopPropagation(); toggleAssignInfo(point); } });
+                        pm.events.add('dblclick', function(e) { if (assigningUser) { e.get('domEvent').stopPropagation(); toggleAssignInfo(point); } else { e.get('domEvent').stopPropagation(); openAssignModal(point.id, 'point'); } });
+                        pm.events.add('contextmenu', function(e) { e.get('domEvent').preventDefault(); e.get('domEvent').stopPropagation(); contextMenuHandled = true; deleteInfoId = point.id; document.getElementById('deleteInfoModal').style.display = 'flex'; });
                         myMap.geoObjects.add(pm); infoMarkers.push(pm);
                         var osmInfoIcon = L.divIcon({ className: 'custom-div-icon', html: '<img src="' + BASE_URL + 'info.png" style="width: 18px; height: 18px; display: block;">', iconSize: [18, 18], iconAnchor: [9, 9] });
                         var osmPm = L.marker([point.lat, point.lon], { icon: osmInfoIcon }).addTo(osmMap);
@@ -964,13 +972,8 @@
                         }
                         var pm = new ymaps.Placemark([point.lat, point.lon], { balloonContent: buildBalloonContent(point, isBooked) }, iconOptions);
                         pm.properties.set('pointData', point);
-                        pm.events.add('click', function(e) {
-                            if (assigningUser) { e.get('domEvent').stopPropagation(); toggleAssignPoint(point); }
-                        });
-                        pm.events.add('dblclick', function(e) {
-                            if (assigningUser) { e.get('domEvent').stopPropagation(); toggleAssignPoint(point); }
-                            else { e.get('domEvent').stopPropagation(); openAssignModal(point.id, 'point'); }
-                        });
+                        pm.events.add('click', function(e) { if (assigningUser) { e.get('domEvent').stopPropagation(); toggleAssignPoint(point); } });
+                        pm.events.add('dblclick', function(e) { if (assigningUser) { e.get('domEvent').stopPropagation(); toggleAssignPoint(point); } else { e.get('domEvent').stopPropagation(); openAssignModal(point.id, 'point'); } });
                         myMap.geoObjects.add(pm); markers.push(pm);
                         attachScooterContextMenu(pm, point);
                         var osmIcon = createOsmScooterIcon(point.status, point.title.trim());
@@ -982,10 +985,7 @@
                         var popup = L.popup({ closeOnClick: false, autoClose: false }).setContent(buildBalloonContent(point, isBooked));
                         osmPm.bindPopup(popup); osmPm.pointData = point;
                         osmPm.on('click', function(e) { if (assigningUser) { L.DomEvent.stopPropagation(e); toggleAssignPoint(point); } });
-                        osmPm.on('dblclick', function(e) {
-                            if (assigningUser) { L.DomEvent.stopPropagation(e); toggleAssignPoint(point); }
-                            else { L.DomEvent.stopPropagation(e); openAssignModal(point.id, 'point'); }
-                        });
+                        osmPm.on('dblclick', function(e) { if (assigningUser) { L.DomEvent.stopPropagation(e); toggleAssignPoint(point); } else { L.DomEvent.stopPropagation(e); openAssignModal(point.id, 'point'); } });
                         osmMarkers.push(osmPm);
                         attachOsmScooterContextMenu(osmPm, point);
                     }
@@ -1472,7 +1472,7 @@
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape' && movingZoneId) {
                 var zone = zones.find(function(z) { return z.id === movingZoneId; });
-                if (zone) { zone.polygon.options.set('draggable', false); zone.polygon.options.set('zIndex', 1000); myMap.behaviors.enable('drag'); myMap.behaviors.enable('multiTouch'); myMap.behaviors.enable('scrollZoom'); myMap.behaviors.enable('dblClickZoom'); myMap.container.getElement().style.cursor = ''; }
+                if (zone) { zone.polygon.options.set('draggable', false); zone.polygon.options.set('zIndex', 1000); myMap.behaviors.enable('drag'); myMap.behaviors.enable('multiTouch'); myMap.behaviors.enable('scrollZoom'); myMap.behaviors.enable('dblClickZoom'); }
                 movingZoneId = null; loadZones();
             }
         });
