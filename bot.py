@@ -11,7 +11,6 @@ import traceback
 import time
 import signal
 import sys
-from datetime import datetime
 
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "8803648566:AAG1BL4brhrA8PkJ2TD30qm3CPE4ZNqdnts")
 DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://mapbotuser:r47l5ou0pDueVnus4tiD3d2w7hYQJ1vy@dpg-db4fc5ks728c73ajgig0-a.frankfurt-postgres.render.com/mapbotdb")
@@ -36,8 +35,7 @@ def add_cors_headers(response):
 
 def get_db_connection():
     try:
-        conn = psycopg.connect(DATABASE_URL)
-        return conn
+        return psycopg.connect(DATABASE_URL)
     except Exception as e:
         print(f"❌ Ошибка подключения к БД: {e}")
         return None
@@ -60,7 +58,6 @@ def init_db():
             print("❌ Не удалось подключиться к БД")
             return
         c = conn.cursor()
-        
         print("📦 Создаю таблицы...")
         c.execute('''CREATE TABLE IF NOT EXISTS points
                      (id SERIAL PRIMARY KEY, title TEXT, address TEXT, lat REAL, lon REAL, 
@@ -77,37 +74,27 @@ def init_db():
                      (id SERIAL PRIMARY KEY, point_id INTEGER UNIQUE, point_title TEXT, person_name TEXT)''')
         c.execute('''CREATE TABLE IF NOT EXISTS settings
                      (key TEXT PRIMARY KEY, value TEXT)''')
-        # ✅ КОРЗИНА ДЛЯ ОТМЕНЫ УДАЛЕНИЙ
         c.execute('''CREATE TABLE IF NOT EXISTS trash
                      (id SERIAL PRIMARY KEY, type TEXT, data JSON, deleted_at TIMESTAMP DEFAULT NOW())''')
         conn.commit()
         print("✅ Таблицы созданы")
-        
-        print("🔧 Проверяю колонки...")
+        print(" Проверяю колонки...")
         if not column_exists(c, 'points', 'comment'):
-            c.execute("ALTER TABLE points ADD COLUMN comment TEXT"); conn.commit()
-            print("✅ Добавлена колонка comment в points")
+            c.execute("ALTER TABLE points ADD COLUMN comment TEXT"); conn.commit(); print("✅ comment в points")
         if not column_exists(c, 'points', 'url'):
-            c.execute("ALTER TABLE points ADD COLUMN url TEXT"); conn.commit()
-            print("✅ Добавлена колонка url в points")
+            c.execute("ALTER TABLE points ADD COLUMN url TEXT"); conn.commit(); print("✅ url в points")
         if not column_exists(c, 'points', 'assigned_to'):
-            c.execute("ALTER TABLE points ADD COLUMN assigned_to TEXT"); conn.commit()
-            print("✅ Добавлена колонка assigned_to в points")
+            c.execute("ALTER TABLE points ADD COLUMN assigned_to TEXT"); conn.commit(); print("✅ assigned_to в points")
         if not column_exists(c, 'parkings', 'photo_url'):
-            c.execute("ALTER TABLE parkings ADD COLUMN photo_url TEXT"); conn.commit()
-            print("✅ Добавлена колонка photo_url в parkings")
+            c.execute("ALTER TABLE parkings ADD COLUMN photo_url TEXT"); conn.commit(); print("✅ photo_url в parkings")
         if not column_exists(c, 'zones', 'assigned_to'):
-            c.execute("ALTER TABLE zones ADD COLUMN assigned_to TEXT"); conn.commit()
-            print("✅ Добавлена колонка assigned_to в zones")
+            c.execute("ALTER TABLE zones ADD COLUMN assigned_to TEXT"); conn.commit(); print("✅ assigned_to в zones")
         if not column_exists(c, 'routes', 'temporary'):
-            c.execute("ALTER TABLE routes ADD COLUMN temporary BOOLEAN DEFAULT FALSE"); conn.commit()
-            print("✅ Добавлена колонка temporary в routes")
-        
+            c.execute("ALTER TABLE routes ADD COLUMN temporary BOOLEAN DEFAULT FALSE"); conn.commit(); print("✅ temporary в routes")
         settings = [('hide_empty_labels', 'false'), ('show_parkings', 'true'), ('show_labels', 'true')]
         for key, value in settings:
             c.execute("INSERT INTO settings (key, value) VALUES (%s, %s) ON CONFLICT (key) DO NOTHING", (key, value))
         conn.commit()
-        
         db_initialized = True
         print("✅ База данных полностью инициализирована!")
     except Exception as e:
@@ -118,23 +105,19 @@ def init_db():
 def ensure_db_initialized():
     init_db()
 
-# === КОРЗИНА ===
 def save_to_trash(obj_type, data):
     try:
         conn = get_db_connection()
-        if not conn:
-            return
+        if not conn: return
         c = conn.cursor()
         c.execute("SELECT COUNT(*) FROM trash WHERE type = %s", (obj_type,))
         count = c.fetchone()[0]
         if count >= 5:
             c.execute("""DELETE FROM trash WHERE id IN 
-                        (SELECT id FROM trash WHERE type = %s ORDER BY deleted_at ASC LIMIT 1)""", 
-                     (obj_type,))
+                        (SELECT id FROM trash WHERE type = %s ORDER BY deleted_at ASC LIMIT 1)""", (obj_type,))
         c.execute("INSERT INTO trash (type, data) VALUES (%s, %s)", 
                  (obj_type, json.dumps(data, ensure_ascii=False, default=str)))
-        conn.commit()
-        conn.close()
+        conn.commit(); conn.close()
         print(f"✅ Сохранено в trash: {obj_type}")
     except Exception as e:
         print(f"❌ Ошибка сохранения в trash: {e}")
@@ -142,8 +125,7 @@ def save_to_trash(obj_type, data):
 def restore_from_trash():
     try:
         conn = get_db_connection()
-        if not conn:
-            return None, "Нет подключения к БД"
+        if not conn: return None, "Нет подключения к БД"
         c = conn.cursor()
         c.execute("SELECT id, type, data FROM trash ORDER BY deleted_at DESC LIMIT 1")
         row = c.fetchone()
@@ -152,7 +134,6 @@ def restore_from_trash():
             return None, "Корзина пуста"
         trash_id, obj_type, data = row
         data = json.loads(data) if isinstance(data, str) else data
-        
         if obj_type in ('point', 'info'):
             c.execute("""INSERT INTO points (title, address, lat, lon, status, comment, url, assigned_to)
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING id""",
@@ -171,6 +152,16 @@ def restore_from_trash():
             c.execute("DELETE FROM trash WHERE id = %s", (trash_id,))
             conn.commit(); conn.close()
             return f"✅ Восстановлена зона (ID: {new_id})", None
+        elif obj_type == 'parking':
+            c.execute("""INSERT INTO parkings (title, address, lat, lon, available_count, dead_count, broken_count, photo_url)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING id""",
+                     (data.get('title'), data.get('address'), data.get('lat'), data.get('lon'),
+                      data.get('available_count', '?'), data.get('dead_count', '?'),
+                      data.get('broken_count', '?'), data.get('photo_url')))
+            new_id = c.fetchone()[0]
+            c.execute("DELETE FROM trash WHERE id = %s", (trash_id,))
+            conn.commit(); conn.close()
+            return f"✅ Восстановлена парковка '{data.get('title')}' (ID: {new_id})", None
         else:
             conn.close()
             return None, f"Неизвестный тип: {obj_type}"
@@ -220,23 +211,42 @@ def handle_message(message):
             items = c.fetchall()
             conn.close()
             if not items:
-                bot.reply_to(message, " Корзина пуста")
+                bot.reply_to(message, "🗑️ Корзина пуста")
             else:
                 msg = "📦 Корзина (последние удаления):\n\n"
                 for i, (obj_type, data, deleted_at) in enumerate(items, 1):
                     data = json.loads(data) if isinstance(data, str) else data
                     if obj_type == 'point':
-                        name = data.get('title', 'Без названия')
-                        msg += f"{i}. 🛴 Самокат '{name}'\n"
+                        msg += f"{i}. 🛴 Самокат '{data.get('title', '')}'\n"
                     elif obj_type == 'info':
-                        name = data.get('title', 'Без названия')
-                        msg += f"{i}. ℹ️ Доп инфа '{name}'\n"
+                        msg += f"{i}. ℹ️ Доп инфа '{data.get('title', '')}'\n"
                     elif obj_type == 'zone':
                         msg += f"{i}. 🔴 Зона\n"
+                    elif obj_type == 'parking':
+                        msg += f"{i}. 🅿️ Парковка '{data.get('title', '')}'\n"
                 msg += "\nНапиши Z чтобы восстановить последнее"
                 bot.reply_to(message, msg)
         except Exception as e:
             bot.reply_to(message, f"❌ Ошибка: {e}")
+        return
+
+    # ✅ УДАЛЕНИЕ МАРШРУТОВ
+    if text_lower == 'off все маршруты':
+        conn = get_db_connection(); c = conn.cursor()
+        c.execute("DELETE FROM routes")
+        count = c.rowcount
+        conn.commit(); conn.close()
+        bot.reply_to(message, f"🗑️ Удалено всех маршрутов: {count}")
+        return
+    
+    if text_lower == 'off last маршрут':
+        conn = get_db_connection(); c = conn.cursor()
+        c.execute("DELETE FROM routes WHERE id = (SELECT MAX(id) FROM routes)")
+        if c.rowcount > 0:
+            bot.reply_to(message, "🗑️ Последний маршрут удалён.")
+        else:
+            bot.reply_to(message, " Маршрутов нет.")
+        conn.commit(); conn.close()
         return
 
     if text_lower == 'off лишнее':
@@ -321,7 +331,7 @@ def handle_message(message):
                 conn.commit(); conn.close()
                 bot.reply_to(message, f"✅ Парковка '{title}' добавлена!")
             else:
-                bot.reply_to(message, f" Не найдено: '{location_part}'")
+                bot.reply_to(message, f"❌ Не найдено: '{location_part}'")
         return
 
     if ' - ' in text:
@@ -333,12 +343,8 @@ def handle_message(message):
             c.execute("SELECT id, title, address, lat, lon, available_count, dead_count, broken_count, photo_url FROM parkings WHERE title = %s", (title,))
             row = c.fetchone()
             if row:
-                parking_data = {
-                    'id': row[0], 'title': row[1], 'address': row[2],
-                    'lat': row[3], 'lon': row[4],
-                    'available_count': row[5], 'dead_count': row[6],
-                    'broken_count': row[7], 'photo_url': row[8]
-                }
+                parking_data = {'id': row[0], 'title': row[1], 'address': row[2], 'lat': row[3], 'lon': row[4],
+                    'available_count': row[5], 'dead_count': row[6], 'broken_count': row[7], 'photo_url': row[8]}
                 save_to_trash('parking', parking_data)
             c.execute("DELETE FROM parkings WHERE title = %s", (title,))
             if c.rowcount > 0:
@@ -456,7 +462,7 @@ def handle_message(message):
         conn = get_db_connection(); c = conn.cursor()
         c.execute("DELETE FROM parkings WHERE id = (SELECT MAX(id) FROM parkings)")
         if c.rowcount > 0:
-            bot.reply_to(message, "🗑️ Последняя парковка удалена.")
+            bot.reply_to(message, "️ Последняя парковка удалена.")
         else:
             bot.reply_to(message, "❌ Парковок нет.")
         conn.commit(); conn.close()
@@ -506,7 +512,7 @@ def get_points():
         print(f"✅ /get_points: возвращено {len(points)} точек")
         return jsonify(points)
     except Exception as e:
-        print(f" /get_points: {e}")
+        print(f"❌ /get_points: {e}")
         traceback.print_exc()
         return jsonify([]), 200
 
@@ -549,14 +555,11 @@ def update_status():
             c.execute("SELECT id, title, address, lat, lon, status, comment, url, assigned_to FROM points WHERE id = %s", (data.get('id'),))
             row = c.fetchone()
             if row:
-                point_data = {
-                    'id': row[0], 'title': row[1], 'address': row[2],
-                    'lat': row[3], 'lon': row[4], 'status': row[5],
-                    'comment': row[6], 'url': row[7], 'assigned_to': row[8]
-                }
+                point_data = {'id': row[0], 'title': row[1], 'address': row[2], 'lat': row[3], 'lon': row[4],
+                    'status': row[5], 'comment': row[6], 'url': row[7], 'assigned_to': row[8]}
                 obj_type = 'info' if row[5] == 'info' else 'point'
                 save_to_trash(obj_type, point_data)
-                print(f"️ Удалён {obj_type} ID {row[0]}, сохранён в trash")
+                print(f"🗑️ Удалён {obj_type} ID {row[0]}, сохранён в trash")
             c.execute("DELETE FROM points WHERE id = %s", (data.get('id'),))
         else:
             c.execute("UPDATE points SET status = %s WHERE id = %s", (data.get('status'), data.get('id')))
@@ -654,14 +657,10 @@ def delete_parking():
         c.execute("SELECT id, title, address, lat, lon, available_count, dead_count, broken_count, photo_url FROM parkings WHERE id = %s", (data.get('id'),))
         row = c.fetchone()
         if row:
-            parking_data = {
-                'id': row[0], 'title': row[1], 'address': row[2],
-                'lat': row[3], 'lon': row[4],
-                'available_count': row[5], 'dead_count': row[6],
-                'broken_count': row[7], 'photo_url': row[8]
-            }
+            parking_data = {'id': row[0], 'title': row[1], 'address': row[2], 'lat': row[3], 'lon': row[4],
+                'available_count': row[5], 'dead_count': row[6], 'broken_count': row[7], 'photo_url': row[8]}
             save_to_trash('parking', parking_data)
-            print(f"️ Удалена парковка ID {row[0]}, сохранена в trash")
+            print(f"🗑️ Удалена парковка ID {row[0]}, сохранена в trash")
         c.execute("DELETE FROM parkings WHERE id = %s", (data.get('id'),))
         conn.commit(); conn.close()
         return jsonify({"success": True})
@@ -719,7 +718,7 @@ def delete_zone():
         if row:
             zone_data = {'id': row[0], 'coords': row[1], 'comment': row[2], 'assigned_to': row[3]}
             save_to_trash('zone', zone_data)
-            print(f"🗑️ Удалена зона ID {row[0]}, сохранена в trash")
+            print(f"️ Удалена зона ID {row[0]}, сохранена в trash")
         c.execute("DELETE FROM zones WHERE id = %s", (data.get('id'),))
         conn.commit(); conn.close()
         return jsonify({"success": True})
@@ -934,7 +933,7 @@ def run_bot():
                 except: pass
                 time.sleep(90)
             else:
-                print(f" Ошибка Telegram API {e.error_code}: {e}")
+                print(f"❌ Ошибка Telegram API {e.error_code}: {e}")
                 time.sleep(30)
         except Exception as e:
             print(f"❌ Ошибка polling: {e}")
