@@ -22,7 +22,7 @@
         .dead-info { font-size: 15px; color: #333; margin: 4px 0; font-weight: bold; cursor: pointer; display: inline-block; }
         .user-filter-text { font-size: 13px; color: #ff9800; text-align: center; margin: 4px 0; font-weight: bold; }
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.5); z-index: 2000; justify-content: center; align-items: center; }
-        .modal-box { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); width: 80%; max-width: 300px; text-align: center; }
+        .modal-box { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); width: 80%; max-width: 320px; text-align: center; }
         .modal-box h4 { margin: 0 0 15px 0; font-size: 16px; color: #333; }
         .modal-box input { width: 100%; padding: 10px 12px; border: 2px solid #ddd; border-radius: 6px; font-size: 14px; box-sizing: border-box; text-align: center; outline: none; margin-bottom: 10px; }
         .modal-box input:focus { border-color: #4CAF50; }
@@ -56,6 +56,12 @@
         .orange-modal .modal-box h4 { color: white; }
         .orange-modal .modal-box p { color: white; }
         .orange-modal .modal-box .btn-row button { background: white; color: #ff9800; }
+        /* ✅ НОВАЯ МОДАЛКА "ТОЧНО ВСЁ?" КРАСНОГО ЦВЕТА */
+        .confirm-assign-modal .modal-box { background: #f44336; }
+        .confirm-assign-modal .modal-box h4 { color: white; font-size: 18px; }
+        .confirm-assign-modal .modal-box .selected-list { color: white; font-size: 14px; margin: 10px 0 15px 0; max-height: 200px; overflow-y: auto; text-align: left; padding: 0 10px; }
+        .confirm-assign-modal .modal-box .selected-list .item { background: rgba(255,255,255,0.2); padding: 6px 10px; border-radius: 4px; margin: 4px 0; font-size: 13px; }
+        .confirm-assign-modal .modal-box .btn-row button { background: white; color: #f44336; }
         .parking-move-preview { width: 18px; height: 18px; background: rgba(255, 152, 0, 0.6); border: 3px solid #ff9800; border-radius: 50%; pointer-events: none; }
         .custom-div-icon { background: transparent; border: none; }
         .leaflet-popup-content-wrapper { border-radius: 8px; }
@@ -200,7 +206,15 @@
         <div class="modal-box">
             <h4 id="orangeModalTitle">Выберите задачи</h4>
             <p style="color: white; font-size: 13px; margin: 0 0 15px 0;">Кликайте по объектам на карте</p>
-            <div class="btn-row"><button class="btn-cancel" onclick="closeOrangeModal()">Отмена</button><button class="btn-ok" onclick="confirmOrangeModal()">Ок</button></div>
+            <div class="btn-row"><button class="btn-cancel" onclick="closeOrangeModal()">Отмена</button><button class="btn-ok" onclick="showConfirmAssignModal()">Ок</button></div>
+        </div>
+    </div>
+    <!-- ✅ НОВАЯ МОДАЛКА "ТОЧНО ВСЁ?" -->
+    <div class="modal-overlay confirm-assign-modal" id="confirmAssignModal">
+        <div class="modal-box">
+            <h4>Точно всё?</h4>
+            <div class="selected-list" id="selectedList">Выбраны: ?</div>
+            <div class="btn-row"><button class="btn-cancel" onclick="closeConfirmAssignModal()">Отмена</button><button class="btn-ok" onclick="confirmOrangeModal()">Ок</button></div>
         </div>
     </div>
 
@@ -222,6 +236,7 @@
         var movingZoneId = null, movingParkingId = null;
         var parkingMoveMode = false, parkingMovePreview = null;
         var deleteRouteId = null, deleteZoneId = null, deleteScooterId = null, deleteParkingId = null, deleteInfoId = null;
+        var contextMenuHandled = false;
         var isDrawingZone = false, drawMode = 1, zonePoints = [], zonePolygon = null, zonePolyline = null, zonePointMarkers = [];
         var isDrawingRoute = false, routePoints = [], routePolyline = null, routePointMarkers = [], isTempRoute = false;
         var isDrawingFreehand = false, freehandStartPoint = null;
@@ -249,12 +264,14 @@
 
             myMap.events.add('contextmenu', function(e) {
                 if (movingPointId || parkingMoveMode) return;
+                if (contextMenuHandled) { contextMenuHandled = false; return; }
                 e.get('domEvent').preventDefault();
                 rightClickCoords = e.get('coords');
                 showContextMenu();
             });
             osmMap.on('contextmenu', function(e) {
                 if (movingPointId || parkingMoveMode) return;
+                if (contextMenuHandled) { contextMenuHandled = false; return; }
                 rightClickCoords = [e.latlng.lat, e.latlng.lng];
                 showContextMenu();
             });
@@ -357,7 +374,6 @@
         function enableZoneDrag(zoneId) {
             var zone = zones.find(function(z) { return z.id === zoneId; });
             if (!zone) return;
-            console.log("🔧 Включаю перетаскивание зоны", zoneId);
             myMap.behaviors.disable('drag'); myMap.behaviors.disable('multiTouch');
             myMap.behaviors.disable('scrollZoom'); myMap.behaviors.disable('dblClickZoom');
             myMap.container.getElement().style.cursor = 'move';
@@ -387,8 +403,9 @@
             movingParkingId = null; parkingMoveMode = false;
             removeParkingMovePreview();
         }
+        // ✅ ИСПРАВЛЕНО: не сбрасываем флаги, только скрываем модалку
         function confirmParkingMove() {
-            closeParkingMoveModal();
+            document.getElementById('parkingMoveModal').style.display = 'none';
             document.getElementById('moveHint').textContent = 'Кликните куда переместить парковку';
             document.getElementById('moveHint').style.display = 'block';
             if (myMap) {
@@ -431,6 +448,7 @@
         function attachScooterContextMenu(pm, point) {
             pm.events.add('contextmenu', function(e) {
                 e.get('domEvent').preventDefault(); e.get('domEvent').stopPropagation();
+                contextMenuHandled = true;
                 deleteScooterId = point.id;
                 document.getElementById('deleteScooterModal').style.display = 'flex';
             });
@@ -438,11 +456,12 @@
         function attachOsmScooterContextMenu(osmPm, point) {
             osmPm.on('contextmenu', function(e) {
                 L.DomEvent.preventDefault(e); L.DomEvent.stopPropagation(e);
+                contextMenuHandled = true;
                 deleteScooterId = point.id;
                 document.getElementById('deleteScooterModal').style.display = 'flex';
             });
             var touchTimer = null;
-            osmPm.on('touchstart', function(e) { touchTimer = setTimeout(function() { deleteScooterId = point.id; document.getElementById('deleteScooterModal').style.display = 'flex'; }, 500); });
+            osmPm.on('touchstart', function(e) { touchTimer = setTimeout(function() { contextMenuHandled = true; deleteScooterId = point.id; document.getElementById('deleteScooterModal').style.display = 'flex'; }, 500); });
             osmPm.on('touchend', function(e) { clearTimeout(touchTimer); });
             osmPm.on('touchmove', function(e) { clearTimeout(touchTimer); });
         }
@@ -491,13 +510,19 @@
                 data.forEach(function(z) {
                     if (!z.coords || !Array.isArray(z.coords) || z.coords.length === 0) return;
                     var polygon = new ymaps.Polygon([z.coords], {}, { fillColor: '#FFB6C1', fillOpacity: 0.5, strokeColor: '#ff3b30', strokeWidth: 3, strokeStyle: 'solid', draggable: false });
-                    var zoneObj = { id: z.id, polygon: polygon, text: null, assigned_to: z.assigned_to };
+                    var zoneObj = { id: z.id, polygon: polygon, text: null, assigned_to: z.assigned_to, comment: z.comment };
                     polygon.events.add('contextmenu', function(e) {
                         e.get('domEvent').preventDefault(); e.get('domEvent').stopPropagation();
+                        contextMenuHandled = true;
                         deleteZoneId = z.id;
                         document.getElementById('deleteZoneModal').style.display = 'flex';
                     });
-                    polygon.events.add('click', function(e) { e.stopImmediatePropagation(); openZoneMoveModal(z.id, z); });
+                    polygon.events.add('click', function(e) { 
+                        e.stopImmediatePropagation(); 
+                        // ✅ ЕСЛИ РЕЖИМ НАЗНАЧЕНИЯ — ВЫБИРАЕМ, ИНАЧЕ ПЕРЕМЕЩЕНИЕ
+                        if (assigningUser) { toggleAssignZone(z); }
+                        else { openZoneMoveModal(z.id, z); }
+                    });
                     myMap.geoObjects.add(polygon);
                     if (z.comment && z.comment.trim() !== '') {
                         var bounds = polygon.geometry.getBounds();
@@ -511,9 +536,13 @@
                     }
                     zones.push(zoneObj);
                     var osmPolygon = L.polygon(z.coords, { color: '#ff3b30', weight: 3, fillColor: '#FFB6C1', fillOpacity: 0.5 }).addTo(osmMap);
-                    var osmZoneObj = { id: z.id, layer: osmPolygon, text: null, assigned_to: z.assigned_to };
-                    osmPolygon.on('contextmenu', function(e) { L.DomEvent.preventDefault(e); L.DomEvent.stopPropagation(e); deleteZoneId = z.id; document.getElementById('deleteZoneModal').style.display = 'flex'; });
-                    osmPolygon.on('click', function(e) { L.DomEvent.stopPropagation(e); openZoneMoveModal(z.id, z); });
+                    var osmZoneObj = { id: z.id, layer: osmPolygon, text: null, assigned_to: z.assigned_to, comment: z.comment };
+                    osmPolygon.on('contextmenu', function(e) { L.DomEvent.preventDefault(e); L.DomEvent.stopPropagation(e); contextMenuHandled = true; deleteZoneId = z.id; document.getElementById('deleteZoneModal').style.display = 'flex'; });
+                    osmPolygon.on('click', function(e) { 
+                        L.DomEvent.stopPropagation(e); 
+                        if (assigningUser) { toggleAssignZone(z); }
+                        else { openZoneMoveModal(z.id, z); }
+                    });
                     if (z.comment && z.comment.trim() !== '') {
                         var osmBounds = osmPolygon.getBounds();
                         var osmCenter = osmBounds.getCenter();
@@ -827,6 +856,64 @@
             return L.divIcon({ className: 'custom-div-icon', html: '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="50" viewBox="0 0 36 50"><image href="' + imgUrl + '" x="0" y="0" width="36" height="36" preserveAspectRatio="xMidYMid meet"/><text x="18" y="48" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="black" text-anchor="middle">' + taskNumber + '</text></svg>', iconSize: [36, 50], iconAnchor: [18, 50] });
         }
 
+        // ✅ ФУНКЦИИ ДЛЯ НАЗНАЧЕНИЯ ЗАДАЧ
+        function toggleAssignPoint(point) {
+            var idx = -1;
+            for (var i = 0; i < selectedForAssignment.length; i++) {
+                if (selectedForAssignment[i].id === point.id && selectedForAssignment[i].type === 'point') { idx = i; break; }
+            }
+            if (idx >= 0) { selectedForAssignment.splice(idx, 1); }
+            else { selectedForAssignment.push({ id: point.id, type: 'point', title: point.title, comment: point.comment, status: point.status }); }
+            updateSelectedList();
+        }
+        function toggleAssignInfo(point) {
+            var idx = -1;
+            for (var i = 0; i < selectedForAssignment.length; i++) {
+                if (selectedForAssignment[i].id === point.id && selectedForAssignment[i].type === 'info') { idx = i; break; }
+            }
+            if (idx >= 0) { selectedForAssignment.splice(idx, 1); }
+            else { selectedForAssignment.push({ id: point.id, type: 'info', title: point.title, comment: point.comment }); }
+            updateSelectedList();
+        }
+        function toggleAssignZone(zone) {
+            var idx = -1;
+            for (var i = 0; i < selectedForAssignment.length; i++) {
+                if (selectedForAssignment[i].id === zone.id && selectedForAssignment[i].type === 'zone') { idx = i; break; }
+            }
+            if (idx >= 0) { selectedForAssignment.splice(idx, 1); }
+            else { selectedForAssignment.push({ id: zone.id, type: 'zone', comment: zone.comment }); }
+            updateSelectedList();
+        }
+        function updateSelectedList() {
+            var listEl = document.getElementById('selectedList');
+            if (selectedForAssignment.length === 0) {
+                listEl.innerHTML = 'Выбраны: ?';
+                return;
+            }
+            var html = '<b>Выбраны:</b><br>';
+            selectedForAssignment.forEach(function(item) {
+                var label = '';
+                if (item.type === 'point') {
+                    label = 'Самокат ' + (item.title || '');
+                } else if (item.type === 'info') {
+                    label = 'Доп инфа' + (item.comment ? ' (' + item.comment + ')' : '');
+                } else if (item.type === 'zone') {
+                    label = 'Зона' + (item.comment ? ' (' + item.comment + ')' : '');
+                }
+                html += '<div class="item">' + label + '</div>';
+            });
+            listEl.innerHTML = html;
+        }
+        function showConfirmAssignModal() {
+            updateSelectedList();
+            document.getElementById('orangeModal').style.display = 'none';
+            document.getElementById('confirmAssignModal').style.display = 'flex';
+        }
+        function closeConfirmAssignModal() {
+            document.getElementById('confirmAssignModal').style.display = 'none';
+            document.getElementById('orangeModal').style.display = 'flex';
+        }
+
         function loadPoints() {
             labelMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); labelMarkers = [];
             osmLabelMarkers.forEach(function(m) { osmMap.removeLayer(m); }); osmLabelMarkers = [];
@@ -843,13 +930,27 @@
                         var infoIcon = { iconLayout: ymaps.templateLayoutFactory.createClass('<div style="width: 18px; height: 18px; text-align: center; line-height: 18px;"><img src="' + BASE_URL + 'info.png" style="width: 18px; height: 18px; display: block;"></div>'), iconShape: { type: 'Circle', coordinates: [9, 9], radius: 9 } };
                         var pm = new ymaps.Placemark([point.lat, point.lon], { balloonContent: buildInfoBalloonContent(point) }, infoIcon);
                         pm.properties.set('infoData', point);
-                        pm.events.add('dblclick', function(e) { e.get('domEvent').stopPropagation(); openAssignModal(point.id, 'point'); });
+                        // ✅ КЛИК ПО ДОП ИНФЕ: если режим назначения — выбираем, иначе открываем балун
+                        pm.events.add('click', function(e) {
+                            if (assigningUser) { e.get('domEvent').stopPropagation(); toggleAssignInfo(point); }
+                        });
+                        pm.events.add('dblclick', function(e) {
+                            if (assigningUser) { e.get('domEvent').stopPropagation(); toggleAssignInfo(point); }
+                            else { e.get('domEvent').stopPropagation(); openAssignModal(point.id, 'point'); }
+                        });
+                        pm.events.add('contextmenu', function(e) {
+                            e.get('domEvent').preventDefault(); e.get('domEvent').stopPropagation();
+                            contextMenuHandled = true;
+                            deleteInfoId = point.id;
+                            document.getElementById('deleteInfoModal').style.display = 'flex';
+                        });
                         myMap.geoObjects.add(pm); infoMarkers.push(pm);
                         var osmInfoIcon = L.divIcon({ className: 'custom-div-icon', html: '<img src="' + BASE_URL + 'info.png" style="width: 18px; height: 18px; display: block;">', iconSize: [18, 18], iconAnchor: [9, 9] });
                         var osmPm = L.marker([point.lat, point.lon], { icon: osmInfoIcon }).addTo(osmMap);
                         var popup = L.popup({ closeOnClick: false, autoClose: false }).setContent(buildInfoBalloonContent(point));
                         osmPm.bindPopup(popup); osmPm.infoData = point;
-                        osmPm.on('contextmenu', function(e) { L.DomEvent.preventDefault(e); L.DomEvent.stopPropagation(e); deleteInfoId = point.id; document.getElementById('deleteInfoModal').style.display = 'flex'; });
+                        osmPm.on('click', function(e) { if (assigningUser) { L.DomEvent.stopPropagation(e); toggleAssignInfo(point); } });
+                        osmPm.on('contextmenu', function(e) { L.DomEvent.preventDefault(e); L.DomEvent.stopPropagation(e); contextMenuHandled = true; deleteInfoId = point.id; document.getElementById('deleteInfoModal').style.display = 'flex'; });
                         osmInfoMarkers.push(osmPm);
                     } else {
                         scooterCount++;
@@ -862,7 +963,14 @@
                         }
                         var pm = new ymaps.Placemark([point.lat, point.lon], { balloonContent: buildBalloonContent(point, isBooked) }, iconOptions);
                         pm.properties.set('pointData', point);
-                        pm.events.add('dblclick', function(e) { e.get('domEvent').stopPropagation(); openAssignModal(point.id, 'point'); });
+                        // ✅ КЛИК ПО САМОКАТУ: если режим назначения — выбираем
+                        pm.events.add('click', function(e) {
+                            if (assigningUser) { e.get('domEvent').stopPropagation(); toggleAssignPoint(point); }
+                        });
+                        pm.events.add('dblclick', function(e) {
+                            if (assigningUser) { e.get('domEvent').stopPropagation(); toggleAssignPoint(point); }
+                            else { e.get('domEvent').stopPropagation(); openAssignModal(point.id, 'point'); }
+                        });
                         myMap.geoObjects.add(pm); markers.push(pm);
                         attachScooterContextMenu(pm, point);
                         var osmIcon = createOsmScooterIcon(point.status, point.title.trim());
@@ -873,7 +981,11 @@
                         var osmPm = L.marker([point.lat, point.lon], { icon: osmIcon }).addTo(osmMap);
                         var popup = L.popup({ closeOnClick: false, autoClose: false }).setContent(buildBalloonContent(point, isBooked));
                         osmPm.bindPopup(popup); osmPm.pointData = point;
-                        osmPm.on('dblclick', function(e) { L.DomEvent.stopPropagation(e); openAssignModal(point.id, 'point'); });
+                        osmPm.on('click', function(e) { if (assigningUser) { L.DomEvent.stopPropagation(e); toggleAssignPoint(point); } });
+                        osmPm.on('dblclick', function(e) {
+                            if (assigningUser) { L.DomEvent.stopPropagation(e); toggleAssignPoint(point); }
+                            else { L.DomEvent.stopPropagation(e); openAssignModal(point.id, 'point'); }
+                        });
                         osmMarkers.push(osmPm);
                         attachOsmScooterContextMenu(osmPm, point);
                     }
@@ -898,10 +1010,10 @@
                     var angle = calculateArrowAngle(prevPoint, lastPoint);
                     var arrowMarker = new ymaps.Placemark(lastPoint, {}, { iconLayout: ymaps.templateLayoutFactory.createClass('<div style="width: 0; height: 0; border-left: 8px solid transparent; border-right: 8px solid transparent; border-bottom: 16px solid #ff3b30; transform: rotate(' + angle + 'deg);"></div>'), iconOffset: [-8, -8] });
                     myMap.geoObjects.add(arrowMarker);
-                    polyline.events.add('contextmenu', function(e) { e.get('domEvent').preventDefault(); e.get('domEvent').stopPropagation(); deleteRouteId = route.id; document.getElementById('deleteRouteModal').style.display = 'flex'; });
+                    polyline.events.add('contextmenu', function(e) { e.get('domEvent').preventDefault(); e.get('domEvent').stopPropagation(); contextMenuHandled = true; deleteRouteId = route.id; document.getElementById('deleteRouteModal').style.display = 'flex'; });
                     routes.push({ id: route.id, polyline: polyline, arrow: arrowMarker });
                     var osmPolyline = L.polyline(route.coords, { color: '#ff3b30', weight: 4 }).addTo(osmMap);
-                    osmPolyline.on('contextmenu', function(e) { L.DomEvent.preventDefault(e); L.DomEvent.stopPropagation(e); deleteRouteId = route.id; document.getElementById('deleteRouteModal').style.display = 'flex'; });
+                    osmPolyline.on('contextmenu', function(e) { L.DomEvent.preventDefault(e); L.DomEvent.stopPropagation(e); contextMenuHandled = true; deleteRouteId = route.id; document.getElementById('deleteRouteModal').style.display = 'flex'; });
                     osmRoutes.push({ id: route.id, layer: osmPolyline });
                 });
             });
@@ -1056,12 +1168,12 @@
                         if (appSettings.show_parkings) {
                             var pm = new ymaps.Placemark([p.lat, p.lon], { balloonContent: buildParkingBalloon(p) }, createParkingIcon());
                             pm.properties.set('parkingData', p);
-                            pm.events.add('contextmenu', function(e) { e.get('domEvent').preventDefault(); e.get('domEvent').stopPropagation(); deleteParkingId = p.id; document.getElementById('deleteParkingModal').style.display = 'flex'; });
+                            pm.events.add('contextmenu', function(e) { e.get('domEvent').preventDefault(); e.get('domEvent').stopPropagation(); contextMenuHandled = true; deleteParkingId = p.id; document.getElementById('deleteParkingModal').style.display = 'flex'; });
                             myMap.geoObjects.add(pm); parkingMarkers.push(pm);
                             var osmPm = L.marker([p.lat, p.lon], { icon: createOsmParkingIcon() }).addTo(osmMap);
                             var popup = L.popup({ closeOnClick: false, autoClose: false }).setContent(buildParkingBalloon(p));
                             osmPm.bindPopup(popup); osmPm.parkingData = p;
-                            osmPm.on('contextmenu', function(e) { L.DomEvent.preventDefault(e); L.DomEvent.stopPropagation(e); deleteParkingId = p.id; document.getElementById('deleteParkingModal').style.display = 'flex'; });
+                            osmPm.on('contextmenu', function(e) { L.DomEvent.preventDefault(e); L.DomEvent.stopPropagation(e); contextMenuHandled = true; deleteParkingId = p.id; document.getElementById('deleteParkingModal').style.display = 'flex'; });
                             osmParkingMarkers.push(osmPm);
                         }
                         if (appSettings.show_labels) {
@@ -1276,7 +1388,14 @@
                 btn.style.cssText = 'background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 100%; padding: 10px;';
                 btn.onclick = function() {
                     if (mode === 'view') { currentUserFilter = name; document.getElementById('userFilterText').textContent = 'Вы смотрите Задачи для ' + name; document.getElementById('userFilterText').style.display = 'block'; closeNameSelectModal(); loadPoints(); loadZones(); }
-                    else if (mode === 'assign') { assigningUser = name; selectedForAssignment = []; document.getElementById('orangeModalTitle').textContent = 'Выберите Актуальные задачи на сегодня для ' + name; document.getElementById('orangeModal').style.display = 'flex'; closeNameSelectModal(); }
+                    else if (mode === 'assign') { 
+                        assigningUser = name; 
+                        selectedForAssignment = []; // ✅ ОБНУЛЯЕМ СПИСОК ПРИ НОВОМ ВЫБОРЕ
+                        updateSelectedList();
+                        document.getElementById('orangeModalTitle').textContent = 'Выберите Актуальные задачи на сегодня для ' + name; 
+                        document.getElementById('orangeModal').style.display = 'flex'; 
+                        closeNameSelectModal(); 
+                    }
                 };
                 container.appendChild(btn);
             });
@@ -1284,14 +1403,39 @@
             document.getElementById('nameSelectModal').style.display = 'flex';
         }
         function closeNameSelectModal() { document.getElementById('nameSelectModal').style.display = 'none'; }
-        function closeOrangeModal() { document.getElementById('orangeModal').style.display = 'none'; assigningUser = null; selectedForAssignment = []; }
-        function openAssignModal(taskId, taskType) { if (!assigningUser) return; selectedForAssignment.push({ id: taskId, type: taskType }); }
+        function closeOrangeModal() { 
+            document.getElementById('orangeModal').style.display = 'none'; 
+            assigningUser = null; 
+            selectedForAssignment = []; 
+        }
+        // ✅ СТАРАЯ ФУНКЦИЯ (оставлена для совместимости, но теперь не используется напрямую)
+        function openAssignModal(taskId, taskType) { 
+            if (!assigningUser) return;
+            // Находим объект в загруженных данных
+            var point = null;
+            markers.forEach(function(m) { var d = m.properties.get('pointData'); if (d && d.id === taskId) point = d; });
+            if (!point) osmMarkers.forEach(function(m) { if (m.pointData && m.pointData.id === taskId) point = m.pointData; });
+            if (point) {
+                if (point.status === 'info') toggleAssignInfo(point);
+                else toggleAssignPoint(point);
+            }
+        }
         function confirmOrangeModal() {
             if (!assigningUser) return;
             fetch(API_URL + '/clear_assignments', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user: assigningUser }) }).then(function() {
                 var promises = selectedForAssignment.map(function(task) { return fetch(API_URL + '/assign_task', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: task.id, type: task.type, user: assigningUser }) }); });
                 return Promise.all(promises);
-            }).then(function() { document.getElementById('userFilterText').textContent = 'Вы выбираете Задачи для ' + assigningUser; document.getElementById('userFilterText').style.display = 'block'; closeOrangeModal(); loadPoints(); loadZones(); });
+            }).then(function() { 
+                document.getElementById('userFilterText').textContent = 'Вы выбираете Задачи для ' + assigningUser; 
+                document.getElementById('userFilterText').style.display = 'block'; 
+                closeConfirmAssignModal();
+                loadPoints(); loadZones(); 
+            });
+        }
+        function closeConfirmAssignModal() {
+            document.getElementById('confirmAssignModal').style.display = 'none';
+            assigningUser = null;
+            selectedForAssignment = [];
         }
 
         document.addEventListener('DOMContentLoaded', function() {
@@ -1330,6 +1474,7 @@
             if (e.target.id === 'maxDeadModal') closeMaxDeadModal();
             if (e.target.id === 'nameSelectModal') closeNameSelectModal();
             if (e.target.id === 'orangeModal') closeOrangeModal();
+            if (e.target.id === 'confirmAssignModal') closeConfirmAssignModal();
         });
 
         document.addEventListener('keydown', function(e) {
