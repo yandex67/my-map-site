@@ -56,7 +56,6 @@
         .orange-modal .modal-box h4 { color: white; }
         .orange-modal .modal-box p { color: white; }
         .orange-modal .modal-box .btn-row button { background: white; color: #ff9800; }
-        /* ✅ НОВАЯ МОДАЛКА "ТОЧНО ВСЁ?" КРАСНОГО ЦВЕТА */
         .confirm-assign-modal .modal-box { background: #f44336; }
         .confirm-assign-modal .modal-box h4 { color: white; font-size: 18px; }
         .confirm-assign-modal .modal-box .selected-list { color: white; font-size: 14px; margin: 10px 0 15px 0; max-height: 200px; overflow-y: auto; text-align: left; padding: 0 10px; }
@@ -209,7 +208,6 @@
             <div class="btn-row"><button class="btn-cancel" onclick="closeOrangeModal()">Отмена</button><button class="btn-ok" onclick="showConfirmAssignModal()">Ок</button></div>
         </div>
     </div>
-    <!-- ✅ НОВАЯ МОДАЛКА "ТОЧНО ВСЁ?" -->
     <div class="modal-overlay confirm-assign-modal" id="confirmAssignModal">
         <div class="modal-box">
             <h4>Точно всё?</h4>
@@ -403,7 +401,6 @@
             movingParkingId = null; parkingMoveMode = false;
             removeParkingMovePreview();
         }
-        // ✅ ИСПРАВЛЕНО: не сбрасываем флаги, только скрываем модалку
         function confirmParkingMove() {
             document.getElementById('parkingMoveModal').style.display = 'none';
             document.getElementById('moveHint').textContent = 'Кликните куда переместить парковку';
@@ -519,7 +516,6 @@
                     });
                     polygon.events.add('click', function(e) { 
                         e.stopImmediatePropagation(); 
-                        // ✅ ЕСЛИ РЕЖИМ НАЗНАЧЕНИЯ — ВЫБИРАЕМ, ИНАЧЕ ПЕРЕМЕЩЕНИЕ
                         if (assigningUser) { toggleAssignZone(z); }
                         else { openZoneMoveModal(z.id, z); }
                     });
@@ -758,17 +754,24 @@
             myMap.geoObjects.add(routePolyline);
             var lastPoint = routePoints[routePoints.length - 1];
             var prevPoint = routePoints[routePoints.length - 2];
-            var angle = calculateArrowAngle(prevPoint, lastPoint);
-            var arrowMarker = new ymaps.Placemark(lastPoint, {}, {
-                iconLayout: ymaps.templateLayoutFactory.createClass('<div style="width: 0; height: 0; border-left: 8px solid transparent; border-right: 8px solid transparent; border-bottom: 16px solid #ff3b30; transform: rotate(' + angle + 'deg);"></div>'),
-                iconOffset: [-8, -8]
-            });
+            var arrowMarker = createArrowMarker(lastPoint, prevPoint);
             myMap.geoObjects.add(arrowMarker);
             saveRouteToServer(arrowMarker);
         }
         function calculateArrowAngle(from, to) {
             var dx = to[1] - from[1], dy = to[0] - from[0];
             return Math.atan2(dy, dx) * 180 / Math.PI + 90;
+        }
+        function createArrowMarker(lastPoint, prevPoint) {
+            var angle = calculateArrowAngle(prevPoint, lastPoint);
+            var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" style="transform: rotate(' + angle + 'deg); transform-origin: 12px 12px;">' +
+                '<polygon points="12,2 22,20 12,15 2,20" fill="#ff3b30" stroke="#cc0000" stroke-width="0.5"/>' +
+                '</svg>';
+            return new ymaps.Placemark(lastPoint, {}, {
+                iconLayout: ymaps.templateLayoutFactory.createClass('<div style="width:24px; height:24px; display:flex; align-items:center; justify-content:center;">' + svg + '</div>'),
+                iconShape: { type: 'Circle', coordinates: [12, 12], radius: 12 },
+                iconOffset: [-12, -12]
+            });
         }
         function saveRouteToServer(arrowMarker) {
             fetch(API_URL + '/add_route', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ coords: routePoints, comment: '', temporary: isTempRoute }) })
@@ -856,7 +859,6 @@
             return L.divIcon({ className: 'custom-div-icon', html: '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="50" viewBox="0 0 36 50"><image href="' + imgUrl + '" x="0" y="0" width="36" height="36" preserveAspectRatio="xMidYMid meet"/><text x="18" y="48" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="black" text-anchor="middle">' + taskNumber + '</text></svg>', iconSize: [36, 50], iconAnchor: [18, 50] });
         }
 
-        // ✅ ФУНКЦИИ ДЛЯ НАЗНАЧЕНИЯ ЗАДАЧ
         function toggleAssignPoint(point) {
             var idx = -1;
             for (var i = 0; i < selectedForAssignment.length; i++) {
@@ -930,7 +932,6 @@
                         var infoIcon = { iconLayout: ymaps.templateLayoutFactory.createClass('<div style="width: 18px; height: 18px; text-align: center; line-height: 18px;"><img src="' + BASE_URL + 'info.png" style="width: 18px; height: 18px; display: block;"></div>'), iconShape: { type: 'Circle', coordinates: [9, 9], radius: 9 } };
                         var pm = new ymaps.Placemark([point.lat, point.lon], { balloonContent: buildInfoBalloonContent(point) }, infoIcon);
                         pm.properties.set('infoData', point);
-                        // ✅ КЛИК ПО ДОП ИНФЕ: если режим назначения — выбираем, иначе открываем балун
                         pm.events.add('click', function(e) {
                             if (assigningUser) { e.get('domEvent').stopPropagation(); toggleAssignInfo(point); }
                         });
@@ -963,7 +964,6 @@
                         }
                         var pm = new ymaps.Placemark([point.lat, point.lon], { balloonContent: buildBalloonContent(point, isBooked) }, iconOptions);
                         pm.properties.set('pointData', point);
-                        // ✅ КЛИК ПО САМОКАТУ: если режим назначения — выбираем
                         pm.events.add('click', function(e) {
                             if (assigningUser) { e.get('domEvent').stopPropagation(); toggleAssignPoint(point); }
                         });
@@ -1007,8 +1007,7 @@
                     myMap.geoObjects.add(polyline);
                     var lastPoint = route.coords[route.coords.length - 1];
                     var prevPoint = route.coords[route.coords.length - 2];
-                    var angle = calculateArrowAngle(prevPoint, lastPoint);
-                    var arrowMarker = new ymaps.Placemark(lastPoint, {}, { iconLayout: ymaps.templateLayoutFactory.createClass('<div style="width: 0; height: 0; border-left: 8px solid transparent; border-right: 8px solid transparent; border-bottom: 16px solid #ff3b30; transform: rotate(' + angle + 'deg);"></div>'), iconOffset: [-8, -8] });
+                    var arrowMarker = createArrowMarker(lastPoint, prevPoint);
                     myMap.geoObjects.add(arrowMarker);
                     polyline.events.add('contextmenu', function(e) { e.get('domEvent').preventDefault(); e.get('domEvent').stopPropagation(); contextMenuHandled = true; deleteRouteId = route.id; document.getElementById('deleteRouteModal').style.display = 'flex'; });
                     routes.push({ id: route.id, polyline: polyline, arrow: arrowMarker });
@@ -1390,7 +1389,7 @@
                     if (mode === 'view') { currentUserFilter = name; document.getElementById('userFilterText').textContent = 'Вы смотрите Задачи для ' + name; document.getElementById('userFilterText').style.display = 'block'; closeNameSelectModal(); loadPoints(); loadZones(); }
                     else if (mode === 'assign') { 
                         assigningUser = name; 
-                        selectedForAssignment = []; // ✅ ОБНУЛЯЕМ СПИСОК ПРИ НОВОМ ВЫБОРЕ
+                        selectedForAssignment = [];
                         updateSelectedList();
                         document.getElementById('orangeModalTitle').textContent = 'Выберите Актуальные задачи на сегодня для ' + name; 
                         document.getElementById('orangeModal').style.display = 'flex'; 
@@ -1408,10 +1407,8 @@
             assigningUser = null; 
             selectedForAssignment = []; 
         }
-        // ✅ СТАРАЯ ФУНКЦИЯ (оставлена для совместимости, но теперь не используется напрямую)
         function openAssignModal(taskId, taskType) { 
             if (!assigningUser) return;
-            // Находим объект в загруженных данных
             var point = null;
             markers.forEach(function(m) { var d = m.properties.get('pointData'); if (d && d.id === taskId) point = d; });
             if (!point) osmMarkers.forEach(function(m) { if (m.pointData && m.pointData.id === taskId) point = m.pointData; });
@@ -1431,11 +1428,6 @@
                 closeConfirmAssignModal();
                 loadPoints(); loadZones(); 
             });
-        }
-        function closeConfirmAssignModal() {
-            document.getElementById('confirmAssignModal').style.display = 'none';
-            assigningUser = null;
-            selectedForAssignment = [];
         }
 
         document.addEventListener('DOMContentLoaded', function() {
