@@ -302,7 +302,6 @@
             <div class="btn-row"><button class="btn-cancel" onclick="closeOrangeModal()">Отмена</button><button class="btn-ok" onclick="showConfirmAssignModal()">Ок</button></div>
         </div>
     </div>
-    <!-- ✅ ЕДИНАЯ МОДАЛКА "ТОЧНО ВСЁ?" -->
     <div class="modal-overlay confirm-assign-modal" id="confirmAssignModal">
         <div class="modal-box">
             <h4>Точно всё?</h4>
@@ -1090,7 +1089,6 @@
         function showRouteConfirmModal() {
             isRouteConfirmMode = true;
             document.getElementById('drawingIndicator').style.display = 'none';
-            // ✅ Показываем только кнопку "Комментарий" (без лишнего текста)
             document.getElementById('routeCommentBtn').style.display = 'block';
             document.getElementById('routeCommentBtn').textContent = routeComment ? routeComment : 'Комментарий';
             document.getElementById('routeCommentInput').style.display = 'none';
@@ -1428,12 +1426,10 @@
                         if (assigningUser) { toggleAssignRoute(route); }
                     });
                     
-                    // ✅ Отображаем комментарий маршрута
                     var textMarker = null;
                     if (route.comment && route.comment.trim() !== '') {
                         var center = getRouteCenter(route.coords);
                         var isVertical = isRouteVertical(route.coords);
-                        // ✅ Горизонтальный: сверху на 7px, Вертикальный: справа на 7px
                         var offset = isVertical ? [7, 0] : [0, -7];
                         textMarker = new ymaps.Placemark(center, {}, {
                             iconLayout: ymaps.templateLayoutFactory.createClass('<div style="color: #640000; font-weight: bold; font-size: 12px; white-space: nowrap; pointer-events: none;">' + route.comment + '</div>'),
@@ -1581,11 +1577,12 @@
         function createParkingIcon() { return { iconLayout: ymaps.templateLayoutFactory.createClass('<div style="width: 18px; height: 18px; text-align: center; line-height: 18px;"><img src="' + BASE_URL + 'p.png" style="width: 18px; height: 18px; display: block;"></div>'), iconShape: { type: 'Circle', coordinates: [9, 9], radius: 9 } }; }
         function createOsmParkingIcon() { return L.divIcon({ className: 'custom-div-icon', html: '<img src="' + BASE_URL + 'p.png" style="width: 18px; height: 18px; display: block;">', iconSize: [18, 18], iconAnchor: [9, 9] }); }
 
+        // ✅ ВОЗВРАЩЁН СТАРЫЙ ДИЗАЙН ПЛАШЕК (font-size: 9px, высота 17px)
         function buildLabelsHtml(available, dead, broken) {
             var items = [{ value: available, label: 'В доступе', color: '#4CAF50' }, { value: broken, label: 'Поломки', color: '#7E0000' }, { value: dead, label: 'Севшие', color: '#f44336' }];
             items.sort(function(a, b) { var aEmpty = (a.value === '?' || a.value === undefined || a.value === ''); var bEmpty = (b.value === '?' || b.value === undefined || b.value === ''); if (aEmpty && !bEmpty) return -1; if (!aEmpty && bEmpty) return 1; return 0; });
             var html = ''; var hasVisible = false;
-            items.forEach(function(item) { var isEmpty = (item.value === '?' || item.value === undefined || item.value === ''); if (appSettings.hide_empty_labels && isEmpty) return; hasVisible = true; html += '<div style="background: ' + item.color + '; color: white; font-size: 11px; font-weight: bold; padding: 2px 6px; border-radius: 3px; white-space: nowrap; margin-bottom: 2px;">' + item.label + ': ' + (item.value || '?') + '</div>'; });
+            items.forEach(function(item) { var isEmpty = (item.value === '?' || item.value === undefined || item.value === ''); if (appSettings.hide_empty_labels && isEmpty) return; hasVisible = true; html += '<div style="background: ' + item.color + '; color: white; font-size: 9px; font-weight: bold; padding: 2px 6px; border-radius: 3px; white-space: nowrap; margin-bottom: 2px;">' + item.label + ': ' + (item.value || '?') + '</div>'; });
             return hasVisible ? html : null;
         }
         function createParkingLabels(lat, lon, available, dead, broken, pId) {
@@ -1593,7 +1590,7 @@
             if (!html) return null;
             var visibleCount = 0;
             [available, broken, dead].forEach(function(v) { var isEmpty = (v === '?' || v === undefined || v === ''); if (!(appSettings.hide_empty_labels && isEmpty)) visibleCount++; });
-            var offset = visibleCount * 19 + 5;
+            var offset = visibleCount * 17 + 5;
             var layout = ymaps.templateLayoutFactory.createClass('<div style="display: flex; flex-direction: column; align-items: center; gap: 2px; width: 100px;">' + html + '</div>');
             return new ymaps.Placemark([lat, lon], {}, { iconLayout: layout, iconOffset: [-41, -offset], iconShape: { type: 'Rectangle', coordinates: [[0, 0], [100, offset]] } });
         }
@@ -1602,7 +1599,7 @@
             if (!html) return null;
             var visibleCount = 0;
             [available, broken, dead].forEach(function(v) { var isEmpty = (v === '?' || v === undefined || v === ''); if (!(appSettings.hide_empty_labels && isEmpty)) visibleCount++; });
-            var totalHeight = visibleCount * 19; var extraOffset = 22;
+            var totalHeight = visibleCount * 17; var extraOffset = 22;
             return L.divIcon({ className: 'custom-div-icon', html: '<div style="display: flex; flex-direction: column; align-items: center; gap: 2px; width: 100px;">' + html + '</div>', iconSize: [100, totalHeight], iconAnchor: [51, totalHeight + extraOffset] });
         }
 
