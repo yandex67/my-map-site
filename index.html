@@ -1084,7 +1084,6 @@
             var prevPoint = routePoints[routePoints.length - 2];
             var arrowMarker = createArrowMarker(lastPoint, prevPoint);
             myMap.geoObjects.add(arrowMarker);
-            // ✅ Скрываем индикатор рисования и показываем только модалку
             document.getElementById('drawingIndicator').style.display = 'none';
             showRouteConfirmModal();
         }
@@ -1575,8 +1574,23 @@
             }
         }
 
-        function createParkingIcon() { return { iconLayout: ymaps.templateLayoutFactory.createClass('<div style="width: 18px; height: 18px; text-align: center; line-height: 18px;"><img src="' + BASE_URL + 'p.png" style="width: 18px; height: 18px; display: block;"></div>'), iconShape: { type: 'Circle', coordinates: [9, 9], radius: 9 } }; }
-        function createOsmParkingIcon() { return L.divIcon({ className: 'custom-div-icon', html: '<img src="' + BASE_URL + 'p.png" style="width: 18px; height: 18px; display: block;">', iconSize: [18, 18], iconAnchor: [9, 9] }); }
+        // ✅ ИКОНКА ПАРКОВКИ С УЧЁТОМ КОЛИЧЕСТВА СЕВШИХ
+        function createParkingIcon(deadCount) {
+            var iconFile = (deadCount > 3) ? 'pr.png' : 'p.png';
+            return { 
+                iconLayout: ymaps.templateLayoutFactory.createClass('<div style="width: 18px; height: 18px; text-align: center; line-height: 18px;"><img src="' + BASE_URL + iconFile + '" style="width: 18px; height: 18px; display: block;"></div>'), 
+                iconShape: { type: 'Circle', coordinates: [9, 9], radius: 9 } 
+            }; 
+        }
+        function createOsmParkingIcon(deadCount) {
+            var iconFile = (deadCount > 3) ? 'pr.png' : 'p.png';
+            return L.divIcon({ 
+                className: 'custom-div-icon', 
+                html: '<img src="' + BASE_URL + iconFile + '" style="width: 18px; height: 18px; display: block;">', 
+                iconSize: [18, 18], 
+                iconAnchor: [9, 9] 
+            }); 
+        }
 
         function buildLabelsHtml(available, dead, broken) {
             var items = [{ value: available, label: 'В доступе', color: '#4CAF50' }, { value: broken, label: 'Поломки', color: '#7E0000' }, { value: dead, label: 'Севшие', color: '#f44336' }];
@@ -1617,12 +1631,14 @@
                     if (p.dead === undefined) p.dead = '?';
                     if (p.broken === undefined) p.broken = '?';
                     try {
+                        var deadNum = parseInt(p.dead, 10); if (isNaN(deadNum)) deadNum = 0;
                         if (appSettings.show_parkings) {
-                            var pm = new ymaps.Placemark([p.lat, p.lon], { balloonContent: buildParkingBalloon(p) }, createParkingIcon());
+                            // ✅ Передаём количество севших в функцию создания иконки
+                            var pm = new ymaps.Placemark([p.lat, p.lon], { balloonContent: buildParkingBalloon(p) }, createParkingIcon(deadNum));
                             pm.properties.set('parkingData', p);
                             pm.events.add('contextmenu', function(e) { e.get('domEvent').preventDefault(); e.get('domEvent').stopPropagation(); contextMenuHandled = true; deleteParkingId = p.id; document.getElementById('deleteParkingModal').style.display = 'flex'; });
                             myMap.geoObjects.add(pm); parkingMarkers.push(pm);
-                            var osmPm = L.marker([p.lat, p.lon], { icon: createOsmParkingIcon() }).addTo(osmMap);
+                            var osmPm = L.marker([p.lat, p.lon], { icon: createOsmParkingIcon(deadNum) }).addTo(osmMap);
                             var popup = L.popup({ closeOnClick: false, autoClose: false }).setContent(buildParkingBalloon(p));
                             osmPm.bindPopup(popup); osmPm.parkingData = p;
                             osmPm.on('contextmenu', function(e) { L.DomEvent.preventDefault(e); L.DomEvent.stopPropagation(e); contextMenuHandled = true; deleteParkingId = p.id; document.getElementById('deleteParkingModal').style.display = 'flex'; });
@@ -1634,7 +1650,6 @@
                             var osmPl = createOsmParkingLabels(p.available, p.dead, p.broken);
                             if (osmPl) { var osmLabel = L.marker([p.lat, p.lon], { icon: osmPl, interactive: false }).addTo(osmMap); osmParkingLabelMarkers.push(osmLabel); }
                         }
-                        var deadNum = parseInt(p.dead, 10); if (isNaN(deadNum)) deadNum = 0;
                         totalDead += deadNum;
                         if (deadNum >= 3) { if (deadNum > maxDead) { maxDead = deadNum; maxDeadParkings = [p.title]; } else if (deadNum === maxDead) { maxDeadParkings.push(p.title); } }
                     } catch (err) { console.error('Ошибка парковки ID:', p.id, err); }
