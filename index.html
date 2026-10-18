@@ -39,6 +39,8 @@
         .drawing-indicator .mode-buttons { display: flex; flex-direction: column; gap: 8px; width: 100%; }
         .drawing-indicator button { background: #4CAF50; color: white; border: none; padding: 10px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px; width: 100%; }
         .drawing-indicator button:active { background: #45a049; }
+        .drawing-indicator .btn-comment { background: white; color: #333; border: 2px solid #333; }
+        .drawing-indicator .btn-comment:active { background: #f0f0f0; }
         .drawing-indicator .btn-comment-active { background: white; color: #333; border: 2px solid #333; }
         .drawing-indicator .comment-input { display: none; width: 100%; padding: 8px; border: 2px solid #333; border-radius: 4px; text-align: center; font-size: 14px; box-sizing: border-box; margin-top: 5px; }
         .drawing-indicator .action-buttons { display: flex; gap: 10px; width: 100%; margin-top: 2px; }
@@ -74,37 +76,12 @@
             border-radius: 8px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.3);
         }
-        .confirm-assign-modal .modal-box h4 {
-            color: white;
-            font-size: 15px;
-            margin: 0 0 8px 0;
-        }
-        .confirm-assign-modal .modal-box .selected-list {
-            color: white;
-            font-size: 12px;
-            margin: 6px 0;
-            max-height: 120px;
-            overflow-y: auto;
-            text-align: left;
-            padding: 0 5px;
-        }
-        .confirm-assign-modal .modal-box .selected-list .item {
-            background: rgba(255,255,255,0.25);
-            padding: 4px 8px;
-            border-radius: 3px;
-            margin: 3px 0;
-            font-size: 11px;
-        }
-        .confirm-assign-modal .modal-box .btn-row {
-            margin-top: 8px;
-        }
-        .confirm-assign-modal .modal-box .btn-row button {
-            background: white;
-            color: #f44336;
-            padding: 6px 10px;
-            font-size: 13px;
-        }
-        /* ✅ СТАРЫЙ СТИЛЬ КРУЖКОВ - ПОЛУПРОЗРАЧНЫЙ РОЗОВЫЙ С КРАСНОЙ ОБВОДКОЙ */
+        .confirm-assign-modal .modal-box h4 { color: white; font-size: 15px; margin: 0 0 8px 0; }
+        .confirm-assign-modal .modal-box .selected-list { color: white; font-size: 12px; margin: 6px 0; max-height: 120px; overflow-y: auto; text-align: left; padding: 0 5px; }
+        .confirm-assign-modal .modal-box .selected-list .item { background: rgba(255,255,255,0.25); padding: 4px 8px; border-radius: 3px; margin: 3px 0; font-size: 11px; }
+        .confirm-assign-modal .modal-box .btn-row { margin-top: 8px; }
+        .confirm-assign-modal .modal-box .btn-row button { background: white; color: #f44336; padding: 6px 10px; font-size: 13px; }
+        /* ✅ КРУЖКИ-ПРЕВЬЮ - СТАРЫЙ СТИЛЬ */
         .parking-move-preview { 
             width: 18px; height: 18px; 
             background: rgba(255, 182, 193, 0.6); 
@@ -114,7 +91,7 @@
             z-index: 3000 !important;
         }
         .parking-move-preview.inside-zone {
-            background: rgba(0, 0, 0, 0.6);
+            background: rgba(128, 128, 128, 0.6);
             border-color: #000;
         }
         .scooter-move-preview { 
@@ -126,7 +103,7 @@
             z-index: 3000 !important;
         }
         .scooter-move-preview.inside-zone {
-            background: rgba(0, 0, 0, 0.6);
+            background: rgba(128, 128, 128, 0.6);
             border-color: #000;
         }
         .custom-div-icon { background: transparent; border: none; }
@@ -231,7 +208,7 @@
         <div class="mode-buttons" id="modeButtonsContainer" style="display: none; width: 100%;">
             <button id="selectMode1Btn" onclick="selectDrawMode(1)" style="background: #9E9E9E; color: white;">Режим 1</button>
             <button id="selectMode2Btn" onclick="selectDrawMode(2)" style="background: #9E9E9E; color: white;">Режим 2</button>
-            <button id="commentBtn" class="btn-comment-active" onclick="activateCommentInput()">Коммент</button>
+            <button id="commentBtn" class="btn-comment" onclick="activateCommentInput()">Комментарий</button>
             <button id="commentDisplayBtn" class="btn-comment-active" style="display: none;" onclick="activateCommentInput()"></button>
             <input type="text" id="commentInput" class="comment-input" placeholder="Введите текст">
         </div>
@@ -322,6 +299,7 @@
         var contextMenuHandled = false;
         var isDrawingZone = false, drawMode = 1, zonePoints = [], zonePolygon = null, zonePolyline = null, zonePointMarkers = [];
         var isDrawingRoute = false, routePoints = [], routePolyline = null, routePointMarkers = [], isTempRoute = false;
+        var routeComment = "";
         var isDrawingFreehand = false, freehandStartPoint = null;
         var zoneComment = "", willSaveZone = false, isZoneConfirmed = false;
         var drawModeSelected = false, isMode3SubMode = false, routeEditMode = false;
@@ -363,6 +341,16 @@
         function getRouteCenter(coords) {
             var midIndex = Math.floor(coords.length / 2);
             return coords[midIndex];
+        }
+        function disableZoneInteraction() {
+            zones.forEach(function(z) {
+                z.polygon.options.set('interactive', false);
+            });
+        }
+        function enableZoneInteraction() {
+            zones.forEach(function(z) {
+                z.polygon.options.set('interactive', true);
+            });
         }
 
         ymaps.ready(init);
@@ -587,6 +575,7 @@
             document.getElementById('parkingMoveModal').style.display = 'none';
             movingParkingId = null; parkingMoveMode = false;
             removeParkingMovePreview();
+            enableZoneInteraction();
             if (myMap) myMap.container.getElement().classList.remove('hide-cursor');
             if (osmMap) osmMap.getContainer().classList.remove('hide-cursor');
         }
@@ -594,6 +583,7 @@
             document.getElementById('parkingMoveModal').style.display = 'none';
             document.getElementById('moveHint').textContent = 'Кликните куда переместить парковку';
             document.getElementById('moveHint').style.display = 'block';
+            disableZoneInteraction();
             if (myMap) {
                 myMap.balloon.close();
                 myMap.behaviors.disable('drag'); myMap.behaviors.disable('multiTouch');
@@ -617,6 +607,7 @@
                         movingParkingId = null; parkingMoveMode = false;
                         document.getElementById('moveHint').style.display = 'none';
                         document.getElementById('moveHint').textContent = 'Кликните по карте, куда переместить';
+                        enableZoneInteraction();
                         if (myMap) {
                             myMap.behaviors.enable('drag'); myMap.behaviors.enable('multiTouch');
                             myMap.behaviors.enable('scrollZoom'); myMap.behaviors.enable('dblClickZoom');
@@ -640,6 +631,7 @@
             movingScooterId = null;
             scooterMoveMode = false;
             removeScooterMovePreview();
+            enableZoneInteraction();
             if (myMap) myMap.container.getElement().classList.remove('hide-cursor');
             if (osmMap) osmMap.getContainer().classList.remove('hide-cursor');
         }
@@ -647,6 +639,7 @@
             document.getElementById('scooterMoveModal').style.display = 'none';
             document.getElementById('moveHint').textContent = 'Кликните куда переместить';
             document.getElementById('moveHint').style.display = 'block';
+            disableZoneInteraction();
             if (myMap) {
                 myMap.balloon.close();
                 myMap.behaviors.disable('drag'); myMap.behaviors.disable('multiTouch');
@@ -671,6 +664,7 @@
                         scooterMoveMode = false;
                         document.getElementById('moveHint').style.display = 'none';
                         document.getElementById('moveHint').textContent = 'Кликните по карте, куда переместить';
+                        enableZoneInteraction();
                         if (myMap) {
                             myMap.behaviors.enable('drag'); myMap.behaviors.enable('multiTouch');
                             myMap.behaviors.enable('scrollZoom'); myMap.behaviors.enable('dblClickZoom');
@@ -842,6 +836,7 @@
             isDrawingRoute = true; isTempRoute = isTemp;
             isDrawingZone = false; isZoneConfirmed = false; routeEditMode = false;
             routePoints = [];
+            routeComment = "";
             routePointMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); routePointMarkers = [];
             if (routePolyline) { myMap.geoObjects.remove(routePolyline); routePolyline = null; }
             myMap.behaviors.disable('drag'); myMap.behaviors.disable('multiTouch'); myMap.behaviors.disable('scrollZoom'); myMap.behaviors.disable('dblClickZoom');
@@ -854,16 +849,9 @@
             document.getElementById('finishZoneBtn').style.display = 'block';
             document.getElementById('finishZoneBtn').textContent = 'Ок';
             document.getElementById('commentOkBtn').style.display = 'none';
-            
-            if (willSaveZone) {
-                zoneComment = '';
-                document.getElementById('indicatorText').textContent = 'Введите комментарий (или нажмите Ок):';
-                document.getElementById('commentInput').style.display = 'block';
-                document.getElementById('commentInput').value = '';
-                document.getElementById('commentOkBtn').style.display = 'block';
-                document.getElementById('finishZoneBtn').style.display = 'none';
-                setTimeout(function() { document.getElementById('commentInput').focus(); }, 100);
-            }
+            document.getElementById('commentBtn').style.display = 'block';
+            document.getElementById('commentDisplayBtn').style.display = 'none';
+            document.getElementById('commentInput').style.display = 'none';
         }
         function addRoutePoint(coords) {
             routePoints.push(coords);
@@ -903,26 +891,42 @@
             if (mode === 2) myMap.behaviors.disable('drag');
         }
         function activateCommentInput() {
-            if (!drawModeSelected) { document.getElementById('indicatorText').textContent = 'Сначала выберите способ рисования:'; document.getElementById('indicatorText').style.display = 'block'; return; }
+            if (!drawModeSelected && !isDrawingRoute) { 
+                document.getElementById('indicatorText').textContent = 'Сначала выберите способ рисования:'; 
+                document.getElementById('indicatorText').style.display = 'block'; 
+                return; 
+            }
             document.getElementById('indicatorText').style.display = 'none';
             document.getElementById('finishZoneBtn').style.display = 'none';
             document.getElementById('commentBtn').style.display = 'none';
             document.getElementById('commentDisplayBtn').style.display = 'none';
             document.getElementById('commentInput').style.display = 'block';
-            document.getElementById('commentInput').value = '';
+            document.getElementById('commentInput').value = isDrawingRoute ? routeComment : zoneComment;
             document.getElementById('commentInput').focus();
             document.getElementById('commentOkBtn').style.display = 'block';
         }
         function finishComment() {
-            zoneComment = document.getElementById('commentInput').value.trim();
-            document.getElementById('commentInput').style.display = 'none';
-            document.getElementById('commentOkBtn').style.display = 'none';
-            document.getElementById('commentDisplayBtn').textContent = zoneComment || 'Коммент';
-            document.getElementById('commentDisplayBtn').style.display = 'block';
-            document.getElementById('commentBtn').style.display = 'none';
-            document.getElementById('indicatorText').textContent = drawMode === 1 ? 'Кликайте по карте' : 'Зажмите и ведите';
-            document.getElementById('indicatorText').style.display = 'block';
-            document.getElementById('finishZoneBtn').style.display = 'block';
+            if (isDrawingRoute) {
+                routeComment = document.getElementById('commentInput').value.trim();
+                document.getElementById('commentInput').style.display = 'none';
+                document.getElementById('commentOkBtn').style.display = 'none';
+                document.getElementById('commentDisplayBtn').textContent = routeComment || 'Коммент';
+                document.getElementById('commentDisplayBtn').style.display = 'block';
+                document.getElementById('commentBtn').style.display = 'none';
+                document.getElementById('indicatorText').textContent = 'Кликайте по карте для создания маршрута';
+                document.getElementById('indicatorText').style.display = 'block';
+                document.getElementById('finishZoneBtn').style.display = 'block';
+            } else {
+                zoneComment = document.getElementById('commentInput').value.trim();
+                document.getElementById('commentInput').style.display = 'none';
+                document.getElementById('commentOkBtn').style.display = 'none';
+                document.getElementById('commentDisplayBtn').textContent = zoneComment || 'Коммент';
+                document.getElementById('commentDisplayBtn').style.display = 'block';
+                document.getElementById('commentBtn').style.display = 'none';
+                document.getElementById('indicatorText').textContent = drawMode === 1 ? 'Кликайте по карте' : 'Зажмите и ведите';
+                document.getElementById('indicatorText').style.display = 'block';
+                document.getElementById('finishZoneBtn').style.display = 'block';
+            }
         }
         function addZonePoint(coords) {
             if (drawMode === 2 && zonePoints.length > 0) {
@@ -998,6 +1002,8 @@
                 myMap.geoObjects.add(zonePolygon);
                 enableVertexEditing(); isZoneConfirmed = true;
                 document.getElementById('indicatorText').textContent = 'Точно всё?';
+                document.getElementById('commentBtn').style.display = 'none';
+                document.getElementById('commentDisplayBtn').style.display = 'none';
             } else {
                 zonePointMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); zonePointMarkers = [];
                 if (willSaveZone) { saveZoneToServer(); } else { exitDrawingModeKeepPolygon(); }
@@ -1011,6 +1017,9 @@
                 myMap.geoObjects.add(routePolyline);
                 enableRouteVertexEditing(); routeEditMode = true;
                 document.getElementById('indicatorText').textContent = 'Точно всё?';
+                document.getElementById('commentBtn').style.display = 'none';
+                document.getElementById('commentDisplayBtn').style.display = 'none';
+                document.getElementById('commentInput').style.display = 'none';
                 return;
             }
             routePointMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); routePointMarkers = [];
@@ -1040,7 +1049,9 @@
         }
         function saveRouteToServer(arrowMarker) {
             var comment = '';
-            if (willSaveZone && isMode3SubMode) {
+            if (isDrawingRoute) {
+                comment = routeComment || '';
+            } else if (willSaveZone && isMode3SubMode) {
                 comment = zoneComment || '';
             }
             fetch(API_URL + '/add_route', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ coords: routePoints, comment: comment, temporary: isTempRoute }) })
@@ -1060,7 +1071,7 @@
         function resetDrawingState() {
             isDrawingZone = false; isDrawingRoute = false; drawMode = 1; willSaveZone = false; isZoneConfirmed = false;
             drawModeSelected = false; isMode3SubMode = false; isTempRoute = false; routeEditMode = false;
-            zonePoints = []; routePoints = []; zoneComment = "";
+            zonePoints = []; routePoints = []; zoneComment = ""; routeComment = "";
             freehandStartPoint = null; isDrawingFreehand = false;
             zonePointMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); zonePointMarkers = [];
             routePointMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); routePointMarkers = [];
