@@ -71,7 +71,7 @@
         .confirm-assign-modal .modal-box {
             background: #f44336;
             pointer-events: auto;
-            max-width: 280px;
+            max-width: 300px;
             padding: 16px;
             border-radius: 8px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.3);
@@ -81,26 +81,27 @@
             background: white;
             color: #333;
             border: 2px solid #333;
-            padding: 10px;
+            padding: 12px;
             border-radius: 6px;
             font-size: 14px;
             font-weight: bold;
             cursor: pointer;
             width: 100%;
-            margin-bottom: 8px;
+            margin-bottom: 10px;
             display: none;
+            box-sizing: border-box;
         }
         .confirm-assign-modal .modal-box .btn-comment-route:active { background: #f0f0f0; }
         .confirm-assign-modal .modal-box .route-comment-input {
             display: none;
             width: 100%;
-            padding: 10px;
+            padding: 12px;
             border: 2px solid #333;
             border-radius: 6px;
             font-size: 14px;
             box-sizing: border-box;
             text-align: center;
-            margin-bottom: 8px;
+            margin-bottom: 10px;
             background: white;
             color: #333;
         }
@@ -301,13 +302,13 @@
             <div class="btn-row"><button class="btn-cancel" onclick="closeOrangeModal()">Отмена</button><button class="btn-ok" onclick="showConfirmAssignModal()">Ок</button></div>
         </div>
     </div>
-    <!-- ✅ МОДАЛКА "ТОЧНО ВСЁ?" С КНОПКОЙ КОММЕНТАРИЙ -->
+    <!-- ✅ ЕДИНАЯ МОДАЛКА "ТОЧНО ВСЁ?" -->
     <div class="modal-overlay confirm-assign-modal" id="confirmAssignModal">
         <div class="modal-box">
             <h4>Точно всё?</h4>
             <button class="btn-comment-route" id="routeCommentBtn" onclick="showRouteCommentInput()">Комментарий</button>
             <input type="text" class="route-comment-input" id="routeCommentInput" placeholder="Введите комментарий" onkeypress="if(event.key==='Enter'){saveRouteComment();}">
-            <div class="selected-list" id="selectedList">Выбраны: ?</div>
+            <div class="selected-list" id="selectedList" style="display:none;"></div>
             <div class="btn-row"><button class="btn-cancel" onclick="closeConfirmAssignModal()">Отмена</button><button class="btn-ok" onclick="confirmFromModal()">Ок</button></div>
         </div>
     </div>
@@ -1084,31 +1085,30 @@
             var prevPoint = routePoints[routePoints.length - 2];
             var arrowMarker = createArrowMarker(lastPoint, prevPoint);
             myMap.geoObjects.add(arrowMarker);
-            // ✅ Показываем модалку "Точно всё?" с кнопкой Комментарий
             showRouteConfirmModal();
         }
         function showRouteConfirmModal() {
             isRouteConfirmMode = true;
             document.getElementById('drawingIndicator').style.display = 'none';
+            // ✅ Показываем только кнопку "Комментарий" (без лишнего текста)
             document.getElementById('routeCommentBtn').style.display = 'block';
             document.getElementById('routeCommentBtn').textContent = routeComment ? routeComment : 'Комментарий';
             document.getElementById('routeCommentInput').style.display = 'none';
             document.getElementById('routeCommentInput').value = routeComment;
-            document.getElementById('selectedList').innerHTML = '<b>Маршрут:</b><br><div class="item">' + (routeComment || 'Без комментария') + '</div>';
+            document.getElementById('selectedList').style.display = 'none';
             document.getElementById('confirmAssignModal').style.display = 'flex';
         }
         function showRouteCommentInput() {
             document.getElementById('routeCommentBtn').style.display = 'none';
             document.getElementById('routeCommentInput').style.display = 'block';
             document.getElementById('routeCommentInput').value = routeComment;
-            document.getElementById('routeCommentInput').focus();
+            setTimeout(function() { document.getElementById('routeCommentInput').focus(); }, 100);
         }
         function saveRouteComment() {
             routeComment = document.getElementById('routeCommentInput').value.trim();
             document.getElementById('routeCommentInput').style.display = 'none';
             document.getElementById('routeCommentBtn').style.display = 'block';
             document.getElementById('routeCommentBtn').textContent = routeComment || 'Комментарий';
-            document.getElementById('selectedList').innerHTML = '<b>Маршрут:</b><br><div class="item">' + (routeComment || 'Без комментария') + '</div>';
         }
         function calculateArrowAngle(from, to) {
             var dx = to[1] - from[1], dy = to[0] - from[0];
@@ -1286,6 +1286,7 @@
             isRouteConfirmMode = false;
             document.getElementById('routeCommentBtn').style.display = 'none';
             document.getElementById('routeCommentInput').style.display = 'none';
+            document.getElementById('selectedList').style.display = 'block';
             updateSelectedList();
             document.getElementById('orangeModal').style.display = 'none';
             document.getElementById('confirmAssignModal').style.display = 'flex';
@@ -1427,10 +1428,12 @@
                         if (assigningUser) { toggleAssignRoute(route); }
                     });
                     
+                    // ✅ Отображаем комментарий маршрута
                     var textMarker = null;
                     if (route.comment && route.comment.trim() !== '') {
                         var center = getRouteCenter(route.coords);
                         var isVertical = isRouteVertical(route.coords);
+                        // ✅ Горизонтальный: сверху на 7px, Вертикальный: справа на 7px
                         var offset = isVertical ? [7, 0] : [0, -7];
                         textMarker = new ymaps.Placemark(center, {}, {
                             iconLayout: ymaps.templateLayoutFactory.createClass('<div style="color: #640000; font-weight: bold; font-size: 12px; white-space: nowrap; pointer-events: none;">' + route.comment + '</div>'),
