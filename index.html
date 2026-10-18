@@ -20,7 +20,7 @@
         .bottom-panel .close-btn { position: absolute; top: 8px; right: 10px; background: none; border: none; font-size: 20px; cursor: pointer; color: #333; padding: 0; width: auto; margin: 0; line-height: 1; }
         .departure-item { font-size: 15px; color: #333; text-align: center; margin: 4px 0; }
         .dead-info { font-size: 15px; color: #333; margin: 4px 0; font-weight: bold; cursor: pointer; display: inline-block; }
-        .user-filter-text { font-size: 13px; color: #ff9800; text-align: center; margin: 4px 0; font-weight: bold; }
+        .user-filter-text { font-size: 13px; color: #999; text-align: center; margin: 4px 0; font-weight: bold; }
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.5); z-index: 2000; justify-content: center; align-items: center; }
         .modal-box { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); width: 80%; max-width: 320px; text-align: center; }
         .modal-box h4 { margin: 0 0 15px 0; font-size: 16px; color: #333; }
@@ -114,6 +114,8 @@
         .zone-modal-buttons .btn-zone-mode:active { background: #45a049; }
         .zone-modal-buttons .btn-zone-cancel { background: #9E9E9E; color: white; border: none; padding: 14px 20px; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; width: 100%; }
         .zone-modal-buttons .btn-zone-cancel:active { background: #757575; }
+        .hide-cursor { cursor: none !important; }
+        .hide-cursor * { cursor: none !important; }
     </style>
 </head>
 <body>
@@ -204,15 +206,16 @@
     <div class="drawing-indicator" id="drawingIndicator">
         <span class="indicator-text" id="indicatorText" style="display: block; width: 100%; text-align: center; margin-bottom: 2px;">Рисование...</span>
         <div class="mode-buttons" id="modeButtonsContainer" style="display: none; width: 100%;">
-            <button id="selectMode1Btn" onclick="selectDrawMode(1)">Режим 1</button>
-            <button id="selectMode2Btn" onclick="selectDrawMode(2)">Режим 2</button>
+            <button id="selectMode1Btn" onclick="selectDrawMode(1)" style="background: #9E9E9E; color: white;">Режим 1</button>
+            <button id="selectMode2Btn" onclick="selectDrawMode(2)" style="background: #9E9E9E; color: white;">Режим 2</button>
             <button id="commentBtn" class="btn-comment-active" onclick="activateCommentInput()">Коммент</button>
             <button id="commentDisplayBtn" class="btn-comment-active" style="display: none;" onclick="activateCommentInput()"></button>
             <input type="text" id="commentInput" class="comment-input" placeholder="Введите текст">
         </div>
         <div class="action-buttons">
             <button onclick="cancelZoneDrawing()">Отмена</button>
-            <button id="finishZoneBtn" onclick="finishZone()">Ок</button>
+            <button class="btn-ok-gray" id="commentOkBtn" onclick="finishComment()">Ок</button>
+            <button id="finishZoneBtn" onclick="finishZone()" style="display: none;">Ок</button>
         </div>
     </div>
     <div class="modal-overlay delete-zone-modal" id="deleteZoneModal">
@@ -316,9 +319,7 @@
             osmMap = L.map('osmMap', { center: [54.7818, 32.0401], zoom: 12, zoomControl: false });
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap', maxZoom: 19 }).addTo(osmMap);
             L.control.zoom({ position: 'topright' }).addTo(osmMap);
-            loadDeparturesFromServer(); loadPoints(); loadParkings(); loadZones();
-            fetch(API_URL + '/clear_temp_routes', { method: 'POST' }).catch(function() {});
-            loadRoutes(); loadSettings();
+            loadDeparturesFromServer(); loadPoints(); loadParkings(); loadZones(); loadRoutes(); loadSettings();
             setTimeout(function() { myMap.setCenter([54.7818, 32.0401], 12); }, 800);
 
             myMap.events.add('contextmenu', function(e) {
@@ -503,6 +504,8 @@
             document.getElementById('parkingMoveModal').style.display = 'none';
             movingParkingId = null; parkingMoveMode = false;
             removeParkingMovePreview();
+            if (myMap) myMap.container.getElement().classList.remove('hide-cursor');
+            if (osmMap) osmMap.getContainer().classList.remove('hide-cursor');
         }
         function confirmParkingMove() {
             document.getElementById('parkingMoveModal').style.display = 'none';
@@ -512,10 +515,12 @@
                 myMap.balloon.close();
                 myMap.behaviors.disable('drag'); myMap.behaviors.disable('multiTouch');
                 myMap.behaviors.disable('scrollZoom'); myMap.behaviors.disable('dblClickZoom');
+                myMap.container.getElement().classList.add('hide-cursor');
             }
             if (osmMap) {
                 osmMap.closePopup();
                 osmMap.dragging.disable(); osmMap.scrollWheelZoom.disable(); osmMap.doubleClickZoom.disable();
+                osmMap.getContainer().classList.add('hide-cursor');
             }
         }
         function performParkingMove(newCoords) {
@@ -532,9 +537,11 @@
                         if (myMap) {
                             myMap.behaviors.enable('drag'); myMap.behaviors.enable('multiTouch');
                             myMap.behaviors.enable('scrollZoom'); myMap.behaviors.enable('dblClickZoom');
+                            myMap.container.getElement().classList.remove('hide-cursor');
                         }
                         if (osmMap) {
                             osmMap.dragging.enable(); osmMap.scrollWheelZoom.enable(); osmMap.doubleClickZoom.enable();
+                            osmMap.getContainer().classList.remove('hide-cursor');
                         }
                         loadParkings();
                     }
@@ -550,6 +557,8 @@
             movingScooterId = null;
             scooterMoveMode = false;
             removeScooterMovePreview();
+            if (myMap) myMap.container.getElement().classList.remove('hide-cursor');
+            if (osmMap) osmMap.getContainer().classList.remove('hide-cursor');
         }
         function confirmScooterMove() {
             document.getElementById('scooterMoveModal').style.display = 'none';
@@ -559,10 +568,12 @@
                 myMap.balloon.close();
                 myMap.behaviors.disable('drag'); myMap.behaviors.disable('multiTouch');
                 myMap.behaviors.disable('scrollZoom'); myMap.behaviors.disable('dblClickZoom');
+                myMap.container.getElement().classList.add('hide-cursor');
             }
             if (osmMap) {
                 osmMap.closePopup();
                 osmMap.dragging.disable(); osmMap.scrollWheelZoom.disable(); osmMap.doubleClickZoom.disable();
+                osmMap.getContainer().classList.add('hide-cursor');
             }
         }
         function performScooterMove(newCoords) {
@@ -580,9 +591,11 @@
                         if (myMap) {
                             myMap.behaviors.enable('drag'); myMap.behaviors.enable('multiTouch');
                             myMap.behaviors.enable('scrollZoom'); myMap.behaviors.enable('dblClickZoom');
+                            myMap.container.getElement().classList.remove('hide-cursor');
                         }
                         if (osmMap) {
                             osmMap.dragging.enable(); osmMap.scrollWheelZoom.enable(); osmMap.doubleClickZoom.enable();
+                            osmMap.getContainer().classList.remove('hide-cursor');
                         }
                         loadPoints();
                     }
@@ -721,8 +734,11 @@
             myMap.container.getElement().style.cursor = 'crosshair';
             document.getElementById('modeButtonsContainer').style.display = 'flex';
             document.getElementById('indicatorText').style.display = 'block';
-            document.getElementById('finishZoneBtn').style.display = 'block';
-            document.getElementById('finishZoneBtn').textContent = 'Ок';
+            document.getElementById('finishZoneBtn').style.display = 'none';
+            document.getElementById('commentOkBtn').style.display = 'none';
+            document.getElementById('commentBtn').style.display = 'none';
+            document.getElementById('commentDisplayBtn').style.display = 'none';
+            document.getElementById('commentInput').style.display = 'none';
             if (mode === 3) {
                 document.getElementById('indicatorText').textContent = 'Выберите способ рисования:';
                 document.getElementById('selectMode1Btn').style.display = 'block';
@@ -772,9 +788,10 @@
             if (willSaveZone) {
                 isMode3SubMode = true;
                 document.getElementById('indicatorText').style.display = 'none';
-                document.getElementById('finishZoneBtn').style.display = 'none';
+                document.getElementById('finishZoneBtn').style.display = 'block';
                 document.getElementById('commentBtn').style.display = 'block';
                 document.getElementById('commentDisplayBtn').style.display = 'none';
+                document.getElementById('commentInput').style.display = 'none';
             } else {
                 isMode3SubMode = false;
                 document.getElementById('indicatorText').textContent = mode === 1 ? 'Кликайте по карте' : 'Зажмите и ведите';
@@ -795,16 +812,18 @@
             document.getElementById('commentInput').style.display = 'block';
             document.getElementById('commentInput').value = '';
             document.getElementById('commentInput').focus();
+            document.getElementById('commentOkBtn').style.display = 'block';
         }
         function finishComment() {
             zoneComment = document.getElementById('commentInput').value.trim();
             document.getElementById('commentInput').style.display = 'none';
+            document.getElementById('commentOkBtn').style.display = 'none';
             document.getElementById('commentDisplayBtn').textContent = zoneComment || 'Коммент';
             document.getElementById('commentDisplayBtn').style.display = 'block';
             document.getElementById('commentBtn').style.display = 'none';
             document.getElementById('indicatorText').textContent = drawMode === 1 ? 'Кликайте по карте' : 'Зажмите и ведите';
             document.getElementById('indicatorText').style.display = 'block';
-            document.getElementById('finishZoneBtn').style.display = (drawMode === 2) ? 'none' : 'block';
+            document.getElementById('finishZoneBtn').style.display = 'block';
         }
         function addZonePoint(coords) {
             if (drawMode === 2 && zonePoints.length > 0) {
@@ -834,7 +853,7 @@
                 (function(index) {
                     var marker = new ymaps.Placemark(zonePoints[index], {}, {
                         draggable: true,
-                        iconLayout: ymaps.templateLayoutFactory.createClass('<div style="width: 14px; height: 14px; background: #ff3b30; border: 2px solid white; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,0.4); cursor: move;"></div>'),
+                        iconLayout: ymaps.templateLayoutFactory.createClass('<div style="width: 14px; height: 14px; background: #555; border: 2px solid white; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,0.4); cursor: move;"></div>'),
                         iconShape: { type: 'Circle', coordinates: [7, 7], radius: 7 }
                     });
                     marker.events.add('drag', function(e) {
@@ -982,6 +1001,16 @@
         function cancelDeleteRoute() { deleteRouteId = null; document.getElementById('deleteRouteModal').style.display = 'none'; }
         function confirmDeleteRoute() {
             if (!deleteRouteId) return;
+            var route = routes.find(function(r) { return r.id === deleteRouteId; });
+            if (route) {
+                myMap.geoObjects.remove(route.polyline);
+                if (route.arrow) myMap.geoObjects.remove(route.arrow);
+            }
+            var tempRoute = tempRoutes.find(function(r) { return r.id === deleteRouteId; });
+            if (tempRoute) {
+                myMap.geoObjects.remove(tempRoute.polyline);
+                if (tempRoute.arrow) myMap.geoObjects.remove(tempRoute.arrow);
+            }
             fetch(API_URL + '/delete_route', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: deleteRouteId }) })
                 .then(function(r) { return r.json(); }).then(function(data) { if (data.success) { cancelDeleteRoute(); loadRoutes(); } });
         }
@@ -1157,6 +1186,21 @@
                     var osmPolyline = L.polyline(route.coords, { color: '#ff3b30', weight: 4 }).addTo(osmMap);
                     osmPolyline.on('contextmenu', function(e) { L.DomEvent.preventDefault(e); L.DomEvent.stopPropagation(e); contextMenuHandled = true; deleteRouteId = route.id; document.getElementById('deleteRouteModal').style.display = 'flex'; });
                     osmRoutes.push({ id: route.id, layer: osmPolyline });
+                });
+            });
+            safeFetch(API_URL + '/get_temp_routes').then(function(data) {
+                if (!Array.isArray(data)) return;
+                data.forEach(function(route) {
+                    if (!route.coords || route.coords.length < 2) return;
+                    var polyline = new ymaps.Polyline(route.coords, {}, { strokeColor: '#ff3b30', strokeWidth: 4, strokeStyle: 'solid' });
+                    myMap.geoObjects.add(polyline);
+                    var lastPoint = route.coords[route.coords.length - 1];
+                    var prevPoint = route.coords[route.coords.length - 2];
+                    var arrowMarker = createArrowMarker(lastPoint, prevPoint);
+                    myMap.geoObjects.add(arrowMarker);
+                    tempRoutes.push({ id: route.id, polyline: polyline, arrow: arrowMarker });
+                    var osmPolyline = L.polyline(route.coords, { color: '#ff3b30', weight: 4 }).addTo(osmMap);
+                    osmTempRoutes.push({ id: route.id, layer: osmPolyline });
                 });
             });
         }
@@ -1558,10 +1602,15 @@
                 var promises = selectedForAssignment.map(function(task) { return fetch(API_URL + '/assign_task', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: task.id, type: task.type, user: assigningUser }) }); });
                 return Promise.all(promises);
             }).then(function() { 
-                document.getElementById('userFilterText').textContent = 'Вы выбираете Задачи для ' + assigningUser; 
-                document.getElementById('userFilterText').style.display = 'block'; 
-                closeConfirmAssignModal();
-                loadPoints(); loadZones(); 
+                currentUserFilter = assigningUser;
+                document.getElementById('userFilterText').textContent = 'Вы смотрите Задачи для ' + assigningUser;
+                document.getElementById('userFilterText').style.display = 'block';
+                document.getElementById('confirmAssignModal').style.display = 'none';
+                document.getElementById('orangeModal').style.display = 'none';
+                assigningUser = null;
+                selectedForAssignment = [];
+                loadPoints();
+                loadZones();
             });
         }
 
