@@ -1084,11 +1084,12 @@
             var prevPoint = routePoints[routePoints.length - 2];
             var arrowMarker = createArrowMarker(lastPoint, prevPoint);
             myMap.geoObjects.add(arrowMarker);
+            // ✅ Скрываем индикатор рисования и показываем только модалку
+            document.getElementById('drawingIndicator').style.display = 'none';
             showRouteConfirmModal();
         }
         function showRouteConfirmModal() {
             isRouteConfirmMode = true;
-            document.getElementById('drawingIndicator').style.display = 'none';
             document.getElementById('routeCommentBtn').style.display = 'block';
             document.getElementById('routeCommentBtn').textContent = routeComment ? routeComment : 'Комментарий';
             document.getElementById('routeCommentInput').style.display = 'none';
@@ -1577,7 +1578,6 @@
         function createParkingIcon() { return { iconLayout: ymaps.templateLayoutFactory.createClass('<div style="width: 18px; height: 18px; text-align: center; line-height: 18px;"><img src="' + BASE_URL + 'p.png" style="width: 18px; height: 18px; display: block;"></div>'), iconShape: { type: 'Circle', coordinates: [9, 9], radius: 9 } }; }
         function createOsmParkingIcon() { return L.divIcon({ className: 'custom-div-icon', html: '<img src="' + BASE_URL + 'p.png" style="width: 18px; height: 18px; display: block;">', iconSize: [18, 18], iconAnchor: [9, 9] }); }
 
-        // ✅ ВОЗВРАЩЁН СТАРЫЙ ДИЗАЙН ПЛАШЕК (font-size: 9px, высота 17px)
         function buildLabelsHtml(available, dead, broken) {
             var items = [{ value: available, label: 'В доступе', color: '#4CAF50' }, { value: broken, label: 'Поломки', color: '#7E0000' }, { value: dead, label: 'Севшие', color: '#f44336' }];
             items.sort(function(a, b) { var aEmpty = (a.value === '?' || a.value === undefined || a.value === ''); var bEmpty = (b.value === '?' || b.value === undefined || b.value === ''); if (aEmpty && !bEmpty) return -1; if (!aEmpty && bEmpty) return 1; return 0; });
