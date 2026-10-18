@@ -71,16 +71,43 @@
         .confirm-assign-modal .modal-box {
             background: #f44336;
             pointer-events: auto;
-            max-width: 260px;
-            padding: 12px 16px;
+            max-width: 280px;
+            padding: 16px;
             border-radius: 8px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.3);
         }
-        .confirm-assign-modal .modal-box h4 { color: white; font-size: 15px; margin: 0 0 8px 0; }
+        .confirm-assign-modal .modal-box h4 { color: white; font-size: 16px; margin: 0 0 10px 0; }
+        .confirm-assign-modal .modal-box .btn-comment-route {
+            background: white;
+            color: #333;
+            border: 2px solid #333;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            width: 100%;
+            margin-bottom: 8px;
+            display: none;
+        }
+        .confirm-assign-modal .modal-box .btn-comment-route:active { background: #f0f0f0; }
+        .confirm-assign-modal .modal-box .route-comment-input {
+            display: none;
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #333;
+            border-radius: 6px;
+            font-size: 14px;
+            box-sizing: border-box;
+            text-align: center;
+            margin-bottom: 8px;
+            background: white;
+            color: #333;
+        }
         .confirm-assign-modal .modal-box .selected-list { color: white; font-size: 12px; margin: 6px 0; max-height: 120px; overflow-y: auto; text-align: left; padding: 0 5px; }
         .confirm-assign-modal .modal-box .selected-list .item { background: rgba(255,255,255,0.25); padding: 4px 8px; border-radius: 3px; margin: 3px 0; font-size: 11px; }
         .confirm-assign-modal .modal-box .btn-row { margin-top: 8px; }
-        .confirm-assign-modal .modal-box .btn-row button { background: white; color: #f44336; padding: 6px 10px; font-size: 13px; }
+        .confirm-assign-modal .modal-box .btn-row button { background: white; color: #f44336; padding: 10px; font-size: 14px; }
         .parking-move-preview { 
             width: 18px; height: 18px; 
             background: rgba(255, 182, 193, 0.6); 
@@ -274,11 +301,14 @@
             <div class="btn-row"><button class="btn-cancel" onclick="closeOrangeModal()">Отмена</button><button class="btn-ok" onclick="showConfirmAssignModal()">Ок</button></div>
         </div>
     </div>
+    <!-- ✅ МОДАЛКА "ТОЧНО ВСЁ?" С КНОПКОЙ КОММЕНТАРИЙ -->
     <div class="modal-overlay confirm-assign-modal" id="confirmAssignModal">
         <div class="modal-box">
             <h4>Точно всё?</h4>
+            <button class="btn-comment-route" id="routeCommentBtn" onclick="showRouteCommentInput()">Комментарий</button>
+            <input type="text" class="route-comment-input" id="routeCommentInput" placeholder="Введите комментарий" onkeypress="if(event.key==='Enter'){saveRouteComment();}">
             <div class="selected-list" id="selectedList">Выбраны: ?</div>
-            <div class="btn-row"><button class="btn-cancel" onclick="closeConfirmAssignModal()">Отмена</button><button class="btn-ok" onclick="confirmOrangeModal()">Ок</button></div>
+            <div class="btn-row"><button class="btn-cancel" onclick="closeConfirmAssignModal()">Отмена</button><button class="btn-ok" onclick="confirmFromModal()">Ок</button></div>
         </div>
     </div>
 
@@ -318,6 +348,7 @@
         var ALL_NAMES = ['Андрей', 'Антон', 'Миша', 'Илья', 'Саша', 'Кирилл'];
         var isMobile = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (window.innerWidth <= 768);
         var lastMoveCoords = null;
+        var isRouteConfirmMode = false;
 
         function isPointInPolygon(point, polygon) {
             var x = point[0], y = point[1];
@@ -1053,7 +1084,31 @@
             var prevPoint = routePoints[routePoints.length - 2];
             var arrowMarker = createArrowMarker(lastPoint, prevPoint);
             myMap.geoObjects.add(arrowMarker);
-            saveRouteToServer(arrowMarker);
+            // ✅ Показываем модалку "Точно всё?" с кнопкой Комментарий
+            showRouteConfirmModal();
+        }
+        function showRouteConfirmModal() {
+            isRouteConfirmMode = true;
+            document.getElementById('drawingIndicator').style.display = 'none';
+            document.getElementById('routeCommentBtn').style.display = 'block';
+            document.getElementById('routeCommentBtn').textContent = routeComment ? routeComment : 'Комментарий';
+            document.getElementById('routeCommentInput').style.display = 'none';
+            document.getElementById('routeCommentInput').value = routeComment;
+            document.getElementById('selectedList').innerHTML = '<b>Маршрут:</b><br><div class="item">' + (routeComment || 'Без комментария') + '</div>';
+            document.getElementById('confirmAssignModal').style.display = 'flex';
+        }
+        function showRouteCommentInput() {
+            document.getElementById('routeCommentBtn').style.display = 'none';
+            document.getElementById('routeCommentInput').style.display = 'block';
+            document.getElementById('routeCommentInput').value = routeComment;
+            document.getElementById('routeCommentInput').focus();
+        }
+        function saveRouteComment() {
+            routeComment = document.getElementById('routeCommentInput').value.trim();
+            document.getElementById('routeCommentInput').style.display = 'none';
+            document.getElementById('routeCommentBtn').style.display = 'block';
+            document.getElementById('routeCommentBtn').textContent = routeComment || 'Комментарий';
+            document.getElementById('selectedList').innerHTML = '<b>Маршрут:</b><br><div class="item">' + (routeComment || 'Без комментария') + '</div>';
         }
         function calculateArrowAngle(from, to) {
             var dx = to[1] - from[1], dy = to[0] - from[0];
@@ -1070,16 +1125,16 @@
                 iconOffset: [-12, -12]
             });
         }
-        function saveRouteToServer(arrowMarker) {
-            var comment = '';
-            if (isDrawingRoute) {
-                comment = routeComment || '';
-            } else if (willSaveZone && isMode3SubMode) {
-                comment = zoneComment || '';
-            }
+        function saveRouteToServer() {
+            var comment = routeComment || '';
             fetch(API_URL + '/add_route', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ coords: routePoints, comment: comment, temporary: isTempRoute }) })
                 .then(function(r) { return r.json(); }).then(function(data) {
-                    if (data.success) { resetDrawingState(); document.getElementById('drawingIndicator').style.display = 'none'; loadRoutes(); }
+                    if (data.success) { 
+                        resetDrawingState(); 
+                        document.getElementById('drawingIndicator').style.display = 'none';
+                        document.getElementById('confirmAssignModal').style.display = 'none';
+                        loadRoutes(); 
+                    }
                 });
         }
         function exitDrawingModeKeepPolygon() {
@@ -1228,13 +1283,28 @@
             listEl.innerHTML = html;
         }
         function showConfirmAssignModal() {
+            isRouteConfirmMode = false;
+            document.getElementById('routeCommentBtn').style.display = 'none';
+            document.getElementById('routeCommentInput').style.display = 'none';
             updateSelectedList();
             document.getElementById('orangeModal').style.display = 'none';
             document.getElementById('confirmAssignModal').style.display = 'flex';
         }
         function closeConfirmAssignModal() {
             document.getElementById('confirmAssignModal').style.display = 'none';
-            document.getElementById('orangeModal').style.display = 'flex';
+            if (isRouteConfirmMode) {
+                isRouteConfirmMode = false;
+                resetDrawingState();
+            } else {
+                document.getElementById('orangeModal').style.display = 'flex';
+            }
+        }
+        function confirmFromModal() {
+            if (isRouteConfirmMode) {
+                saveRouteToServer();
+            } else {
+                confirmOrangeModal();
+            }
         }
 
         function loadPoints() {
