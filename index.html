@@ -104,8 +104,32 @@
             padding: 6px 10px;
             font-size: 13px;
         }
-        .parking-move-preview { width: 18px; height: 18px; background: rgba(255, 152, 0, 0.6); border: 3px solid #ff9800; border-radius: 50%; pointer-events: none; }
-        .scooter-move-preview { width: 18px; height: 18px; background: rgba(255, 59, 48, 0.6); border: 3px solid #ff3b30; border-radius: 50%; pointer-events: none; }
+        .parking-move-preview { 
+            width: 18px; height: 18px; 
+            background: rgba(255, 152, 0, 0.8); 
+            border: 3px solid #ff9800; 
+            border-radius: 50%; 
+            pointer-events: none; 
+            z-index: 3000 !important;
+            transition: background 0.1s, border-color 0.1s;
+        }
+        .parking-move-preview.inside-zone {
+            background: rgba(0, 0, 0, 0.8);
+            border-color: #000;
+        }
+        .scooter-move-preview { 
+            width: 18px; height: 18px; 
+            background: rgba(255, 59, 48, 0.8); 
+            border: 3px solid #ff3b30; 
+            border-radius: 50%; 
+            pointer-events: none; 
+            z-index: 3000 !important;
+            transition: background 0.1s, border-color 0.1s;
+        }
+        .scooter-move-preview.inside-zone {
+            background: rgba(0, 0, 0, 0.8);
+            border-color: #000;
+        }
         .custom-div-icon { background: transparent; border: none; }
         .leaflet-popup-content-wrapper { border-radius: 8px; }
         .leaflet-popup-content { margin: 12px; }
@@ -311,6 +335,26 @@
         var currentUserFilter = null, assigningUser = null, selectedForAssignment = [];
         var ALL_NAMES = ['Андрей', 'Антон', 'Миша', 'Илья', 'Саша', 'Кирилл'];
 
+        // ✅ ПРОВЕРКА ТОЧКИ В ПОЛИГОНЕ
+        function isPointInPolygon(point, polygon) {
+            var x = point[0], y = point[1];
+            var inside = false;
+            for (var i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+                var xi = polygon[i][0], yi = polygon[i][1];
+                var xj = polygon[j][0], yj = polygon[j][1];
+                var intersect = ((yi > y) != (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+                if (intersect) inside = !inside;
+            }
+            return inside;
+        }
+        function isPointInAnyZone(coords) {
+            for (var i = 0; i < zones.length; i++) {
+                var polygonCoords = zones[i].polygon.geometry.getCoordinates()[0];
+                if (isPointInPolygon(coords, polygonCoords)) return true;
+            }
+            return false;
+        }
+
         ymaps.ready(init);
 
         function init() {
@@ -319,7 +363,11 @@
             osmMap = L.map('osmMap', { center: [54.7818, 32.0401], zoom: 12, zoomControl: false });
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap', maxZoom: 19 }).addTo(osmMap);
             L.control.zoom({ position: 'topright' }).addTo(osmMap);
-            loadDeparturesFromServer(); loadPoints(); loadParkings(); loadZones(); loadRoutes(); loadSettings();
+            loadDeparturesFromServer(); loadPoints(); loadParkings(); loadZones(); loadSettings();
+            // ✅ Сначала очищаем временные маршруты, потом загружаем
+            fetch(API_URL + '/clear_temp_routes', { method: 'POST' })
+                .then(function() { loadRoutes(); })
+                .catch(function() { loadRoutes(); });
             setTimeout(function() { myMap.setCenter([54.7818, 32.0401], 12); }, 800);
 
             myMap.events.add('contextmenu', function(e) {
@@ -372,18 +420,32 @@
             if (!parkingMovePreview) {
                 parkingMovePreview = new ymaps.Placemark(coords, {}, {
                     iconLayout: ymaps.templateLayoutFactory.createClass('<div class="parking-move-preview"></div>'),
-                    iconShape: { type: 'Circle', coordinates: [9, 9], radius: 9 }, zIndex: 2000
+                    iconShape: { type: 'Circle', coordinates: [9, 9], radius: 9 }, 
+                    zIndex: 3000,
+                    pane: 'overlays'
                 });
                 myMap.geoObjects.add(parkingMovePreview);
-            } else { parkingMovePreview.geometry.setCoordinates(coords); }
+            } else { 
+                parkingMovePreview.geometry.setCoordinates(coords); 
+            }
+            var previewEl = parkingMovePreview.options.get('iconLayout').getElement();
+            if (previewEl) {
+                if (isPointInAnyZone(coords)) previewEl.classList.add('inside-zone');
+                else previewEl.classList.remove('inside-zone');
+            }
         }
         function showOsmParkingMovePreview(coords) {
             if (!parkingMovePreview) {
                 parkingMovePreview = L.marker(coords, {
                     icon: L.divIcon({ className: 'custom-div-icon', html: '<div class="parking-move-preview"></div>', iconSize: [18, 18], iconAnchor: [9, 9] }),
-                    interactive: false, zIndexOffset: 2000
+                    interactive: false, zIndexOffset: 3000
                 }).addTo(osmMap);
             } else { parkingMovePreview.setLatLng(coords); }
+            var previewEl = parkingMovePreview.getElement();
+            if (previewEl) {
+                if (isPointInAnyZone(coords)) previewEl.classList.add('inside-zone');
+                else previewEl.classList.remove('inside-zone');
+            }
         }
         function removeParkingMovePreview() {
             if (parkingMovePreview) {
@@ -396,18 +458,32 @@
             if (!scooterMovePreview) {
                 scooterMovePreview = new ymaps.Placemark(coords, {}, {
                     iconLayout: ymaps.templateLayoutFactory.createClass('<div class="scooter-move-preview"></div>'),
-                    iconShape: { type: 'Circle', coordinates: [9, 9], radius: 9 }, zIndex: 2000
+                    iconShape: { type: 'Circle', coordinates: [9, 9], radius: 9 }, 
+                    zIndex: 3000,
+                    pane: 'overlays'
                 });
                 myMap.geoObjects.add(scooterMovePreview);
-            } else { scooterMovePreview.geometry.setCoordinates(coords); }
+            } else { 
+                scooterMovePreview.geometry.setCoordinates(coords); 
+            }
+            var previewEl = scooterMovePreview.options.get('iconLayout').getElement();
+            if (previewEl) {
+                if (isPointInAnyZone(coords)) previewEl.classList.add('inside-zone');
+                else previewEl.classList.remove('inside-zone');
+            }
         }
         function showOsmScooterMovePreview(coords) {
             if (!scooterMovePreview) {
                 scooterMovePreview = L.marker(coords, {
                     icon: L.divIcon({ className: 'custom-div-icon', html: '<div class="scooter-move-preview"></div>', iconSize: [18, 18], iconAnchor: [9, 9] }),
-                    interactive: false, zIndexOffset: 2000
+                    interactive: false, zIndexOffset: 3000
                 }).addTo(osmMap);
             } else { scooterMovePreview.setLatLng(coords); }
+            var previewEl = scooterMovePreview.getElement();
+            if (previewEl) {
+                if (isPointInAnyZone(coords)) previewEl.classList.add('inside-zone');
+                else previewEl.classList.remove('inside-zone');
+            }
         }
         function removeScooterMovePreview() {
             if (scooterMovePreview) {
@@ -487,7 +563,7 @@
                     .then(function(r) { return r.json(); }).then(function(data) {
                         if (data.success) {
                             zone.polygon.options.set('draggable', false);
-                            zone.polygon.options.set('zIndex', 1000);
+                            zone.polygon.options.set('zIndex', 100);
                             myMap.behaviors.enable('drag'); myMap.behaviors.enable('multiTouch');
                             myMap.behaviors.enable('scrollZoom'); myMap.behaviors.enable('dblClickZoom');
                             myMap.container.getElement().style.cursor = '';
@@ -666,7 +742,12 @@
                 if (!Array.isArray(data)) return;
                 data.forEach(function(z) {
                     if (!z.coords || !Array.isArray(z.coords) || z.coords.length === 0) return;
-                    var polygon = new ymaps.Polygon([z.coords], {}, { fillColor: '#FFB6C1', fillOpacity: 0.5, strokeColor: '#ff3b30', strokeWidth: 3, strokeStyle: 'solid', draggable: false });
+                    var polygon = new ymaps.Polygon([z.coords], {}, { 
+                        fillColor: '#FFB6C1', fillOpacity: 0.5, 
+                        strokeColor: '#ff3b30', strokeWidth: 3, 
+                        strokeStyle: 'solid', draggable: false,
+                        zIndex: 100
+                    });
                     var zoneObj = { id: z.id, polygon: polygon, text: null, assigned_to: z.assigned_to, comment: z.comment };
                     polygon.events.add('contextmenu', function(e) {
                         e.get('domEvent').preventDefault(); e.get('domEvent').stopPropagation();
@@ -765,6 +846,8 @@
             document.getElementById('indicatorText').textContent = 'Кликайте по карте для создания маршрута';
             document.getElementById('finishZoneBtn').style.display = 'block';
             document.getElementById('finishZoneBtn').textContent = 'Ок';
+            // ✅ СКРЫВАЕМ ЛИШНЮЮ КНОПКУ ОК
+            document.getElementById('commentOkBtn').style.display = 'none';
         }
         function addRoutePoint(coords) {
             routePoints.push(coords);
@@ -1109,7 +1192,7 @@
                         });
                         pm.events.add('dblclick', function(e) {
                             if (assigningUser) { e.get('domEvent').stopPropagation(); toggleAssignInfo(point); myMap.balloon.close(); }
-                            else { e.get('domEvent').stopPropagation(); openAssignModal(point.id, 'point'); }
+                            else { e.get('domEvent').stopPropagation(); pm.balloon.open(); }
                         });
                         pm.events.add('contextmenu', function(e) {
                             e.get('domEvent').preventDefault(); e.get('domEvent').stopPropagation();
@@ -1122,7 +1205,10 @@
                         var osmPm = L.marker([point.lat, point.lon], { icon: osmInfoIcon }).addTo(osmMap);
                         var popup = L.popup({ closeOnClick: false, autoClose: false }).setContent(buildInfoBalloonContent(point));
                         osmPm.bindPopup(popup); osmPm.infoData = point;
-                        osmPm.on('click', function(e) { if (assigningUser) { L.DomEvent.stopPropagation(e); toggleAssignInfo(point); } });
+                        osmPm.on('click', function(e) { 
+                            if (assigningUser) { L.DomEvent.stopPropagation(e); toggleAssignInfo(point); }
+                            else { osmPm.openPopup(); }
+                        });
                         osmPm.on('contextmenu', function(e) { L.DomEvent.preventDefault(e); L.DomEvent.stopPropagation(e); contextMenuHandled = true; deleteInfoId = point.id; document.getElementById('deleteInfoModal').style.display = 'flex'; });
                         osmInfoMarkers.push(osmPm);
                     } else {
@@ -1141,7 +1227,7 @@
                         });
                         pm.events.add('dblclick', function(e) {
                             if (assigningUser) { e.get('domEvent').stopPropagation(); toggleAssignPoint(point); myMap.balloon.close(); }
-                            else { e.get('domEvent').stopPropagation(); openAssignModal(point.id, 'point'); }
+                            else { e.get('domEvent').stopPropagation(); pm.balloon.open(); }
                         });
                         myMap.geoObjects.add(pm); markers.push(pm);
                         attachScooterContextMenu(pm, point);
@@ -1153,7 +1239,10 @@
                         var osmPm = L.marker([point.lat, point.lon], { icon: osmIcon }).addTo(osmMap);
                         var popup = L.popup({ closeOnClick: false, autoClose: false }).setContent(buildBalloonContent(point, isBooked));
                         osmPm.bindPopup(popup); osmPm.pointData = point;
-                        osmPm.on('click', function(e) { if (assigningUser) { L.DomEvent.stopPropagation(e); toggleAssignPoint(point); } });
+                        osmPm.on('click', function(e) { 
+                            if (assigningUser) { L.DomEvent.stopPropagation(e); toggleAssignPoint(point); }
+                            else { osmPm.openPopup(); }
+                        });
                         osmPm.on('dblclick', function(e) {
                             if (assigningUser) { L.DomEvent.stopPropagation(e); toggleAssignPoint(point); }
                             else { L.DomEvent.stopPropagation(e); openAssignModal(point.id, 'point'); }
@@ -1660,7 +1749,7 @@
                 }
                 if (movingZoneId) {
                     var zone = zones.find(function(z) { return z.id === movingZoneId; });
-                    if (zone) { zone.polygon.options.set('draggable', false); zone.polygon.options.set('zIndex', 1000); myMap.behaviors.enable('drag'); myMap.behaviors.enable('multiTouch'); myMap.behaviors.enable('scrollZoom'); myMap.behaviors.enable('dblClickZoom'); }
+                    if (zone) { zone.polygon.options.set('draggable', false); zone.polygon.options.set('zIndex', 100); myMap.behaviors.enable('drag'); myMap.behaviors.enable('multiTouch'); myMap.behaviors.enable('scrollZoom'); myMap.behaviors.enable('dblClickZoom'); }
                     movingZoneId = null; loadZones();
                 }
             }
