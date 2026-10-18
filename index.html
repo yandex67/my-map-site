@@ -211,8 +211,8 @@
     <div class="drawing-indicator" id="drawingIndicator">
         <span class="indicator-text" id="indicatorText" style="display: block; width: 100%; text-align: center; margin-bottom: 2px;">Рисование...</span>
         <div class="mode-buttons" id="modeButtonsContainer" style="display: none; width: 100%;">
-            <button id="selectMode1Btn" onclick="selectDrawMode(1)" style="background: #9E9E9E; color: white;">Режим 1</button>
-            <button id="selectMode2Btn" onclick="selectDrawMode(2)" style="background: #9E9E9E; color: white;">Режим 2</button>
+            <button id="selectMode1Btn" onclick="selectDrawMode(1)" style="background: white; color: #f44336; border: 2px solid #f44336;">Режим 1</button>
+            <button id="selectMode2Btn" onclick="selectDrawMode(2)" style="background: white; color: #f44336; border: 2px solid #f44336;">Режим 2</button>
             <button id="commentBtn" class="btn-comment" onclick="activateCommentInput()">Комментарий</button>
             <button id="commentDisplayBtn" class="btn-comment-active" style="display: none;" onclick="activateCommentInput()"></button>
             <input type="text" id="commentInput" class="comment-input" placeholder="Введите текст">
@@ -350,14 +350,10 @@
             return coords[midIndex];
         }
         function disableZoneInteraction() {
-            zones.forEach(function(z) {
-                z.polygon.options.set('interactive', false);
-            });
+            zones.forEach(function(z) { z.polygon.options.set('interactive', false); });
         }
         function enableZoneInteraction() {
-            zones.forEach(function(z) {
-                z.polygon.options.set('interactive', true);
-            });
+            zones.forEach(function(z) { z.polygon.options.set('interactive', true); });
         }
 
         ymaps.ready(init);
@@ -405,18 +401,8 @@
                 if (scooterMoveMode && movingScooterId) showOsmScooterMovePreview([e.latlng.lat, e.latlng.lng]);
             });
             myMap.events.add('click', function(e) { 
-                if (scooterMoveMode && movingScooterId) { 
-                    if (isMobile) {
-                        performScooterMove(e.get('coords'));
-                    } else {
-                        performScooterMove(e.get('coords'));
-                    }
-                    return; 
-                }
-                if (parkingMoveMode && movingParkingId) { 
-                    performParkingMove(e.get('coords'));
-                    return; 
-                }
+                if (scooterMoveMode && movingScooterId) { performScooterMove(e.get('coords')); return; }
+                if (parkingMoveMode && movingParkingId) { performParkingMove(e.get('coords')); return; }
                 if (movingPointId) { performMove(e.get('coords')); return; }
                 if (isDrawingZone && drawMode === 1 && !isZoneConfirmed) addZonePoint(e.get('coords'));
                 if (isDrawingRoute && !isZoneConfirmed) addRoutePoint(e.get('coords'));
@@ -447,9 +433,7 @@
                     zIndex: 3000
                 });
                 myMap.geoObjects.add(parkingMovePreview);
-            } else { 
-                parkingMovePreview.geometry.setCoordinates(coords); 
-            }
+            } else { parkingMovePreview.geometry.setCoordinates(coords); }
             var previewEl = parkingMovePreview.options.get('iconLayout').getElement();
             if (previewEl) {
                 if (isPointInAnyZone(coords)) previewEl.classList.add('inside-zone');
@@ -486,9 +470,7 @@
                     zIndex: 3000
                 });
                 myMap.geoObjects.add(scooterMovePreview);
-            } else { 
-                scooterMovePreview.geometry.setCoordinates(coords); 
-            }
+            } else { scooterMovePreview.geometry.setCoordinates(coords); }
             var previewEl = scooterMovePreview.options.get('iconLayout').getElement();
             if (previewEl) {
                 if (isPointInAnyZone(coords)) previewEl.classList.add('inside-zone');
@@ -519,21 +501,14 @@
 
         function cancelMobileMove() {
             lastMoveCoords = null;
-            if (parkingMoveMode) {
-                closeParkingMoveModal();
-            } else if (scooterMoveMode) {
-                closeScooterMoveModal();
-            }
+            if (parkingMoveMode) closeParkingMoveModal();
+            else if (scooterMoveMode) closeScooterMoveModal();
             document.getElementById('mobileMoveButtons').style.display = 'none';
         }
-
         function confirmMobileMove() {
             if (!lastMoveCoords) return;
-            if (parkingMoveMode && movingParkingId) {
-                performParkingMove(lastMoveCoords);
-            } else if (scooterMoveMode && movingScooterId) {
-                performScooterMove(lastMoveCoords);
-            }
+            if (parkingMoveMode && movingParkingId) performParkingMove(lastMoveCoords);
+            else if (scooterMoveMode && movingScooterId) performScooterMove(lastMoveCoords);
             document.getElementById('mobileMoveButtons').style.display = 'none';
             lastMoveCoords = null;
         }
@@ -576,16 +551,8 @@
         function deleteMovingPoint() {
             if (movingZoneId) {
                 if (!confirm('Удалить зону?')) return;
-                fetch(API_URL + '/delete_zone', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ id: movingZoneId })
-                }).then(function(r) { return r.json(); }).then(function(data) {
-                    if (data.success) {
-                        closeMovePointModal();
-                        loadZones();
-                    }
-                });
+                fetch(API_URL + '/delete_zone', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: movingZoneId }) })
+                    .then(function(r) { return r.json(); }).then(function(data) { if (data.success) { closeMovePointModal(); loadZones(); } });
                 return;
             }
             if (!movingPointId) return;
@@ -1387,9 +1354,7 @@
                     
                     arrowMarker.events.add('click', function(e) {
                         e.get('domEvent').stopPropagation();
-                        if (assigningUser) {
-                            toggleAssignRoute(route);
-                        }
+                        if (assigningUser) { toggleAssignRoute(route); }
                     });
                     
                     var textMarker = null;
