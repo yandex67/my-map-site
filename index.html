@@ -106,31 +106,36 @@
         }
         /* ✅ СПЛОШНЫЕ ЦВЕТА КРУЖКОВ */
         .parking-move-preview { 
-            width: 18px; height: 18px; 
-            background: #ff9800; 
-            border: 3px solid #ff9800; 
-            border-radius: 50%; 
-            pointer-events: none; 
-            z-index: 3000 !important;
-            transition: background 0.1s, border-color 0.1s;
-        }
-        .parking-move-preview.inside-zone {
-            background: #000;
-            border-color: #000;
-        }
-        .scooter-move-preview { 
-            width: 18px; height: 18px; 
-            background: #ff3b30; 
-            border: 3px solid #ff3b30; 
-            border-radius: 50%; 
-            pointer-events: none; 
-            z-index: 3000 !important;
-            transition: background 0.1s, border-color 0.1s;
-        }
-        .scooter-move-preview.inside-zone {
-            background: #000;
-            border-color: #000;
-        }
+    width: 20px; 
+    height: 20px; 
+    background: #ff9800; 
+    border: 3px solid #fff; 
+    border-radius: 50%; 
+    pointer-events: none; 
+    box-shadow: 0 0 8px rgba(255, 152, 0, 0.8);
+    transition: background 0.1s, border-color 0.1s;
+}
+.parking-move-preview.inside-zone {
+    background: #000;
+    border-color: #fff;
+    box-shadow: 0 0 8px rgba(0, 0, 0, 0.8);
+}
+
+.scooter-move-preview { 
+    width: 20px; 
+    height: 20px; 
+    background: #ff3b30; 
+    border: 3px solid #fff; 
+    border-radius: 50%; 
+    pointer-events: none; 
+    box-shadow: 0 0 8px rgba(255, 59, 48, 0.8);
+    transition: background 0.1s, border-color 0.1s;
+}
+.scooter-move-preview.inside-zone {
+    background: #000;
+    border-color: #fff;
+    box-shadow: 0 0 8px rgba(0, 0, 0, 0.8);
+}
         .custom-div-icon { background: transparent; border: none; }
         .leaflet-popup-content-wrapper { border-radius: 8px; }
         .leaflet-popup-content { margin: 12px; }
@@ -468,23 +473,22 @@
             }
         }
         function showScooterMovePreview(coords) {
-            if (!scooterMovePreview) {
-                scooterMovePreview = new ymaps.Placemark(coords, {}, {
-                    iconLayout: ymaps.templateLayoutFactory.createClass('<div class="scooter-move-preview"></div>'),
-                    iconShape: { type: 'Circle', coordinates: [9, 9], radius: 9 }, 
-                    zIndex: 3000,
-                    pane: 'overlays'
-                });
-                myMap.geoObjects.add(scooterMovePreview);
-            } else { 
-                scooterMovePreview.geometry.setCoordinates(coords); 
-            }
-            var previewEl = scooterMovePreview.options.get('iconLayout').getElement();
-            if (previewEl) {
-                if (isPointInAnyZone(coords)) previewEl.classList.add('inside-zone');
-                else previewEl.classList.remove('inside-zone');
-            }
-        }
+    if (!scooterMovePreview) {
+        scooterMovePreview = new ymaps.Placemark(coords, {}, {
+            iconLayout: ymaps.templateLayoutFactory.createClass('<div class="scooter-move-preview"></div>'),
+            iconShape: { type: 'Circle', coordinates: [10, 10], radius: 10 }, 
+            zIndex: 3000
+        });
+        myMap.geoObjects.add(scooterMovePreview);
+    } else { 
+        scooterMovePreview.geometry.setCoordinates(coords); 
+    }
+    var previewEl = scooterMovePreview.options.get('iconLayout').getElement();
+    if (previewEl) {
+        if (isPointInAnyZone(coords)) previewEl.classList.add('inside-zone');
+        else previewEl.classList.remove('inside-zone');
+    }
+}
         function showOsmScooterMovePreview(coords) {
             if (!scooterMovePreview) {
                 scooterMovePreview = L.marker(coords, {
