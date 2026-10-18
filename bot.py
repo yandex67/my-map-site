@@ -58,7 +58,7 @@ def init_db():
             print("❌ Не удалось подключиться к БД")
             return
         c = conn.cursor()
-        print(" Создаю таблицы...")
+        print("📦 Создаю таблицы...")
         c.execute('''CREATE TABLE IF NOT EXISTS points
                      (id SERIAL PRIMARY KEY, title TEXT, address TEXT, lat REAL, lon REAL, 
                       status TEXT DEFAULT 'active', comment TEXT, url TEXT)''')
@@ -78,7 +78,7 @@ def init_db():
                      (id SERIAL PRIMARY KEY, type TEXT, data JSON, deleted_at TIMESTAMP DEFAULT NOW())''')
         conn.commit()
         print("✅ Таблицы созданы")
-        print(" Проверяю колонки...")
+        print("🔧 Проверяю колонки...")
         if not column_exists(c, 'points', 'comment'):
             c.execute("ALTER TABLE points ADD COLUMN comment TEXT"); conn.commit()
         if not column_exists(c, 'points', 'url'):
@@ -298,7 +298,7 @@ def handle_message(message):
         conn = get_db_connection(); c = conn.cursor()
         c.execute("UPDATE parkings SET photo_url = NULL WHERE title = %s", (name,))
         conn.commit(); conn.close()
-        bot.reply_to(message, f"️ Ссылка удалена.")
+        bot.reply_to(message, f"🗑️ Ссылка удалена.")
         return
     if ' http' in text or text.startswith('http'):
         parts = text.split(' ', 1)
@@ -328,7 +328,7 @@ def handle_message(message):
                 conn.commit(); conn.close()
                 bot.reply_to(message, f"✅ Парковка '{title}' добавлена!")
             else:
-                bot.reply_to(message, f"❌ Не найдено: '{location_part}'")
+                bot.reply_to(message, f" Не найдено: '{location_part}'")
         return
 
     if ' - ' in text:
@@ -437,7 +437,7 @@ def handle_message(message):
             conn.commit(); conn.close()
             bot.reply_to(message, f"✅ Точка '{title}' добавлена!")
         else:
-            bot.reply_to(message, f"❌ Не найдено: '{location_part}'")
+            bot.reply_to(message, f" Не найдено: '{location_part}'")
         return
 
     if text_lower == 'все p off':
@@ -445,7 +445,7 @@ def handle_message(message):
         c.execute("DELETE FROM parkings")
         count = c.rowcount
         conn.commit(); conn.close()
-        bot.reply_to(message, f"🗑️ Удалено парковок: {count}")
+        bot.reply_to(message, f"️ Удалено парковок: {count}")
         return
     if text_lower == 'все с off':
         conn = get_db_connection(); c = conn.cursor()
@@ -453,7 +453,7 @@ def handle_message(message):
         count = c.rowcount
         c.execute("DELETE FROM departures")
         conn.commit(); conn.close()
-        bot.reply_to(message, f"🗑️ Удалено точек: {count}")
+        bot.reply_to(message, f"️ Удалено точек: {count}")
         return
     if text_lower == 'last p off':
         conn = get_db_connection(); c = conn.cursor()
@@ -931,13 +931,13 @@ def run_bot():
         print("⚠️ Бот уже запущен, пропускаем")
         return
     bot_running = True
-    print(" Запускаю бота...")
+    print("🤖 Запускаю бота...")
     try:
         bot.remove_webhook()
         print("✅ Webhook очищен")
     except Exception as e:
         print(f"⚠️ Не удалось очистить webhook: {e}")
-    print(" Ожидаю 15 секунд...")
+    print("⏳ Ожидаю 15 секунд...")
     time.sleep(15)
     while bot_running:
         try:
@@ -945,7 +945,7 @@ def run_bot():
             bot.polling(none_stop=True, timeout=120, long_polling_timeout=120, allowed_updates=["message"])
         except telebot.apihelper.ApiTelegramException as e:
             if e.error_code == 409:
-                print("⚠️ Конфликт 409, жду 90 секунд...")
+                print("️ Конфликт 409, жду 90 секунд...")
                 try: bot.stop_polling()
                 except: pass
                 time.sleep(90)
@@ -960,7 +960,7 @@ def run_bot():
             time.sleep(30)
 
 def handle_signal(signum, frame):
-    print(f" Получен сигнал {signum}, завершаю работу...")
+    print(f"🛑 Получен сигнал {signum}, завершаю работу...")
     stop_bot_safely()
     sys.exit(0)
 
