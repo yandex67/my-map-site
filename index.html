@@ -104,9 +104,10 @@
             padding: 6px 10px;
             font-size: 13px;
         }
+        /* ✅ СПЛОШНЫЕ ЦВЕТА КРУЖКОВ */
         .parking-move-preview { 
             width: 18px; height: 18px; 
-            background: rgba(255, 152, 0, 0.8); 
+            background: #ff9800; 
             border: 3px solid #ff9800; 
             border-radius: 50%; 
             pointer-events: none; 
@@ -114,12 +115,12 @@
             transition: background 0.1s, border-color 0.1s;
         }
         .parking-move-preview.inside-zone {
-            background: rgba(0, 0, 0, 0.8);
+            background: #000;
             border-color: #000;
         }
         .scooter-move-preview { 
             width: 18px; height: 18px; 
-            background: rgba(255, 59, 48, 0.8); 
+            background: #ff3b30; 
             border: 3px solid #ff3b30; 
             border-radius: 50%; 
             pointer-events: none; 
@@ -127,7 +128,7 @@
             transition: background 0.1s, border-color 0.1s;
         }
         .scooter-move-preview.inside-zone {
-            background: rgba(0, 0, 0, 0.8);
+            background: #000;
             border-color: #000;
         }
         .custom-div-icon { background: transparent; border: none; }
@@ -353,6 +354,18 @@
                 if (isPointInPolygon(coords, polygonCoords)) return true;
             }
             return false;
+        }
+        function isRouteVertical(coords) {
+            if (coords.length < 2) return false;
+            var first = coords[0];
+            var last = coords[coords.length - 1];
+            var dx = Math.abs(last[1] - first[1]);
+            var dy = Math.abs(last[0] - first[0]);
+            return dy > dx;
+        }
+        function getRouteCenter(coords) {
+            var midIndex = Math.floor(coords.length / 2);
+            return coords[midIndex];
         }
 
         ymaps.ready(init);
@@ -846,8 +859,18 @@
             document.getElementById('indicatorText').textContent = 'Кликайте по карте для создания маршрута';
             document.getElementById('finishZoneBtn').style.display = 'block';
             document.getElementById('finishZoneBtn').textContent = 'Ок';
-            // ✅ СКРЫВАЕМ ЛИШНЮЮ КНОПКУ ОК
             document.getElementById('commentOkBtn').style.display = 'none';
+            
+            // ✅ Если режим 3 был выбран - показываем поле комментария
+            if (willSaveZone) {
+                zoneComment = '';
+                document.getElementById('indicatorText').textContent = 'Введите комментарий (или нажмите Ок):';
+                document.getElementById('commentInput').style.display = 'block';
+                document.getElementById('commentInput').value = '';
+                document.getElementById('commentOkBtn').style.display = 'block';
+                document.getElementById('finishZoneBtn').style.display = 'none';
+                setTimeout(function() { document.getElementById('commentInput').focus(); }, 100);
+            }
         }
         function addRoutePoint(coords) {
             routePoints.push(coords);
@@ -1023,7 +1046,11 @@
             });
         }
         function saveRouteToServer(arrowMarker) {
-            fetch(API_URL + '/add_route', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ coords: routePoints, comment: '', temporary: isTempRoute }) })
+            var comment = '';
+            if (willSaveZone && isMode3SubMode) {
+                comment = zoneComment || '';
+            }
+            fetch(API_URL + '/add_route', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ coords: routePoints, comment: comment, temporary: isTempRoute }) })
                 .then(function(r) { return r.json(); }).then(function(data) {
                     if (data.success) { resetDrawingState(); document.getElementById('drawingIndicator').style.display = 'none'; loadRoutes(); }
                 });
@@ -1088,11 +1115,13 @@
             if (route) {
                 myMap.geoObjects.remove(route.polyline);
                 if (route.arrow) myMap.geoObjects.remove(route.arrow);
+                if (route.textMarker) myMap.geoObjects.remove(route.textMarker);
             }
             var tempRoute = tempRoutes.find(function(r) { return r.id === deleteRouteId; });
             if (tempRoute) {
                 myMap.geoObjects.remove(tempRoute.polyline);
                 if (tempRoute.arrow) myMap.geoObjects.remove(tempRoute.arrow);
+                if (tempRoute.textMarker) myMap.geoObjects.remove(tempRoute.textMarker);
             }
             fetch(API_URL + '/delete_route', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: deleteRouteId }) })
                 .then(function(r) { return r.json(); }).then(function(data) { if (data.success) { cancelDeleteRoute(); loadRoutes(); } });
@@ -1145,6 +1174,15 @@
             else { selectedForAssignment.push({ id: zone.id, type: 'zone', comment: zone.comment }); }
             updateSelectedList();
         }
+        function toggleAssignRoute(route) {
+            var idx = -1;
+            for (var i = 0; i < selectedForAssignment.length; i++) {
+                if (selectedForAssignment[i].id === route.id && selectedForAssignment[i].type === 'route') { idx = i; break; }
+            }
+            if (idx >= 0) { selectedForAssignment.splice(idx, 1); }
+            else { selectedForAssignment.push({ id: route.id, type: 'route', comment: route.comment }); }
+            updateSelectedList();
+        }
         function updateSelectedList() {
             var listEl = document.getElementById('selectedList');
             if (selectedForAssignment.length === 0) {
@@ -1157,6 +1195,7 @@
                 if (item.type === 'point') label = 'Самокат ' + (item.title || '');
                 else if (item.type === 'info') label = 'Доп инфа' + (item.comment ? ' (' + item.comment + ')' : '');
                 else if (item.type === 'zone') label = 'Зона' + (item.comment ? ' (' + item.comment + ')' : '');
+                else if (item.type === 'route') label = 'Маршрут' + (item.comment ? ' (' + item.comment + ')' : '');
                 html += '<div class="item">' + label + '</div>';
             });
             listEl.innerHTML = html;
@@ -1256,11 +1295,26 @@
         }
 
         function loadRoutes() {
-            routes.forEach(function(r) { myMap.geoObjects.remove(r.polyline); if(r.arrow) myMap.geoObjects.remove(r.arrow); }); routes = [];
-            osmRoutes.forEach(function(r) { osmMap.removeLayer(r.layer); }); osmRoutes = [];
-            tempRoutes.forEach(function(r) { myMap.geoObjects.remove(r.polyline); if(r.arrow) myMap.geoObjects.remove(r.arrow); }); tempRoutes = [];
-            osmTempRoutes.forEach(function(r) { osmMap.removeLayer(r.layer); }); osmTempRoutes = [];
-            safeFetch(API_URL + '/get_routes').then(function(data) {
+            routes.forEach(function(r) { 
+                myMap.geoObjects.remove(r.polyline); 
+                if(r.arrow) myMap.geoObjects.remove(r.arrow);
+                if(r.textMarker) myMap.geoObjects.remove(r.textMarker);
+            }); 
+            routes = [];
+            osmRoutes.forEach(function(r) { osmMap.removeLayer(r.layer); }); 
+            osmRoutes = [];
+            tempRoutes.forEach(function(r) { 
+                myMap.geoObjects.remove(r.polyline); 
+                if(r.arrow) myMap.geoObjects.remove(r.arrow);
+                if(r.textMarker) myMap.geoObjects.remove(r.textMarker);
+            }); 
+            tempRoutes = [];
+            osmTempRoutes.forEach(function(r) { osmMap.removeLayer(r.layer); }); 
+            osmTempRoutes = [];
+            
+            var url = currentUserFilter ? API_URL + '/get_routes?user=' + encodeURIComponent(currentUserFilter) : API_URL + '/get_routes';
+            
+            safeFetch(url).then(function(data) {
                 if (!Array.isArray(data)) return;
                 data.forEach(function(route) {
                     if (!route.coords || route.coords.length < 2) return;
@@ -1270,13 +1324,37 @@
                     var prevPoint = route.coords[route.coords.length - 2];
                     var arrowMarker = createArrowMarker(lastPoint, prevPoint);
                     myMap.geoObjects.add(arrowMarker);
+                    
+                    // ✅ Клик по стрелке для выбора маршрута
+                    arrowMarker.events.add('click', function(e) {
+                        e.get('domEvent').stopPropagation();
+                        if (assigningUser) {
+                            toggleAssignRoute(route);
+                        }
+                    });
+                    
+                    // ✅ Добавляем комментарий к маршруту
+                    var textMarker = null;
+                    if (route.comment && route.comment.trim() !== '') {
+                        var center = getRouteCenter(route.coords);
+                        var isVertical = isRouteVertical(route.coords);
+                        var offset = isVertical ? [7, 0] : [0, -7];
+                        textMarker = new ymaps.Placemark(center, {}, {
+                            iconLayout: ymaps.templateLayoutFactory.createClass('<div style="color: #640000; font-weight: bold; font-size: 12px; white-space: nowrap; pointer-events: none;">' + route.comment + '</div>'),
+                            iconOffset: offset,
+                            iconShape: { type: 'Rectangle', coordinates: [0, 0], dimensions: [200, 20] }
+                        });
+                        myMap.geoObjects.add(textMarker);
+                    }
+                    
                     polyline.events.add('contextmenu', function(e) { e.get('domEvent').preventDefault(); e.get('domEvent').stopPropagation(); contextMenuHandled = true; deleteRouteId = route.id; document.getElementById('deleteRouteModal').style.display = 'flex'; });
-                    routes.push({ id: route.id, polyline: polyline, arrow: arrowMarker });
+                    routes.push({ id: route.id, polyline: polyline, arrow: arrowMarker, textMarker: textMarker, comment: route.comment, assigned_to: route.assigned_to });
                     var osmPolyline = L.polyline(route.coords, { color: '#ff3b30', weight: 4 }).addTo(osmMap);
                     osmPolyline.on('contextmenu', function(e) { L.DomEvent.preventDefault(e); L.DomEvent.stopPropagation(e); contextMenuHandled = true; deleteRouteId = route.id; document.getElementById('deleteRouteModal').style.display = 'flex'; });
                     osmRoutes.push({ id: route.id, layer: osmPolyline });
                 });
             });
+            
             safeFetch(API_URL + '/get_temp_routes').then(function(data) {
                 if (!Array.isArray(data)) return;
                 data.forEach(function(route) {
@@ -1287,7 +1365,21 @@
                     var prevPoint = route.coords[route.coords.length - 2];
                     var arrowMarker = createArrowMarker(lastPoint, prevPoint);
                     myMap.geoObjects.add(arrowMarker);
-                    tempRoutes.push({ id: route.id, polyline: polyline, arrow: arrowMarker });
+                    
+                    var textMarker = null;
+                    if (route.comment && route.comment.trim() !== '') {
+                        var center = getRouteCenter(route.coords);
+                        var isVertical = isRouteVertical(route.coords);
+                        var offset = isVertical ? [7, 0] : [0, -7];
+                        textMarker = new ymaps.Placemark(center, {}, {
+                            iconLayout: ymaps.templateLayoutFactory.createClass('<div style="color: #640000; font-weight: bold; font-size: 12px; white-space: nowrap; pointer-events: none;">' + route.comment + '</div>'),
+                            iconOffset: offset,
+                            iconShape: { type: 'Rectangle', coordinates: [0, 0], dimensions: [200, 20] }
+                        });
+                        myMap.geoObjects.add(textMarker);
+                    }
+                    
+                    tempRoutes.push({ id: route.id, polyline: polyline, arrow: arrowMarker, textMarker: textMarker });
                     var osmPolyline = L.polyline(route.coords, { color: '#ff3b30', weight: 4 }).addTo(osmMap);
                     osmTempRoutes.push({ id: route.id, layer: osmPolyline });
                 });
@@ -1654,7 +1746,7 @@
                 btn.textContent = name;
                 btn.style.cssText = 'background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 100%; padding: 10px;';
                 btn.onclick = function() {
-                    if (mode === 'view') { currentUserFilter = name; document.getElementById('userFilterText').textContent = 'Вы смотрите Задачи для ' + name; document.getElementById('userFilterText').style.display = 'block'; closeNameSelectModal(); loadPoints(); loadZones(); }
+                    if (mode === 'view') { currentUserFilter = name; document.getElementById('userFilterText').textContent = 'Вы смотрите Задачи для ' + name; document.getElementById('userFilterText').style.display = 'block'; closeNameSelectModal(); loadPoints(); loadZones(); loadRoutes(); }
                     else if (mode === 'assign') { 
                         assigningUser = name; 
                         selectedForAssignment = [];
@@ -1688,7 +1780,21 @@
         function confirmOrangeModal() {
             if (!assigningUser) return;
             fetch(API_URL + '/clear_assignments', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user: assigningUser }) }).then(function() {
-                var promises = selectedForAssignment.map(function(task) { return fetch(API_URL + '/assign_task', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: task.id, type: task.type, user: assigningUser }) }); });
+                var promises = selectedForAssignment.map(function(task) { 
+                    if (task.type === 'route') {
+                        return fetch(API_URL + '/assign_route', { 
+                            method: 'POST', 
+                            headers: { 'Content-Type': 'application/json' }, 
+                            body: JSON.stringify({ id: task.id, user: assigningUser }) 
+                        });
+                    } else {
+                        return fetch(API_URL + '/assign_task', { 
+                            method: 'POST', 
+                            headers: { 'Content-Type': 'application/json' }, 
+                            body: JSON.stringify({ id: task.id, type: task.type, user: assigningUser }) 
+                        });
+                    }
+                });
                 return Promise.all(promises);
             }).then(function() { 
                 currentUserFilter = assigningUser;
@@ -1700,6 +1806,7 @@
                 selectedForAssignment = [];
                 loadPoints();
                 loadZones();
+                loadRoutes();
             });
         }
 
@@ -1720,7 +1827,7 @@
                 bottomClickCount++;
                 if (bottomClickTimer) clearTimeout(bottomClickTimer);
                 bottomClickTimer = setTimeout(function() { bottomClickCount = 0; }, 600);
-                if (bottomClickCount >= 3) { bottomClickCount = 0; currentUserFilter = null; document.getElementById('userFilterText').style.display = 'none'; loadPoints(); loadZones(); openNameSelectModal('assign'); }
+                if (bottomClickCount >= 3) { bottomClickCount = 0; currentUserFilter = null; document.getElementById('userFilterText').style.display = 'none'; loadPoints(); loadZones(); loadRoutes(); openNameSelectModal('assign'); }
             });
             document.getElementById('modalInput').addEventListener('keypress', function(e) { if (e.key === 'Enter') { e.preventDefault(); confirmModalInput(); } });
             document.getElementById('commentModalInput').addEventListener('keypress', function(e) { if (e.key === 'Enter') { e.preventDefault(); confirmCommentModal(); } });
