@@ -12,7 +12,7 @@ import time
 import signal
 import sys
 
-BOT_TOKEN = os.environ.get("BOT_TOKEN", "8803648566:AAG1BL4brhrA8PkJ2TD30qm3CPE4ZNqdnts")
+BOT_TOKEN = os.environ.get("BOT_TOKEN", "8803648566:AAEHSBq4MvzNwbyks2-1BgeRBweQuvg7f6E")
 DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://mapbotuser:r47l5ou0pDueVnus4tiD3d2w7hYQJ1vy@dpg-db4fc5ks728c73ajgig0-a.frankfurt-postgres.render.com/mapbotdb")
 
 app = Flask(__name__)
@@ -225,7 +225,7 @@ def handle_message(message):
                 msg += "\nНапиши Z чтобы восстановить последнее"
                 bot.reply_to(message, msg)
         except Exception as e:
-            bot.reply_to(message, f"❌ Ошибка: {e}")
+            bot.reply_to(message, f" Ошибка: {e}")
         return
 
     if text_lower == 'off все маршруты':
@@ -242,7 +242,7 @@ def handle_message(message):
         if c.rowcount > 0:
             bot.reply_to(message, "🗑️ Последний маршрут удалён.")
         else:
-            bot.reply_to(message, "❌ Маршрутов нет.")
+            bot.reply_to(message, " Маршрутов нет.")
         conn.commit(); conn.close()
         return
 
@@ -328,7 +328,7 @@ def handle_message(message):
                 conn.commit(); conn.close()
                 bot.reply_to(message, f"✅ Парковка '{title}' добавлена!")
             else:
-                bot.reply_to(message, f" Не найдено: '{location_part}'")
+                bot.reply_to(message, f"❌ Не найдено: '{location_part}'")
         return
 
     if ' - ' in text:
@@ -437,7 +437,7 @@ def handle_message(message):
             conn.commit(); conn.close()
             bot.reply_to(message, f"✅ Точка '{title}' добавлена!")
         else:
-            bot.reply_to(message, f" Не найдено: '{location_part}'")
+            bot.reply_to(message, f"❌ Не найдено: '{location_part}'")
         return
 
     if text_lower == 'все p off':
@@ -445,7 +445,7 @@ def handle_message(message):
         c.execute("DELETE FROM parkings")
         count = c.rowcount
         conn.commit(); conn.close()
-        bot.reply_to(message, f"️ Удалено парковок: {count}")
+        bot.reply_to(message, f"🗑️ Удалено парковок: {count}")
         return
     if text_lower == 'все с off':
         conn = get_db_connection(); c = conn.cursor()
@@ -453,7 +453,7 @@ def handle_message(message):
         count = c.rowcount
         c.execute("DELETE FROM departures")
         conn.commit(); conn.close()
-        bot.reply_to(message, f"️ Удалено точек: {count}")
+        bot.reply_to(message, f"🗑️ Удалено точек: {count}")
         return
     if text_lower == 'last p off':
         conn = get_db_connection(); c = conn.cursor()
@@ -501,7 +501,8 @@ def get_points():
         if not conn: return jsonify([]), 200
         c = conn.cursor()
         if user:
-            c.execute("SELECT id, title, address, lat, lon, status, comment, url, assigned_to FROM points WHERE status != 'found' AND (assigned_to = %s OR assigned_to IS NULL)", (user,))
+            # ✅ ТОЛЬКО объекты назначенные этому пользователю
+            c.execute("SELECT id, title, address, lat, lon, status, comment, url, assigned_to FROM points WHERE status != 'found' AND assigned_to = %s", (user,))
         else:
             c.execute("SELECT id, title, address, lat, lon, status, comment, url, assigned_to FROM points WHERE status != 'found'")
         points = [{"id": r[0], "title": r[1], "address": r[2], "lat": float(r[3]) if r[3] else 0, "lon": float(r[4]) if r[4] else 0, "status": r[5], "comment": r[6] or "", "url": r[7] or "", "assigned_to": r[8]} for r in c.fetchall()]
@@ -672,7 +673,8 @@ def get_zones():
         if not conn: return jsonify([]), 200
         c = conn.cursor()
         if user:
-            c.execute("SELECT id, coords, comment, assigned_to FROM zones WHERE assigned_to = %s OR assigned_to IS NULL", (user,))
+            # ✅ ТОЛЬКО зоны назначенные этому пользователю
+            c.execute("SELECT id, coords, comment, assigned_to FROM zones WHERE assigned_to = %s", (user,))
         else:
             c.execute("SELECT id, coords, comment, assigned_to FROM zones")
         zones = []
@@ -953,7 +955,7 @@ def run_bot():
                 print(f"❌ Ошибка Telegram API {e.error_code}: {e}")
                 time.sleep(30)
         except Exception as e:
-            print(f"❌ Ошибка polling: {e}")
+            print(f" Ошибка polling: {e}")
             traceback.print_exc()
             try: bot.stop_polling()
             except: pass
