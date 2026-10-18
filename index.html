@@ -104,38 +104,31 @@
             padding: 6px 10px;
             font-size: 13px;
         }
-        /* ✅ СПЛОШНЫЕ ЦВЕТА КРУЖКОВ */
+        /* ✅ СТАРЫЙ СТИЛЬ КРУЖКОВ - ПОЛУПРОЗРАЧНЫЙ РОЗОВЫЙ С КРАСНОЙ ОБВОДКОЙ */
         .parking-move-preview { 
-    width: 20px; 
-    height: 20px; 
-    background: #ff9800; 
-    border: 3px solid #fff; 
-    border-radius: 50%; 
-    pointer-events: none; 
-    box-shadow: 0 0 8px rgba(255, 152, 0, 0.8);
-    transition: background 0.1s, border-color 0.1s;
-}
-.parking-move-preview.inside-zone {
-    background: #000;
-    border-color: #fff;
-    box-shadow: 0 0 8px rgba(0, 0, 0, 0.8);
-}
-
-.scooter-move-preview { 
-    width: 20px; 
-    height: 20px; 
-    background: #ff3b30; 
-    border: 3px solid #fff; 
-    border-radius: 50%; 
-    pointer-events: none; 
-    box-shadow: 0 0 8px rgba(255, 59, 48, 0.8);
-    transition: background 0.1s, border-color 0.1s;
-}
-.scooter-move-preview.inside-zone {
-    background: #000;
-    border-color: #fff;
-    box-shadow: 0 0 8px rgba(0, 0, 0, 0.8);
-}
+            width: 18px; height: 18px; 
+            background: rgba(255, 182, 193, 0.6); 
+            border: 3px solid #ff3b30; 
+            border-radius: 50%; 
+            pointer-events: none; 
+            z-index: 3000 !important;
+        }
+        .parking-move-preview.inside-zone {
+            background: rgba(0, 0, 0, 0.6);
+            border-color: #000;
+        }
+        .scooter-move-preview { 
+            width: 18px; height: 18px; 
+            background: rgba(255, 182, 193, 0.6); 
+            border: 3px solid #ff3b30; 
+            border-radius: 50%; 
+            pointer-events: none; 
+            z-index: 3000 !important;
+        }
+        .scooter-move-preview.inside-zone {
+            background: rgba(0, 0, 0, 0.6);
+            border-color: #000;
+        }
         .custom-div-icon { background: transparent; border: none; }
         .leaflet-popup-content-wrapper { border-radius: 8px; }
         .leaflet-popup-content { margin: 12px; }
@@ -341,7 +334,6 @@
         var currentUserFilter = null, assigningUser = null, selectedForAssignment = [];
         var ALL_NAMES = ['Андрей', 'Антон', 'Миша', 'Илья', 'Саша', 'Кирилл'];
 
-        // ✅ ПРОВЕРКА ТОЧКИ В ПОЛИГОНЕ
         function isPointInPolygon(point, polygon) {
             var x = point[0], y = point[1];
             var inside = false;
@@ -382,7 +374,6 @@
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap', maxZoom: 19 }).addTo(osmMap);
             L.control.zoom({ position: 'topright' }).addTo(osmMap);
             loadDeparturesFromServer(); loadPoints(); loadParkings(); loadZones(); loadSettings();
-            // ✅ Сначала очищаем временные маршруты, потом загружаем
             fetch(API_URL + '/clear_temp_routes', { method: 'POST' })
                 .then(function() { loadRoutes(); })
                 .catch(function() { loadRoutes(); });
@@ -439,8 +430,7 @@
                 parkingMovePreview = new ymaps.Placemark(coords, {}, {
                     iconLayout: ymaps.templateLayoutFactory.createClass('<div class="parking-move-preview"></div>'),
                     iconShape: { type: 'Circle', coordinates: [9, 9], radius: 9 }, 
-                    zIndex: 3000,
-                    pane: 'overlays'
+                    zIndex: 3000
                 });
                 myMap.geoObjects.add(parkingMovePreview);
             } else { 
@@ -473,22 +463,22 @@
             }
         }
         function showScooterMovePreview(coords) {
-    if (!scooterMovePreview) {
-        scooterMovePreview = new ymaps.Placemark(coords, {}, {
-            iconLayout: ymaps.templateLayoutFactory.createClass('<div class="scooter-move-preview"></div>'),
-            iconShape: { type: 'Circle', coordinates: [10, 10], radius: 10 }, 
-            zIndex: 3000
-        });
-        myMap.geoObjects.add(scooterMovePreview);
-    } else { 
-        scooterMovePreview.geometry.setCoordinates(coords); 
-    }
-    var previewEl = scooterMovePreview.options.get('iconLayout').getElement();
-    if (previewEl) {
-        if (isPointInAnyZone(coords)) previewEl.classList.add('inside-zone');
-        else previewEl.classList.remove('inside-zone');
-    }
-}
+            if (!scooterMovePreview) {
+                scooterMovePreview = new ymaps.Placemark(coords, {}, {
+                    iconLayout: ymaps.templateLayoutFactory.createClass('<div class="scooter-move-preview"></div>'),
+                    iconShape: { type: 'Circle', coordinates: [9, 9], radius: 9 }, 
+                    zIndex: 3000
+                });
+                myMap.geoObjects.add(scooterMovePreview);
+            } else { 
+                scooterMovePreview.geometry.setCoordinates(coords); 
+            }
+            var previewEl = scooterMovePreview.options.get('iconLayout').getElement();
+            if (previewEl) {
+                if (isPointInAnyZone(coords)) previewEl.classList.add('inside-zone');
+                else previewEl.classList.remove('inside-zone');
+            }
+        }
         function showOsmScooterMovePreview(coords) {
             if (!scooterMovePreview) {
                 scooterMovePreview = L.marker(coords, {
@@ -865,7 +855,6 @@
             document.getElementById('finishZoneBtn').textContent = 'Ок';
             document.getElementById('commentOkBtn').style.display = 'none';
             
-            // ✅ Если режим 3 был выбран - показываем поле комментария
             if (willSaveZone) {
                 zoneComment = '';
                 document.getElementById('indicatorText').textContent = 'Введите комментарий (или нажмите Ок):';
@@ -1329,7 +1318,6 @@
                     var arrowMarker = createArrowMarker(lastPoint, prevPoint);
                     myMap.geoObjects.add(arrowMarker);
                     
-                    // ✅ Клик по стрелке для выбора маршрута
                     arrowMarker.events.add('click', function(e) {
                         e.get('domEvent').stopPropagation();
                         if (assigningUser) {
@@ -1337,7 +1325,6 @@
                         }
                     });
                     
-                    // ✅ Добавляем комментарий к маршруту
                     var textMarker = null;
                     if (route.comment && route.comment.trim() !== '') {
                         var center = getRouteCenter(route.coords);
