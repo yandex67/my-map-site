@@ -53,7 +53,7 @@
         .max-dead-modal .modal-box { margin-top: 10px; }
         .max-dead-modal .modal-actions { display: flex; gap: 10px; margin-top: 15px; }
         .max-dead-modal .modal-actions button { flex: 1; margin-top: 0; padding: 10px; background: #4CAF50; color: white; border: none; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; }
-        .move-hint { display: none; position: fixed; top: 90px; left: 50%; transform: translateX(-50%); background: #ff9800; color: white; padding: 12px 20px; border-radius: 8px; font-size: 14px; font-weight: bold; z-index: 1600; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+        .move-hint { display: none; position: fixed; top: 90px; left: 50%; transform: translateX(-50%); background: #ff9800; color: white; padding: 12px 20px; border-radius: 8px; font-size: 14px; font-weight: bold; z-index: 1600; box-shadow: 0 2px 8px rgba(0,0,0,0.3); flex-direction: column; align-items: center; }
         .orange-modal .modal-box { background: #ff9800; }
         .orange-modal .modal-box h4 { color: white; }
         .orange-modal .modal-box p { color: white; }
@@ -81,7 +81,6 @@
         .confirm-assign-modal .modal-box .selected-list .item { background: rgba(255,255,255,0.25); padding: 4px 8px; border-radius: 3px; margin: 3px 0; font-size: 11px; }
         .confirm-assign-modal .modal-box .btn-row { margin-top: 8px; }
         .confirm-assign-modal .modal-box .btn-row button { background: white; color: #f44336; padding: 6px 10px; font-size: 13px; }
-        /* ✅ КРУЖКИ-ПРЕВЬЮ - СТАРЫЙ СТИЛЬ */
         .parking-move-preview { 
             width: 18px; height: 18px; 
             background: rgba(255, 182, 193, 0.6); 
@@ -121,7 +120,13 @@
 <body>
     <div id="map"></div>
     <div id="osmMap"></div>
-    <div class="move-hint" id="moveHint">Кликните по карте, куда переместить</div>
+    <div class="move-hint" id="moveHint">
+        <span id="moveHintText">Кликните по карте, куда переместить</span>
+        <div id="mobileMoveButtons" style="display: none; margin-top: 10px; gap: 8px;">
+            <button onclick="cancelMobileMove()" style="background: #9E9E9E; color: white; border: none; padding: 8px 16px; border-radius: 4px; font-size: 13px; font-weight: bold; cursor: pointer;">Отмена</button>
+            <button onclick="confirmMobileMove()" style="background: #4CAF50; color: white; border: none; padding: 8px 16px; border-radius: 4px; font-size: 13px; font-weight: bold; cursor: pointer;">Ок</button>
+        </div>
+    </div>
     <div class="controls" id="controlsPanel">
         <h3 onclick="onTasksHeaderClick()">Задачи на сегодня</h3><br>
         <div class="info" onclick="onInfoClick()">Всего: <span id="pointCount">0</span></div>
@@ -311,6 +316,8 @@
         var appSettings = { hide_empty_labels: false, show_parkings: true, show_labels: true };
         var currentUserFilter = null, assigningUser = null, selectedForAssignment = [];
         var ALL_NAMES = ['Андрей', 'Антон', 'Миша', 'Илья', 'Саша', 'Кирилл'];
+        var isMobile = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (window.innerWidth <= 768);
+        var lastMoveCoords = null;
 
         function isPointInPolygon(point, polygon) {
             var x = point[0], y = point[1];
@@ -385,13 +392,31 @@
                 if (scooterMoveMode && movingScooterId) showScooterMovePreview(e.get('coords'));
                 if (isDrawingFreehand) addZonePoint(e.get('coords'));
             });
+            myMap.events.add('touchmove', function(e) {
+                if (parkingMoveMode && movingParkingId) showParkingMovePreview(e.get('coords'));
+                if (scooterMoveMode && movingScooterId) showScooterMovePreview(e.get('coords'));
+            });
             osmMap.on('mousemove', function(e) {
                 if (parkingMoveMode && movingParkingId) showOsmParkingMovePreview([e.latlng.lat, e.latlng.lng]);
                 if (scooterMoveMode && movingScooterId) showOsmScooterMovePreview([e.latlng.lat, e.latlng.lng]);
             });
+            osmMap.on('touchmove', function(e) {
+                if (parkingMoveMode && movingParkingId) showOsmParkingMovePreview([e.latlng.lat, e.latlng.lng]);
+                if (scooterMoveMode && movingScooterId) showOsmScooterMovePreview([e.latlng.lat, e.latlng.lng]);
+            });
             myMap.events.add('click', function(e) { 
-                if (scooterMoveMode && movingScooterId) { performScooterMove(e.get('coords')); return; }
-                if (parkingMoveMode && movingParkingId) { performParkingMove(e.get('coords')); return; }
+                if (scooterMoveMode && movingScooterId) { 
+                    if (isMobile) {
+                        performScooterMove(e.get('coords'));
+                    } else {
+                        performScooterMove(e.get('coords'));
+                    }
+                    return; 
+                }
+                if (parkingMoveMode && movingParkingId) { 
+                    performParkingMove(e.get('coords'));
+                    return; 
+                }
                 if (movingPointId) { performMove(e.get('coords')); return; }
                 if (isDrawingZone && drawMode === 1 && !isZoneConfirmed) addZonePoint(e.get('coords'));
                 if (isDrawingRoute && !isZoneConfirmed) addRoutePoint(e.get('coords'));
@@ -414,6 +439,7 @@
         }
 
         function showParkingMovePreview(coords) {
+            lastMoveCoords = coords;
             if (!parkingMovePreview) {
                 parkingMovePreview = new ymaps.Placemark(coords, {}, {
                     iconLayout: ymaps.templateLayoutFactory.createClass('<div class="parking-move-preview"></div>'),
@@ -431,6 +457,7 @@
             }
         }
         function showOsmParkingMovePreview(coords) {
+            lastMoveCoords = coords;
             if (!parkingMovePreview) {
                 parkingMovePreview = L.marker(coords, {
                     icon: L.divIcon({ className: 'custom-div-icon', html: '<div class="parking-move-preview"></div>', iconSize: [18, 18], iconAnchor: [9, 9] }),
@@ -451,6 +478,7 @@
             }
         }
         function showScooterMovePreview(coords) {
+            lastMoveCoords = coords;
             if (!scooterMovePreview) {
                 scooterMovePreview = new ymaps.Placemark(coords, {}, {
                     iconLayout: ymaps.templateLayoutFactory.createClass('<div class="scooter-move-preview"></div>'),
@@ -468,6 +496,7 @@
             }
         }
         function showOsmScooterMovePreview(coords) {
+            lastMoveCoords = coords;
             if (!scooterMovePreview) {
                 scooterMovePreview = L.marker(coords, {
                     icon: L.divIcon({ className: 'custom-div-icon', html: '<div class="scooter-move-preview"></div>', iconSize: [18, 18], iconAnchor: [9, 9] }),
@@ -486,6 +515,27 @@
                 if (osmMap) osmMap.removeLayer(scooterMovePreview);
                 scooterMovePreview = null;
             }
+        }
+
+        function cancelMobileMove() {
+            lastMoveCoords = null;
+            if (parkingMoveMode) {
+                closeParkingMoveModal();
+            } else if (scooterMoveMode) {
+                closeScooterMoveModal();
+            }
+            document.getElementById('mobileMoveButtons').style.display = 'none';
+        }
+
+        function confirmMobileMove() {
+            if (!lastMoveCoords) return;
+            if (parkingMoveMode && movingParkingId) {
+                performParkingMove(lastMoveCoords);
+            } else if (scooterMoveMode && movingScooterId) {
+                performScooterMove(lastMoveCoords);
+            }
+            document.getElementById('mobileMoveButtons').style.display = 'none';
+            lastMoveCoords = null;
         }
 
         function performMove(newCoords) {
@@ -578,11 +628,13 @@
             enableZoneInteraction();
             if (myMap) myMap.container.getElement().classList.remove('hide-cursor');
             if (osmMap) osmMap.getContainer().classList.remove('hide-cursor');
+            document.getElementById('mobileMoveButtons').style.display = 'none';
         }
         function confirmParkingMove() {
             document.getElementById('parkingMoveModal').style.display = 'none';
-            document.getElementById('moveHint').textContent = 'Кликните куда переместить парковку';
-            document.getElementById('moveHint').style.display = 'block';
+            document.getElementById('moveHintText').textContent = 'Кликните куда переместить парковку';
+            document.getElementById('moveHint').style.display = 'flex';
+            document.getElementById('mobileMoveButtons').style.display = isMobile ? 'flex' : 'none';
             disableZoneInteraction();
             if (myMap) {
                 myMap.balloon.close();
@@ -606,7 +658,8 @@
                     if (data.success) {
                         movingParkingId = null; parkingMoveMode = false;
                         document.getElementById('moveHint').style.display = 'none';
-                        document.getElementById('moveHint').textContent = 'Кликните по карте, куда переместить';
+                        document.getElementById('moveHintText').textContent = 'Кликните по карте, куда переместить';
+                        document.getElementById('mobileMoveButtons').style.display = 'none';
                         enableZoneInteraction();
                         if (myMap) {
                             myMap.behaviors.enable('drag'); myMap.behaviors.enable('multiTouch');
@@ -634,11 +687,13 @@
             enableZoneInteraction();
             if (myMap) myMap.container.getElement().classList.remove('hide-cursor');
             if (osmMap) osmMap.getContainer().classList.remove('hide-cursor');
+            document.getElementById('mobileMoveButtons').style.display = 'none';
         }
         function confirmScooterMove() {
             document.getElementById('scooterMoveModal').style.display = 'none';
-            document.getElementById('moveHint').textContent = 'Кликните куда переместить';
-            document.getElementById('moveHint').style.display = 'block';
+            document.getElementById('moveHintText').textContent = 'Кликните куда переместить';
+            document.getElementById('moveHint').style.display = 'flex';
+            document.getElementById('mobileMoveButtons').style.display = isMobile ? 'flex' : 'none';
             disableZoneInteraction();
             if (myMap) {
                 myMap.balloon.close();
@@ -663,7 +718,8 @@
                         movingScooterId = null;
                         scooterMoveMode = false;
                         document.getElementById('moveHint').style.display = 'none';
-                        document.getElementById('moveHint').textContent = 'Кликните по карте, куда переместить';
+                        document.getElementById('moveHintText').textContent = 'Кликните по карте, куда переместить';
+                        document.getElementById('mobileMoveButtons').style.display = 'none';
                         enableZoneInteraction();
                         if (myMap) {
                             myMap.behaviors.enable('drag'); myMap.behaviors.enable('multiTouch');
@@ -1141,14 +1197,14 @@
         }
         function createScooterIcon(status, taskNumber) {
             var imgUrl = getScooterImage(status);
-            var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="50" viewBox="0 0 36 50">' +
+            var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="44" viewBox="0 0 36 44">' +
                 '<image href="' + imgUrl + '" x="0" y="0" width="36" height="36" preserveAspectRatio="xMidYMid meet"/>' +
-                '<text x="18" y="48" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="black" text-anchor="middle">' + taskNumber + '</text></svg>';
-            return { iconLayout: ymaps.templateLayoutFactory.createClass('<div style="width:36px; height:50px;">' + svg + '</div>'), iconShape: { type: 'Circle', coordinates: [18, 18], radius: 18 } };
+                '<text x="18" y="42" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="black" text-anchor="middle">' + taskNumber + '</text></svg>';
+            return { iconLayout: ymaps.templateLayoutFactory.createClass('<div style="width:36px; height:44px;">' + svg + '</div>'), iconShape: { type: 'Circle', coordinates: [18, 18], radius: 18 } };
         }
         function createOsmScooterIcon(status, taskNumber) {
             var imgUrl = getScooterImage(status);
-            return L.divIcon({ className: 'custom-div-icon', html: '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="50" viewBox="0 0 36 50"><image href="' + imgUrl + '" x="0" y="0" width="36" height="36" preserveAspectRatio="xMidYMid meet"/><text x="18" y="48" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="black" text-anchor="middle">' + taskNumber + '</text></svg>', iconSize: [36, 50], iconAnchor: [18, 50] });
+            return L.divIcon({ className: 'custom-div-icon', html: '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="44" viewBox="0 0 36 44"><image href="' + imgUrl + '" x="0" y="0" width="36" height="36" preserveAspectRatio="xMidYMid meet"/><text x="18" y="42" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="black" text-anchor="middle">' + taskNumber + '</text></svg>', iconSize: [36, 44], iconAnchor: [18, 44] });
         }
 
         function toggleAssignPoint(point) {
@@ -1491,7 +1547,7 @@
             var items = [{ value: available, label: 'В доступе', color: '#4CAF50' }, { value: broken, label: 'Поломки', color: '#7E0000' }, { value: dead, label: 'Севшие', color: '#f44336' }];
             items.sort(function(a, b) { var aEmpty = (a.value === '?' || a.value === undefined || a.value === ''); var bEmpty = (b.value === '?' || b.value === undefined || b.value === ''); if (aEmpty && !bEmpty) return -1; if (!aEmpty && bEmpty) return 1; return 0; });
             var html = ''; var hasVisible = false;
-            items.forEach(function(item) { var isEmpty = (item.value === '?' || item.value === undefined || item.value === ''); if (appSettings.hide_empty_labels && isEmpty) return; hasVisible = true; html += '<div style="background: ' + item.color + '; color: white; font-size: 9px; font-weight: bold; padding: 2px 6px; border-radius: 3px; white-space: nowrap; margin-bottom: 2px;">' + item.label + ': ' + (item.value || '?') + '</div>'; });
+            items.forEach(function(item) { var isEmpty = (item.value === '?' || item.value === undefined || item.value === ''); if (appSettings.hide_empty_labels && isEmpty) return; hasVisible = true; html += '<div style="background: ' + item.color + '; color: white; font-size: 11px; font-weight: bold; padding: 2px 6px; border-radius: 3px; white-space: nowrap; margin-bottom: 2px;">' + item.label + ': ' + (item.value || '?') + '</div>'; });
             return hasVisible ? html : null;
         }
         function createParkingLabels(lat, lon, available, dead, broken, pId) {
@@ -1499,7 +1555,7 @@
             if (!html) return null;
             var visibleCount = 0;
             [available, broken, dead].forEach(function(v) { var isEmpty = (v === '?' || v === undefined || v === ''); if (!(appSettings.hide_empty_labels && isEmpty)) visibleCount++; });
-            var offset = visibleCount * 17 + 5;
+            var offset = visibleCount * 19 + 5;
             var layout = ymaps.templateLayoutFactory.createClass('<div style="display: flex; flex-direction: column; align-items: center; gap: 2px; width: 100px;">' + html + '</div>');
             return new ymaps.Placemark([lat, lon], {}, { iconLayout: layout, iconOffset: [-41, -offset], iconShape: { type: 'Rectangle', coordinates: [[0, 0], [100, offset]] } });
         }
@@ -1508,7 +1564,7 @@
             if (!html) return null;
             var visibleCount = 0;
             [available, broken, dead].forEach(function(v) { var isEmpty = (v === '?' || v === undefined || v === ''); if (!(appSettings.hide_empty_labels && isEmpty)) visibleCount++; });
-            var totalHeight = visibleCount * 17; var extraOffset = 22;
+            var totalHeight = visibleCount * 19; var extraOffset = 22;
             return L.divIcon({ className: 'custom-div-icon', html: '<div style="display: flex; flex-direction: column; align-items: center; gap: 2px; width: 100px;">' + html + '</div>', iconSize: [100, totalHeight], iconAnchor: [51, totalHeight + extraOffset] });
         }
 
