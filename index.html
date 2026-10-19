@@ -206,6 +206,7 @@
             <input type="text" id="scooterNumber" placeholder="Номер самоката" autocomplete="off">
             <input type="text" id="scooterComment" placeholder="Комментарий" autocomplete="off">
             <input type="text" id="scooterRed" placeholder="red или sev?" autocomplete="off">
+            <input type="text" id="scooterTgk" placeholder="Ссылка на карточку (tgk)" autocomplete="off">
             <div class="btn-row"><button class="btn-secondary" onclick="closeCreateScooterModal()">Отмена</button><button class="btn-ok" onclick="confirmCreateScooter()">Ок</button></div>
         </div>
     </div>
@@ -1115,7 +1116,7 @@
             document.getElementById('confirmAssignModal').style.display = 'flex';
         }
         function showRouteCommentInput() {
-            console.log(' Клик на кнопку "Комментарий"');
+            console.log('📝 Клик на кнопку "Комментарий"');
             console.log('📋 Текущий routeComment:', routeComment);
             document.getElementById('routeCommentBtn').style.display = 'none';
             document.getElementById('routeCommentInput').style.display = 'block';
@@ -1353,7 +1354,7 @@
             
             var commentInput = document.getElementById('routeCommentInput');
             if (commentInput.style.display === 'block') {
-                console.log(' Поле ввода видимо, сохраняем комментарий перед отправкой');
+                console.log('📝 Поле ввода видимо, сохраняем комментарий перед отправкой');
                 routeComment = commentInput.value.trim();
                 console.log('💾 Сохранён routeComment:', routeComment);
             }
@@ -1487,13 +1488,10 @@
                         if (assigningUser) { toggleAssignRoute(route); }
                     });
                     
-                    // ✅ Комментарий маршрута: центрирован по середине отрезка, увеличенный отступ
                     var textMarker = null;
                     if (route.comment && route.comment.trim() !== '') {
                         var center = getRouteCenter(route.coords);
                         var isVertical = isRouteVertical(route.coords);
-                        // ✅ Увеличенный отступ в 2 раза: 14px для вертикального, 35px для горизонтального
-                        // ✅ Центрирование текста по середине отрезка
                         var offset = isVertical ? [14, -10] : [-100, -35];
                         textMarker = new ymaps.Placemark(center, {}, {
                             iconLayout: ymaps.templateLayoutFactory.createClass(
@@ -1524,7 +1522,6 @@
                     var arrowMarker = createArrowMarker(lastPoint, prevPoint);
                     myMap.geoObjects.add(arrowMarker);
                     
-                    // ✅ Комментарий маршрута: центрирован по середине отрезка, увеличенный отступ
                     var textMarker = null;
                     if (route.comment && route.comment.trim() !== '') {
                         var center = getRouteCenter(route.coords);
@@ -1551,6 +1548,8 @@
             var h = '<div style="min-width: 200px; padding: 12px; box-sizing: border-box; text-align: center;" onclick="event.stopPropagation()">';
             h += '<b style="font-size: 16px; display: block; font-weight: bold;">ДОП ИНФА</b>';
             h += '<div style="color: #555; font-size: 14px; margin: 8px 0;">' + info.address + '</div>';
+            var tgkHtml = info.tgk_url ? '<a href="' + info.tgk_url + '" target="_blank" style="color: #1976D2; text-decoration: underline; font-weight: bold; display: block; margin: 5px 0; font-size: 14px;">КАРТОЧКА В ТГ</a>' : '';
+            h += tgkHtml;
             if (info.comment) h += '<div style="color: #000; font-size: 14px; display: block; margin: 5px 0;">' + info.comment + '</div>';
             h += '<div style="display: flex; flex-direction: column; align-items: center; gap: 4px; margin-top: 10px;">';
             h += '<button onclick="event.stopPropagation(); openInfoCommentModal(' + info.id + ')" style="background: #707070; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Комментарий</button>';
@@ -1569,11 +1568,12 @@
         function buildBalloonContent(point, isBooked) {
             var esc = point.title.replace(/'/g, "\\'").replace(/"/g, '&quot;');
             var fzLink = point.url ? '<a href="' + point.url + '" target="_blank" style="color: #1976D2; text-decoration: underline; font-weight: bold; display: block; margin: 5px 0;">ПОСМОТРЕТЬ ФЗ</a>' : '';
+            var tgkLink = point.tgk_url ? '<a href="' + point.tgk_url + '" target="_blank" style="color: #1976D2; text-decoration: underline; font-weight: bold; display: block; margin: 5px 0; font-size: 14px;">КАРТОЧКА В ТГ</a>' : '';
             var commentHtml = point.comment ? '<div style="color: #000; font-size: 14px; display: block; margin: 5px 0;">' + point.comment + '</div>' : '';
             var h = '<div style="min-width: 200px; padding: 12px; box-sizing: border-box; text-align: center;" onclick="event.stopPropagation()">';
             h += '<b style="font-size: 16px; display: block;">' + point.title + '</b>';
             h += '<div style="color: #555; font-size: 14px; margin: 8px 0;">' + point.address + '</div>';
-            h += fzLink + commentHtml;
+            h += fzLink + tgkLink + commentHtml;
             h += '<div style="display: flex; flex-direction: column; align-items: center; gap: 4px; margin-top: 10px;">';
             h += '<button onclick="event.stopPropagation(); updateStatus(' + point.id + ', \'found\')" style="background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Нашёл</button>';
             h += '<button onclick="event.stopPropagation(); updateStatus(' + point.id + ', \'not_found\')" style="background: #212121; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Не нашёл</button>';
@@ -1880,16 +1880,17 @@
         }
 
         function openCreateScooterModal() { closeContextMenu(); document.getElementById('createScooterModal').style.display = 'flex'; setTimeout(function() { document.getElementById('scooterNumber').focus(); }, 100); }
-        function closeCreateScooterModal() { document.getElementById('createScooterModal').style.display = 'none'; document.getElementById('scooterNumber').value = ''; document.getElementById('scooterComment').value = ''; document.getElementById('scooterRed').value = ''; }
+        function closeCreateScooterModal() { document.getElementById('createScooterModal').style.display = 'none'; document.getElementById('scooterNumber').value = ''; document.getElementById('scooterComment').value = ''; document.getElementById('scooterRed').value = ''; document.getElementById('scooterTgk').value = ''; }
         function confirmCreateScooter() {
             var number = document.getElementById('scooterNumber').value.trim();
             var comment = document.getElementById('scooterComment').value.trim();
             var redInput = document.getElementById('scooterRed').value.trim().toLowerCase();
+            var tgkUrl = document.getElementById('scooterTgk').value.trim();
             if (!number) { alert('Заполните номер!'); return; }
             if (!rightClickCoords) { alert('Координаты не захвачены!'); return; }
             var status = 'active';
             if (redInput === 'red') status = 'red'; else if (redInput === 'sev') status = 'sev';
-            fetch(API_URL + '/create_scooter', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ number: number, address: rightClickCoords.join(', '), lat: rightClickCoords[0], lon: rightClickCoords[1], status: status, comment: comment }) })
+            fetch(API_URL + '/create_scooter', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ number: number, address: rightClickCoords.join(', '), lat: rightClickCoords[0], lon: rightClickCoords[1], status: status, comment: comment, tgk_url: tgkUrl }) })
                 .then(function(r) { return r.json(); }).then(function(data) { if (data.success) { closeCreateScooterModal(); loadPoints(); } });
         }
 
