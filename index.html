@@ -1116,13 +1116,13 @@
         }
         function showRouteCommentInput() {
             console.log(' Клик на кнопку "Комментарий"');
-            console.log('Текущий routeComment:', routeComment);
+            console.log('📋 Текущий routeComment:', routeComment);
             document.getElementById('routeCommentBtn').style.display = 'none';
             document.getElementById('routeCommentInput').style.display = 'block';
             document.getElementById('routeCommentInput').value = routeComment;
             setTimeout(function() { 
                 document.getElementById('routeCommentInput').focus(); 
-                console.log('Поле ввода сфокусировано');
+                console.log('🎯 Поле ввода сфокусировано');
             }, 100);
         }
         function saveRouteComment() {
@@ -1151,7 +1151,7 @@
         function saveRouteToServer() {
             var comment = routeComment || '';
             
-            console.log(' Отправка на сервер...');
+            console.log('📤 Отправка на сервер...');
             console.log('📍 Координаты:', routePoints);
             console.log('💬 Комментарий:', comment);
             console.log('⏱️ Временный:', isTempRoute);
@@ -1178,7 +1178,7 @@
                     document.getElementById('confirmAssignModal').style.display = 'none';
                     loadRoutes(); 
                 } else {
-                    console.error(' Ошибка сохранения маршрута:', data);
+                    console.error('❌ Ошибка сохранения маршрута:', data);
                 }
             })
             .catch(function(error) {
@@ -1353,12 +1353,12 @@
             
             var commentInput = document.getElementById('routeCommentInput');
             if (commentInput.style.display === 'block') {
-                console.log('📝 Поле ввода видимо, сохраняем комментарий перед отправкой');
+                console.log(' Поле ввода видимо, сохраняем комментарий перед отправкой');
                 routeComment = commentInput.value.trim();
                 console.log('💾 Сохранён routeComment:', routeComment);
             }
             
-            console.log(' Текущий routeComment:', routeComment);
+            console.log('📋 Текущий routeComment:', routeComment);
             
             if (isRouteConfirmMode) {
                 saveRouteToServer();
@@ -1487,14 +1487,14 @@
                         if (assigningUser) { toggleAssignRoute(route); }
                     });
                     
-                    // ✅ Комментарий маршрута с правильным позиционированием
+                    // ✅ Комментарий маршрута: центрирован по середине отрезка, увеличенный отступ
                     var textMarker = null;
                     if (route.comment && route.comment.trim() !== '') {
                         var center = getRouteCenter(route.coords);
                         var isVertical = isRouteVertical(route.coords);
-                        // ✅ Горизонтальный: по центру над линией, отступ 7px
-                        // ✅ Вертикальный: по центру справа от линии, отступ 7px
-                        var offset = isVertical ? [7, -10] : [-100, -20];
+                        // ✅ Увеличенный отступ в 2 раза: 14px для вертикального, 35px для горизонтального
+                        // ✅ Центрирование текста по середине отрезка
+                        var offset = isVertical ? [14, -10] : [-100, -35];
                         textMarker = new ymaps.Placemark(center, {}, {
                             iconLayout: ymaps.templateLayoutFactory.createClass(
                                 '<div style="color: #640000; font-weight: bold; font-size: 12px; white-space: nowrap; pointer-events: none;">' + route.comment + '</div>'
@@ -1524,12 +1524,12 @@
                     var arrowMarker = createArrowMarker(lastPoint, prevPoint);
                     myMap.geoObjects.add(arrowMarker);
                     
-                    // ✅ Комментарий маршрута с правильным позиционированием
+                    // ✅ Комментарий маршрута: центрирован по середине отрезка, увеличенный отступ
                     var textMarker = null;
                     if (route.comment && route.comment.trim() !== '') {
                         var center = getRouteCenter(route.coords);
                         var isVertical = isRouteVertical(route.coords);
-                        var offset = isVertical ? [7, -10] : [-100, -20];
+                        var offset = isVertical ? [14, -10] : [-100, -35];
                         textMarker = new ymaps.Placemark(center, {}, {
                             iconLayout: ymaps.templateLayoutFactory.createClass(
                                 '<div style="color: #640000; font-weight: bold; font-size: 12px; white-space: nowrap; pointer-events: none;">' + route.comment + '</div>'
