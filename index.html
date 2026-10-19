@@ -1114,12 +1114,14 @@
             document.getElementById('selectedList').style.display = 'none';
             document.getElementById('confirmAssignModal').style.display = 'flex';
         }
-        function showRouteCommentInput() {
-            document.getElementById('routeCommentBtn').style.display = 'none';
-            document.getElementById('routeCommentInput').style.display = 'block';
-            document.getElementById('routeCommentInput').value = routeComment;
-            setTimeout(function() { document.getElementById('routeCommentInput').focus(); }, 100);
-        }
+        function saveRouteComment() {
+    var input = document.getElementById('routeCommentInput');
+    routeComment = input.value.trim();
+    console.log('💾 Комментарий сохранён в переменную:', routeComment);
+    document.getElementById('routeCommentInput').style.display = 'none';
+    document.getElementById('routeCommentBtn').style.display = 'block';
+    document.getElementById('routeCommentBtn').textContent = routeComment || 'Комментарий';
+}
         function saveRouteComment() {
             routeComment = document.getElementById('routeCommentInput').value.trim();
             document.getElementById('routeCommentInput').style.display = 'none';
@@ -1144,11 +1146,10 @@
         function saveRouteToServer() {
     var comment = routeComment || '';
     
-    // ✅ ЛОГИРОВАНИЕ В КОНСОЛЬ
-    console.log(' Сохранение маршрута...');
-    console.log('Координаты:', routePoints);
-    console.log('Комментарий:', comment);
-    console.log('Временный:', isTempRoute);
+    console.log(' Отправка на сервер...');
+    console.log('📍 Координаты:', routePoints);
+    console.log('💬 Комментарий:', comment);
+    console.log('⏱️ Временный:', isTempRoute);
     
     fetch(API_URL + '/add_route', { 
         method: 'POST', 
@@ -1162,7 +1163,6 @@
     .then(function(r) { return r.json(); })
     .then(function(data) {
         if (data.success) { 
-            // ✅ УВЕДОМЛЕНИЕ В КОНСОЛЬ
             if (comment && comment.trim() !== '') {
                 console.log('✅ Комментарий для маршрута сохранен!');
             } else {
@@ -1344,12 +1344,14 @@
             }
         }
         function confirmFromModal() {
-            if (isRouteConfirmMode) {
-                saveRouteToServer();
-            } else {
-                confirmOrangeModal();
-            }
-        }
+    console.log(' Нажата кнопка Ок в модалке');
+    console.log('📋 Текущий routeComment:', routeComment);
+    if (isRouteConfirmMode) {
+        saveRouteToServer();
+    } else {
+        confirmOrangeModal();
+    }
+}
 
         function loadPoints() {
             labelMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); labelMarkers = [];
