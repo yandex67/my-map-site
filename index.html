@@ -35,7 +35,27 @@
         .modal-box .btn-secondary { background: #9E9E9E; color: white; }
         .modal-box .btn-secondary:active { background: #757575; }
         .modal-box .btn-delete { background: #f44336; color: white; width: 100%; padding: 10px; border: none; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; margin-top: 10px; }
-        .drawing-indicator { display: none; position: fixed; top: 80px; left: 50%; transform: translateX(-50%); background: #f44336; color: white; padding: 10px 20px; border-radius: 8px; font-size: 14px; font-weight: bold; z-index: 1500; box-shadow: 0 2px 8px rgba(0,0,0,0.3); min-width: 250px; max-width: 350px; align-items: center; gap: 4px; box-sizing: border-box; flex-direction: column; }
+        .drawing-indicator { 
+            display: none; 
+            position: fixed; 
+            top: 80px; 
+            left: 50%; 
+            transform: translateX(-50%); 
+            background: #f44336; 
+            color: white; 
+            padding: 16px 24px;
+            border-radius: 8px; 
+            font-size: 16px;
+            font-weight: bold; 
+            z-index: 1500; 
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3); 
+            min-width: 250px; 
+            max-width: 350px; 
+            align-items: center; 
+            gap: 4px; 
+            box-sizing: border-box; 
+            flex-direction: column; 
+        }
         .drawing-indicator .mode-buttons { display: flex; flex-direction: column; gap: 8px; width: 100%; }
         .drawing-indicator button { background: #4CAF50; color: white; border: none; padding: 10px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px; width: 100%; }
         .drawing-indicator button:active { background: #45a049; }
@@ -1063,7 +1083,6 @@
                 if (willSaveZone) { saveZoneToServer(); } else { exitDrawingModeKeepPolygon(); }
             }
         }
-        // ✅ ИСПРАВЛЕНО: сразу показываем модалку с кнопкой "Комментарий"
         function finishRoute() {
             if (routePoints.length < 2) { cancelZoneDrawing(); return; }
             if (!routeEditMode) {
@@ -1071,7 +1090,6 @@
                 routePolyline = new ymaps.Polyline(routePoints, {}, { strokeColor: '#ff3b30', strokeWidth: 4, strokeStyle: 'solid' });
                 myMap.geoObjects.add(routePolyline);
                 enableRouteVertexEditing(); routeEditMode = true;
-                // ✅ Сразу открываем модалку "Точно всё?" с кнопкой "Комментарий"
                 document.getElementById('drawingIndicator').style.display = 'none';
                 showRouteConfirmModal();
                 return;
@@ -1084,7 +1102,6 @@
             var prevPoint = routePoints[routePoints.length - 2];
             var arrowMarker = createArrowMarker(lastPoint, prevPoint);
             myMap.geoObjects.add(arrowMarker);
-            // ✅ Сразу открываем модалку "Точно всё?" с кнопкой "Комментарий"
             document.getElementById('drawingIndicator').style.display = 'none';
             showRouteConfirmModal();
         }
@@ -1427,15 +1444,19 @@
                         if (assigningUser) { toggleAssignRoute(route); }
                     });
                     
+                    // ✅ Исправлено отображение комментария маршрута
                     var textMarker = null;
                     if (route.comment && route.comment.trim() !== '') {
                         var center = getRouteCenter(route.coords);
                         var isVertical = isRouteVertical(route.coords);
-                        var offset = isVertical ? [7, 0] : [0, -7];
+                        // ✅ Для горизонтального - сверху на 20px, для вертикального - справа на 20px
+                        var offset = isVertical ? [20, -10] : [-100, -20];
                         textMarker = new ymaps.Placemark(center, {}, {
-                            iconLayout: ymaps.templateLayoutFactory.createClass('<div style="color: #640000; font-weight: bold; font-size: 12px; white-space: nowrap; pointer-events: none;">' + route.comment + '</div>'),
+                            iconLayout: ymaps.templateLayoutFactory.createClass(
+                                '<div style="color: #640000; font-weight: bold; font-size: 12px; white-space: nowrap; pointer-events: none; background: rgba(255,255,255,0.8); padding: 2px 6px; border-radius: 3px;">' + route.comment + '</div>'
+                            ),
                             iconOffset: offset,
-                            iconShape: { type: 'Rectangle', coordinates: [0, 0], dimensions: [200, 20] }
+                            zIndex: 500
                         });
                         myMap.geoObjects.add(textMarker);
                     }
@@ -1459,15 +1480,18 @@
                     var arrowMarker = createArrowMarker(lastPoint, prevPoint);
                     myMap.geoObjects.add(arrowMarker);
                     
+                    // ✅ Исправлено отображение комментария маршрута
                     var textMarker = null;
                     if (route.comment && route.comment.trim() !== '') {
                         var center = getRouteCenter(route.coords);
                         var isVertical = isRouteVertical(route.coords);
-                        var offset = isVertical ? [7, 0] : [0, -7];
+                        var offset = isVertical ? [20, -10] : [-100, -20];
                         textMarker = new ymaps.Placemark(center, {}, {
-                            iconLayout: ymaps.templateLayoutFactory.createClass('<div style="color: #640000; font-weight: bold; font-size: 12px; white-space: nowrap; pointer-events: none;">' + route.comment + '</div>'),
+                            iconLayout: ymaps.templateLayoutFactory.createClass(
+                                '<div style="color: #640000; font-weight: bold; font-size: 12px; white-space: nowrap; pointer-events: none; background: rgba(255,255,255,0.8); padding: 2px 6px; border-radius: 3px;">' + route.comment + '</div>'
+                            ),
                             iconOffset: offset,
-                            iconShape: { type: 'Rectangle', coordinates: [0, 0], dimensions: [200, 20] }
+                            zIndex: 500
                         });
                         myMap.geoObjects.add(textMarker);
                     }
@@ -1575,7 +1599,6 @@
             }
         }
 
-        // ✅ ПОРОГ ИЗМЕНЁН: > 2 (то есть 3+ севших)
         function createParkingIcon(deadCount) {
             var iconFile = (deadCount > 2) ? 'pr.png' : 'p.png';
             return { 
