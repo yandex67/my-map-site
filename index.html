@@ -1114,16 +1114,21 @@
             document.getElementById('selectedList').style.display = 'none';
             document.getElementById('confirmAssignModal').style.display = 'flex';
         }
+        function showRouteCommentInput() {
+            console.log('📝 Клик на кнопку "Комментарий"');
+            console.log('Текущий routeComment:', routeComment);
+            document.getElementById('routeCommentBtn').style.display = 'none';
+            document.getElementById('routeCommentInput').style.display = 'block';
+            document.getElementById('routeCommentInput').value = routeComment;
+            setTimeout(function() { 
+                document.getElementById('routeCommentInput').focus(); 
+                console.log('Поле ввода сфокусировано');
+            }, 100);
+        }
         function saveRouteComment() {
-    var input = document.getElementById('routeCommentInput');
-    routeComment = input.value.trim();
-    console.log('💾 Комментарий сохранён в переменную:', routeComment);
-    document.getElementById('routeCommentInput').style.display = 'none';
-    document.getElementById('routeCommentBtn').style.display = 'block';
-    document.getElementById('routeCommentBtn').textContent = routeComment || 'Комментарий';
-}
-        function saveRouteComment() {
-            routeComment = document.getElementById('routeCommentInput').value.trim();
+            var input = document.getElementById('routeCommentInput');
+            routeComment = input.value.trim();
+            console.log('💾 Комментарий сохранён в переменную:', routeComment);
             document.getElementById('routeCommentInput').style.display = 'none';
             document.getElementById('routeCommentBtn').style.display = 'block';
             document.getElementById('routeCommentBtn').textContent = routeComment || 'Комментарий';
@@ -1144,42 +1149,42 @@
             });
         }
         function saveRouteToServer() {
-    var comment = routeComment || '';
-    
-    console.log(' Отправка на сервер...');
-    console.log('📍 Координаты:', routePoints);
-    console.log('💬 Комментарий:', comment);
-    console.log('⏱️ Временный:', isTempRoute);
-    
-    fetch(API_URL + '/add_route', { 
-        method: 'POST', 
-        headers: { 'Content-Type': 'application/json' }, 
-        body: JSON.stringify({ 
-            coords: routePoints, 
-            comment: comment, 
-            temporary: isTempRoute 
-        }) 
-    })
-    .then(function(r) { return r.json(); })
-    .then(function(data) {
-        if (data.success) { 
-            if (comment && comment.trim() !== '') {
-                console.log('✅ Комментарий для маршрута сохранен!');
-            } else {
-                console.log('✅ Маршрут сохранен без комментария');
-            }
-            resetDrawingState(); 
-            document.getElementById('drawingIndicator').style.display = 'none';
-            document.getElementById('confirmAssignModal').style.display = 'none';
-            loadRoutes(); 
-        } else {
-            console.error('❌ Ошибка сохранения маршрута:', data);
+            var comment = routeComment || '';
+            
+            console.log('📤 Отправка на сервер...');
+            console.log(' Координаты:', routePoints);
+            console.log('💬 Комментарий:', comment);
+            console.log('⏱️ Временный:', isTempRoute);
+            
+            fetch(API_URL + '/add_route', { 
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json' }, 
+                body: JSON.stringify({ 
+                    coords: routePoints, 
+                    comment: comment, 
+                    temporary: isTempRoute 
+                }) 
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.success) { 
+                    if (comment && comment.trim() !== '') {
+                        console.log('✅ Комментарий для маршрута сохранен!');
+                    } else {
+                        console.log('✅ Маршрут сохранен без комментария');
+                    }
+                    resetDrawingState(); 
+                    document.getElementById('drawingIndicator').style.display = 'none';
+                    document.getElementById('confirmAssignModal').style.display = 'none';
+                    loadRoutes(); 
+                } else {
+                    console.error(' Ошибка сохранения маршрута:', data);
+                }
+            })
+            .catch(function(error) {
+                console.error('❌ Ошибка запроса:', error);
+            });
         }
-    })
-    .catch(function(error) {
-        console.error('❌ Ошибка запроса:', error);
-    });
-}
         function exitDrawingModeKeepPolygon() {
             isDrawingZone = false; drawMode = 1; willSaveZone = false; isZoneConfirmed = false;
             drawModeSelected = false; isMode3SubMode = false; zonePoints = []; zoneComment = "";
@@ -1344,14 +1349,14 @@
             }
         }
         function confirmFromModal() {
-    console.log(' Нажата кнопка Ок в модалке');
-    console.log('📋 Текущий routeComment:', routeComment);
-    if (isRouteConfirmMode) {
-        saveRouteToServer();
-    } else {
-        confirmOrangeModal();
-    }
-}
+            console.log('🔘 Нажата кнопка Ок в модалке');
+            console.log(' Текущий routeComment:', routeComment);
+            if (isRouteConfirmMode) {
+                saveRouteToServer();
+            } else {
+                confirmOrangeModal();
+            }
+        }
 
         function loadPoints() {
             labelMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); labelMarkers = [];
@@ -1473,23 +1478,21 @@
                         if (assigningUser) { toggleAssignRoute(route); }
                     });
                     
-                    // ✅ Исправлено отображение комментария маршрута
                     var textMarker = null;
-if (route.comment && route.comment.trim() !== '') {
-    var center = getRouteCenter(route.coords);
-    var isVertical = isRouteVertical(route.coords);
-    // ✅ Правильные offset: горизонтальный - текст сверху по центру, вертикальный - справа
-    var offset = isVertical ? [15, -10] : [-100, -25];
-    textMarker = new ymaps.Placemark(center, {}, {
-        iconLayout: ymaps.templateLayoutFactory.createClass(
-            '<div style="color: #640000; font-weight: bold; font-size: 12px; white-space: nowrap; pointer-events: none; background: rgba(255,255,255,0.9); padding: 3px 8px; border-radius: 4px; border: 1px solid #ff3b30;">' + route.comment + '</div>'
-        ),
-        iconOffset: offset,
-        iconShape: { type: 'Rectangle', coordinates: [[0, 0], [200, 25]] },
-        zIndex: 500
-    });
-    myMap.geoObjects.add(textMarker);
-}
+                    if (route.comment && route.comment.trim() !== '') {
+                        var center = getRouteCenter(route.coords);
+                        var isVertical = isRouteVertical(route.coords);
+                        var offset = isVertical ? [15, -10] : [-100, -25];
+                        textMarker = new ymaps.Placemark(center, {}, {
+                            iconLayout: ymaps.templateLayoutFactory.createClass(
+                                '<div style="color: #640000; font-weight: bold; font-size: 12px; white-space: nowrap; pointer-events: none; background: rgba(255,255,255,0.9); padding: 3px 8px; border-radius: 4px; border: 1px solid #ff3b30;">' + route.comment + '</div>'
+                            ),
+                            iconOffset: offset,
+                            iconShape: { type: 'Rectangle', coordinates: [[0, 0], [200, 25]] },
+                            zIndex: 500
+                        });
+                        myMap.geoObjects.add(textMarker);
+                    }
                     
                     polyline.events.add('contextmenu', function(e) { e.get('domEvent').preventDefault(); e.get('domEvent').stopPropagation(); contextMenuHandled = true; deleteRouteId = route.id; document.getElementById('deleteRouteModal').style.display = 'flex'; });
                     routes.push({ id: route.id, polyline: polyline, arrow: arrowMarker, textMarker: textMarker, comment: route.comment, assigned_to: route.assigned_to });
@@ -1510,17 +1513,17 @@ if (route.comment && route.comment.trim() !== '') {
                     var arrowMarker = createArrowMarker(lastPoint, prevPoint);
                     myMap.geoObjects.add(arrowMarker);
                     
-                    // ✅ Исправлено отображение комментария маршрута
                     var textMarker = null;
                     if (route.comment && route.comment.trim() !== '') {
                         var center = getRouteCenter(route.coords);
                         var isVertical = isRouteVertical(route.coords);
-                        var offset = isVertical ? [20, -10] : [-100, -20];
+                        var offset = isVertical ? [15, -10] : [-100, -25];
                         textMarker = new ymaps.Placemark(center, {}, {
                             iconLayout: ymaps.templateLayoutFactory.createClass(
-                                '<div style="color: #640000; font-weight: bold; font-size: 12px; white-space: nowrap; pointer-events: none; background: rgba(255,255,255,0.8); padding: 2px 6px; border-radius: 3px;">' + route.comment + '</div>'
+                                '<div style="color: #640000; font-weight: bold; font-size: 12px; white-space: nowrap; pointer-events: none; background: rgba(255,255,255,0.9); padding: 3px 8px; border-radius: 4px; border: 1px solid #ff3b30;">' + route.comment + '</div>'
                             ),
                             iconOffset: offset,
+                            iconShape: { type: 'Rectangle', coordinates: [[0, 0], [200, 25]] },
                             zIndex: 500
                         });
                         myMap.geoObjects.add(textMarker);
