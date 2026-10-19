@@ -24,6 +24,12 @@ bot_running = False
 
 # ✅ ХРАНИЛИЩЕ МОНИТОРИНГОВ
 active_monitors = {}
+active_call_monitors = {}  # ✅ Мониторинг обзвонов
+
+# ✅ ID группы и топиков (запоминаются автоматически)
+monitored_group_id = None
+monitored_thread_id = None  # Для ФЗ
+call_thread_id = None       # Для обзвонов
 
 @app.before_request
 def handle_options():
@@ -62,7 +68,7 @@ def init_db():
             print("❌ Не удалось подключиться к БД")
             return
         c = conn.cursor()
-        print("📦 Создаю таблицы...")
+        print(" Создаю таблицы...")
         c.execute('''CREATE TABLE IF NOT EXISTS points
                      (id SERIAL PRIMARY KEY, title TEXT, address TEXT, lat REAL, lon REAL, 
                       status TEXT DEFAULT 'active', comment TEXT, url TEXT)''')
@@ -172,7 +178,7 @@ def restore_from_trash():
             conn.close()
             return None, f"Неизвестный тип: {obj_type}"
     except Exception as e:
-        print(f"❌ Ошибка восстановления: {e}")
+        print(f" Ошибка восстановления: {e}")
         traceback.print_exc()
         return None, str(e)
 
@@ -192,14 +198,26 @@ def get_coordinates(address):
 
 bot = telebot.TeleBot(BOT_TOKEN, threaded=False)
 
-# ✅ КОМАНДЫ МОНИТОРИНГА
+# ✅ КОМАНДА: УДАЛИТЬ ТРЕД АЙДИ (в ЛС)
+@bot.message_handler(regexp=r'^удали тред айди$')
+def delete_thread_id(message):
+    """Сбросить сохранённый thread_id"""
+    global monitored_thread_id, call_thread_id
+    
+    if message.chat.type != 'private':
+        return
+    
+    monitored_thread_id = None
+    call_thread_id = None
+    bot.reply_to(message, "✅ Thread ID сброшен. Теперь напиши /мониторь или /обзвоны в нужном топике группы.")
+
+
+# ✅ КОМАНДЫ МОНИТОРИНГА ФЗ
 
 @bot.message_handler(commands=['мониторь'])
 def start_monitor(message):
-    """Команда: /мониторь 775"""
-    if message.chat.type not in ['group', 'supergroup']:
-        bot.reply_to(message, "Эта команда работает только в группах!")
-        return
+    """Команда: /мониторь 775 — работает в группе, ЛС и в конкретном топике"""
+    global monitored_group_id, monitored_thread_id
     
     text = message.text.strip()
     parts = text.split()
@@ -214,35 +232,67 @@ def start_monitor(message):
         bot.reply_to(message, "Нужно ровно 3 цифры!\nПример: /мониторь 775")
         return
     
-    chat_id = message.chat.id
     user_id = message.from_user.id
     
+    # ✅ Определяем chat_id и thread_id
+    if message.chat.type in ['group', 'supergroup']:
+        chat_id = message.chat.id
+        monitored_group_id = chat_id
+        thread_id = getattr(message, 'message_thread_id', None)
+        if thread_id:
+            monitored_thread_id = thread_id
+            # ✅ Отправляем в ЛС уведомление о запомненном thread_id
+            try:
+                bot.send_message(user_id, f"📂 Я запомнил thread_id: {thread_id}")
+            except:
+                pass
+            print(f"✅ Сохранён thread_id раздела: {thread_id}")
+        else:
+            monitored_thread_id = None
+    else:
+        # Команда в ЛС
+        if monitored_group_id is None:
+            bot.reply_to(message, "❌ Бот ещё не получил сообщений из группы. Напиши /мониторь в группе.")
+            return
+        chat_id = monitored_group_id
+        thread_id = monitored_thread_id
+        if thread_id is None:
+            bot.reply_to(message, "❌ Thread ID не сохранён. Напиши /мониторь в нужном топике группы.")
+            return
+    
     # ✅ Проверка дубликата
-    monitor_key = f"{chat_id}_{last_three}"
+    monitor_key = f"{chat_id}_{thread_id}_{last_three}"
     if monitor_key in active_monitors and active_monitors[monitor_key]['active']:
-        bot.reply_to(message, f"⚠️ Мониторинг для самоката 7703{last_three} уже активирован!")
+        bot.reply_to(message, f"⚠️ Мониторинг 7703{last_three} в этом разделе уже активен!")
         return
     
     start_time = datetime.now()
     
     active_monitors[monitor_key] = {
         'chat_id': chat_id,
+        'thread_id': thread_id,
         'last_three': last_three,
         'user_id': user_id,
         'start_time': start_time,
         'active': True
     }
     
+    thread_info = f"\n📂 Раздел (thread): {thread_id}" if thread_id else "\n📂 Раздел: весь чат"
+    
     bot.reply_to(message, 
         f"✅ Мониторинг запущен!\n\n"
-        f"🔍 Ищу: 7703{last_three}\n"
-        f"⏰ С: {start_time.strftime('%d.%m.%Y %H:%M:%S')}\n"
-        f" Уведомления в ЛС")
+        f" Ищу: 7703{last_three}\n"
+        f"💬 Группа ID: {chat_id}"
+        f"{thread_info}\n"
+        f" С: {start_time.strftime('%d.%m.%Y %H:%M:%S')}\n"
+        f"📩 Уведомления в ЛС")
 
 
 @bot.message_handler(commands=['стоп'])
 def stop_monitor(message):
     """Команда: /стоп 775"""
+    global monitored_group_id, monitored_thread_id
+    
     text = message.text.strip()
     parts = text.split()
     
@@ -251,8 +301,19 @@ def stop_monitor(message):
         return
     
     last_three = parts[1]
-    chat_id = message.chat.id
-    monitor_key = f"{chat_id}_{last_three}"
+    
+    if message.chat.type in ['group', 'supergroup']:
+        chat_id = message.chat.id
+        thread_id = getattr(message, 'message_thread_id', None)
+    else:
+        chat_id = monitored_group_id
+        thread_id = monitored_thread_id
+    
+    if chat_id is None:
+        bot.reply_to(message, "❌ Группа не определена")
+        return
+    
+    monitor_key = f"{chat_id}_{thread_id}_{last_three}"
     
     if monitor_key in active_monitors:
         del active_monitors[monitor_key]
@@ -265,7 +326,6 @@ def stop_monitor(message):
 def list_monitors(message):
     """Показать активные мониторинги пользователя"""
     user_id = message.from_user.id
-    # ✅ Показываем все мониторинги пользователя
     user_monitors = {k: v for k, v in active_monitors.items() 
                      if v['user_id'] == user_id and v['active']}
     
@@ -273,9 +333,10 @@ def list_monitors(message):
         bot.reply_to(message, "Нет активных мониторингов")
         return
     
-    text = "🔍 Активные мониторинги:\n\n"
+    text = " Активные мониторинги:\n\n"
     for key, monitor in user_monitors.items():
-        text += f"• 7703{monitor['last_three']}\n  С {monitor['start_time'].strftime('%d.%m.%Y %H:%M')}\n\n"
+        thread_info = f" (топик {monitor['thread_id']})" if monitor['thread_id'] else ""
+        text += f"• 7703{monitor['last_three']}{thread_info}\n  С {monitor['start_time'].strftime('%d.%m.%Y %H:%M')}\n\n"
     
     bot.reply_to(message, text)
 
@@ -286,7 +347,6 @@ def off_monitors(message):
     text = message.text.strip()
     
     if 'все мониторинги' in text.lower() or 'все мониторы' in text.lower():
-        # ✅ Удалить все мониторинги пользователя
         user_id = message.from_user.id
         keys_to_delete = [k for k, v in active_monitors.items() 
                          if v['user_id'] == user_id and v['active']]
@@ -302,7 +362,6 @@ def off_monitors(message):
         return
     
     elif 'last мониторинг' in text.lower() or 'последний мониторинг' in text.lower():
-        # ✅ Удалить последний мониторинг пользователя
         user_id = message.from_user.id
         user_monitors = {k: v for k, v in active_monitors.items() 
                         if v['user_id'] == user_id and v['active']}
@@ -311,17 +370,93 @@ def off_monitors(message):
             bot.reply_to(message, "❌ У тебя нет активных мониторингов")
             return
         
-        # Находим последний по времени создания
         last_key = max(user_monitors.keys(), key=lambda k: user_monitors[k]['start_time'])
         last_three = user_monitors[last_key]['last_three']
         del active_monitors[last_key]
         
-        bot.reply_to(message, f"️ Последний мониторинг 7703{last_three} удалён")
+        bot.reply_to(message, f"🗑️ Последний мониторинг 7703{last_three} удалён")
         return
     
     else:
         bot.reply_to(message, "Использование:\n/off все мониторинги\n/off last мониторинг")
         return
+
+
+# ✅ КОМАНДА: ОБЗВОНЫ
+@bot.message_handler(commands=['обзвоны'])
+def start_call_monitor(message):
+    """Команда: /обзвоны — запоминает thread_id и начинает искать 'Добавлен результат обзвона'"""
+    global monitored_group_id, call_thread_id
+    
+    if message.chat.type not in ['group', 'supergroup']:
+        bot.reply_to(message, "Эта команда работает только в группах!")
+        return
+    
+    chat_id = message.chat.id
+    monitored_group_id = chat_id
+    thread_id = getattr(message, 'message_thread_id', None)
+    
+    if thread_id:
+        call_thread_id = thread_id
+        # ✅ Отправляем в ЛС уведомление
+        try:
+            bot.send_message(message.from_user.id, f"📂 Я запомнил thread_id: {thread_id}")
+        except:
+            pass
+        print(f"✅ Сохранён call_thread_id: {thread_id}")
+    else:
+        bot.reply_to(message, "❌ Команда должна быть написана внутри топика (раздела)!")
+        return
+    
+    user_id = message.from_user.id
+    
+    # ✅ Проверка дубликата
+    monitor_key = f"{chat_id}_{thread_id}_call"
+    if monitor_key in active_call_monitors and active_call_monitors[monitor_key]['active']:
+        bot.reply_to(message, f"⚠️ Мониторинг обзвонов в этом разделе уже активен!")
+        return
+    
+    start_time = datetime.now()
+    
+    active_call_monitors[monitor_key] = {
+        'chat_id': chat_id,
+        'thread_id': thread_id,
+        'user_id': user_id,
+        'start_time': start_time,
+        'active': True
+    }
+    
+    bot.reply_to(message, 
+        f"✅ Мониторинг обзвонов запущен!\n\n"
+        f"📂 Топик: {thread_id}\n"
+        f"🔍 Ищу сообщения, начинающиеся с 'Добавлен результат обзвона'\n"
+        f" С: {start_time.strftime('%d.%m.%Y %H:%M:%S')}\n"
+        f"📩 Пересылка в ЛС")
+
+
+@bot.message_handler(commands=['стоп_обзвоны'])
+def stop_call_monitor(message):
+    """Остановить мониторинг обзвонов"""
+    global monitored_group_id, call_thread_id
+    
+    if message.chat.type in ['group', 'supergroup']:
+        chat_id = message.chat.id
+        thread_id = getattr(message, 'message_thread_id', None)
+    else:
+        chat_id = monitored_group_id
+        thread_id = call_thread_id
+    
+    if chat_id is None or thread_id is None:
+        bot.reply_to(message, "❌ Группа или топик не определены")
+        return
+    
+    monitor_key = f"{chat_id}_{thread_id}_call"
+    
+    if monitor_key in active_call_monitors:
+        del active_call_monitors[monitor_key]
+        bot.reply_to(message, "❌ Мониторинг обзвонов остановлен")
+    else:
+        bot.reply_to(message, "Мониторинг обзвонов не найден")
 
 
 # ✅ ОСНОВНОЙ ОБРАБОТЧИК СООБЩЕНИЙ
@@ -333,27 +468,71 @@ def handle_message(message):
     text = message.text.strip()
     text_lower = text.lower()
 
-    # ✅ МОНИТОРИНГ - работает везде, включая группы
+    # ✅ МОНИТОРИНГ ФЗ И ОБЗВОНОВ - работает в группах
     if message.chat.type in ['group', 'supergroup'] and message.text:
+        global monitored_group_id, monitored_thread_id, call_thread_id
+        
+        # ✅ Запоминаем ID группы при первом сообщении
+        if monitored_group_id is None:
+            monitored_group_id = message.chat.id
+            print(f"✅ Сохранён ID группы: {monitored_group_id}")
+        
+        # ✅ Получаем thread_id сообщения
+        msg_thread_id = getattr(message, 'message_thread_id', None)
         message_time = datetime.fromtimestamp(message.date)
         
+        # --- МОНИТОРИНГ ФЗ ---
         for key, monitor in list(active_monitors.items()):
             if monitor['chat_id'] == message.chat.id and monitor['active']:
+                monitor_thread = monitor.get('thread_id')
+                
+                # Проверяем совпадение раздела
+                if monitor_thread is not None:
+                    if msg_thread_id != monitor_thread:
+                        continue
+                
                 if message_time < monitor['start_time']:
                     continue
+                
                 pattern = f"7703{monitor['last_three']}"
                 if pattern in message.text:
                     try:
+                        # ✅ Пробел между *** и !
                         bot.send_message(
                             monitor['user_id'],
-                            f"Произошло новое ФЗ {monitor['last_three']}!"
+                            f"Произошло новое ФЗ {monitor['last_three']} !"
                         )
-                        print(f"✅ Найдено: {pattern} в группе {message.chat.id}")
-                        # ✅ Автоматически удаляем мониторинг после находки
+                        print(f"✅ Найдено: {pattern} в группе {message.chat.id}, топик {msg_thread_id}")
                         del active_monitors[key]
                         print(f"️ Мониторинг {key} удалён после находки")
                     except Exception as e:
                         print(f"Ошибка отправки уведомления: {e}")
+        
+        # --- МОНИТОРИНГ ОБЗВОНОВ ---
+        for key, monitor in list(active_call_monitors.items()):
+            if monitor['chat_id'] == message.chat.id and monitor['active']:
+                monitor_thread = monitor.get('thread_id')
+                
+                # Проверяем совпадение раздела
+                if monitor_thread is not None:
+                    if msg_thread_id != monitor_thread:
+                        continue
+                
+                if message_time < monitor['start_time']:
+                    continue
+                
+                # ✅ Проверяем начало сообщения
+                if message.text.startswith('Добавлен результат обзвона'):
+                    try:
+                        # ✅ Пересылаем сообщение полностью в ЛС
+                        bot.forward_message(
+                            monitor['user_id'],
+                            message.chat.id,
+                            message.message_id
+                        )
+                        print(f"✅ Обзвон переслан из группы {message.chat.id}, топик {msg_thread_id}")
+                    except Exception as e:
+                        print(f"Ошибка пересылки обзвона: {e}")
         
         # ✅ В группах дальше не обрабатываем обычные команды
         return
@@ -387,7 +566,7 @@ def handle_message(message):
                     elif obj_type == 'zone':
                         msg += f"{i}. 🔴 Зона\n"
                     elif obj_type == 'parking':
-                        msg += f"{i}. 🅿️ Парковка '{data.get('title', '')}'\n"
+                        msg += f"{i}. ️ Парковка '{data.get('title', '')}'\n"
                 msg += "\nНапиши Z чтобы восстановить последнее"
                 bot.reply_to(message, msg)
         except Exception as e:
@@ -464,7 +643,7 @@ def handle_message(message):
         conn = get_db_connection(); c = conn.cursor()
         c.execute("UPDATE parkings SET photo_url = NULL WHERE title = %s", (name,))
         conn.commit(); conn.close()
-        bot.reply_to(message, f"🗑️ Ссылка удалена.")
+        bot.reply_to(message, f"️ Ссылка удалена.")
         return
     if ' http' in text or text.startswith('http'):
         parts = text.split(' ', 1)
@@ -486,7 +665,7 @@ def handle_message(message):
             if coord_match:
                 lat, lon = float(coord_match.group(1)), float(coord_match.group(2))
             else:
-                bot.reply_to(message, f"⏳ Ищу '{location_part}'...")
+                bot.reply_to(message, f" Ищу '{location_part}'...")
                 lat, lon = get_coordinates(location_part)
             if lat and lon:
                 conn = get_db_connection(); c = conn.cursor()
@@ -511,7 +690,7 @@ def handle_message(message):
                 save_to_trash('parking', parking_data)
             c.execute("DELETE FROM parkings WHERE title = %s", (title,))
             if c.rowcount > 0:
-                bot.reply_to(message, f"🗑️ Парковка '{title}' удалена.")
+                bot.reply_to(message, f"️ Парковка '{title}' удалена.")
             else:
                 bot.reply_to(message, f"❌ Парковка '{title}' не найдена.")
             conn.commit(); conn.close()
@@ -611,7 +790,7 @@ def handle_message(message):
         c.execute("DELETE FROM parkings")
         count = c.rowcount
         conn.commit(); conn.close()
-        bot.reply_to(message, f"🗑️ Удалено парковок: {count}")
+        bot.reply_to(message, f"️ Удалено парковок: {count}")
         return
     if text_lower == 'все с off':
         conn = get_db_connection(); c = conn.cursor()
@@ -625,7 +804,7 @@ def handle_message(message):
         conn = get_db_connection(); c = conn.cursor()
         c.execute("DELETE FROM parkings WHERE id = (SELECT MAX(id) FROM parkings)")
         if c.rowcount > 0:
-            bot.reply_to(message, "🗑️ Последняя парковка удалена.")
+            bot.reply_to(message, "️ Последняя парковка удалена.")
         else:
             bot.reply_to(message, "❌ Парковок нет.")
         conn.commit(); conn.close()
@@ -732,7 +911,7 @@ def update_status():
                     'status': row[5], 'comment': row[6], 'url': row[7], 'assigned_to': row[8]}
                 obj_type = 'info' if row[5] == 'info' else 'point'
                 save_to_trash(obj_type, point_data)
-                print(f"️ Удалён {obj_type} ID {row[0]}, сохранён в trash")
+                print(f"🗑️ Удалён {obj_type} ID {row[0]}, сохранён в trash")
             c.execute("DELETE FROM points WHERE id = %s", (data.get('id'),))
         else:
             c.execute("UPDATE points SET status = %s WHERE id = %s", (data.get('status'), data.get('id')))
@@ -833,7 +1012,7 @@ def delete_parking():
             parking_data = {'id': row[0], 'title': row[1], 'address': row[2], 'lat': row[3], 'lon': row[4],
                 'available_count': row[5], 'dead_count': row[6], 'broken_count': row[7], 'photo_url': row[8]}
             save_to_trash('parking', parking_data)
-            print(f"🗑️ Удалена парковка ID {row[0]}, сохранена в trash")
+            print(f"️ Удалена парковка ID {row[0]}, сохранена в trash")
         c.execute("DELETE FROM parkings WHERE id = %s", (data.get('id'),))
         conn.commit(); conn.close()
         return jsonify({"success": True})
@@ -1111,7 +1290,7 @@ def remove_departure():
 
 def stop_bot_safely():
     global bot_running
-    print(" Останавливаю бота...")
+    print("🛑 Останавливаю бота...")
     bot_running = False
     try:
         bot.stop_polling()
@@ -1122,15 +1301,15 @@ def stop_bot_safely():
 def run_bot():
     global bot_running
     if bot_running:
-        print("️ Бот уже запущен, пропускаем")
+        print("⚠️ Бот уже запущен, пропускаем")
         return
     bot_running = True
-    print("🤖 Запускаю бота...")
+    print(" Запускаю бота...")
     try:
         bot.remove_webhook()
         print("✅ Webhook очищен")
     except Exception as e:
-        print(f"⚠️ Не удалось очистить webhook: {e}")
+        print(f"️ Не удалось очистить webhook: {e}")
     print("⏳ Ожидаю 15 секунд...")
     time.sleep(15)
     while bot_running:
