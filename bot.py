@@ -31,7 +31,7 @@ DEFAULT_GROUP_ID = -1003920057901
 DEFAULT_FZ_THREAD_ID = 79227
 DEFAULT_CALL_THREAD_ID = 22277
 
-# ✅ ID группы и топиков (загружаются из БД или используются значения по умолчанию)
+# ✅ ID группы и топиков
 monitored_group_id = DEFAULT_GROUP_ID
 monitored_thread_id = DEFAULT_FZ_THREAD_ID
 call_thread_id = DEFAULT_CALL_THREAD_ID
@@ -52,7 +52,7 @@ def get_db_connection():
     try:
         return psycopg.connect(DATABASE_URL)
     except Exception as e:
-        print(f" Ошибка подключения к БД: {e}")
+        print(f"❌ Ошибка подключения к БД: {e}")
         return None
 
 def column_exists(c, table, column):
@@ -387,7 +387,6 @@ def set_call_thread(message):
 def show_thread_id(message):
     """Показать thread_id ТОЛЬКО в ЛС, никогда в группе!"""
     
-    # ✅ ВАЖНО: Отвечаем только в личных сообщениях
     if message.chat.type != 'private':
         return
     
@@ -470,7 +469,7 @@ def stop_monitor(message):
     if monitor_key in active_monitors:
         del active_monitors[monitor_key]
         save_monitors_to_db()
-        bot.reply_to(message, f" Мониторинг 7703{last_three} остановлен")
+        bot.reply_to(message, f"❌ Мониторинг 7703{last_three} остановлен")
     else:
         bot.reply_to(message, "Мониторинг не найден")
 
@@ -510,7 +509,7 @@ def off_monitors(message):
             del active_monitors[key]
         
         save_monitors_to_db()
-        bot.reply_to(message, f"️ Удалено мониторингов: {len(keys_to_delete)}")
+        bot.reply_to(message, f"🗑️ Удалено мониторингов: {len(keys_to_delete)}")
         return
     
     elif 'last мониторинг' in text.lower() or 'последний мониторинг' in text.lower():
@@ -535,17 +534,19 @@ def off_monitors(message):
         return
 
 
-# ✅ КОМАНДА: ОБЗВОНЫ
+# ✅ КОМАНДА: ОБЗВОНЫ (работает и в ЛС, и в группе)
 @bot.message_handler(commands=['обзвоны'])
 def start_call_monitor(message):
     global monitored_group_id, call_thread_id
     
-    if message.chat.type not in ['group', 'supergroup']:
-        bot.reply_to(message, "Эта команда работает только в группах!")
-        return
-    
+    # ✅ Работает и в ЛС, и в группе
     chat_id = monitored_group_id
     thread_id = call_thread_id
+    
+    # ✅ Проверяем что значения заданы
+    if chat_id is None or thread_id is None:
+        bot.reply_to(message, " Группа или топик не заданы. Напиши в ЛС:\nтред обзвон ***\nгде *** — ID нужного топика")
+        return
     
     user_id = message.from_user.id
     
@@ -568,8 +569,9 @@ def start_call_monitor(message):
     
     bot.reply_to(message, 
         f"✅ Мониторинг обзвонов запущен!\n\n"
+        f"💬 Группа ID: {chat_id}\n"
         f"📂 Топик: {thread_id}\n"
-        f"🔍 Ищу сообщения, начинающиеся с 'Добавлен результат обзвона'\n"
+        f"🔍 Ищу сообщения с текстом 'Добавлен результат обзвона'\n"
         f" С: {start_time.strftime('%d.%m.%Y %H:%M:%S')}\n"
         f"📩 Пересылка в ЛС")
 
@@ -620,14 +622,27 @@ def handle_message(message):
                 pattern = f"7703{monitor['last_three']}"
                 if pattern in message.text:
                     try:
+                        # ✅ Формируем ссылку на сообщение
+                        raw_chat_id = str(monitored_group_id)
+                        if raw_chat_id.startswith('-100'):
+                            chat_id_for_link = raw_chat_id[4:]
+                        else:
+                            chat_id_for_link = raw_chat_id.lstrip('-')
+                        
+                        message_link = f"https://t.me/c/{chat_id_for_link}/{message.message_id}"
+                        
+                        # ✅ Отправляем уведомление со ссылкой
                         bot.send_message(
                             monitor['user_id'],
-                            f"Произошло новое ФЗ {monitor['last_three']} !"
+                            f"Произошло новое ФЗ {monitor['last_three']} !\n\n"
+                            f"🔗 Ссылка на сообщение:\n{message_link}",
+                            disable_web_page_preview=True
                         )
                         print(f"✅ Найдено: {pattern} в группе {monitored_group_id}, топик {msg_thread_id}")
+                        print(f"   Ссылка: {message_link}")
                         del active_monitors[key]
                         save_monitors_to_db()
-                        print(f"️ Мониторинг {key} удалён после находки")
+                        print(f"🗑️ Мониторинг {key} удалён после находки")
                     except Exception as e:
                         print(f"❌ Ошибка отправки уведомления: {e}")
         
@@ -643,7 +658,8 @@ def handle_message(message):
                 if message_time < monitor['start_time']:
                     continue
                 
-                if message.text.startswith('Добавлен результат обзвона'):
+                # ✅ Ищем текст в любом месте сообщения (не только в начале)
+                if 'Добавлен результат обзвона' in message.text:
                     try:
                         bot.forward_message(
                             monitor['user_id'],
@@ -660,7 +676,7 @@ def handle_message(message):
     if text_lower == 'z':
         result, error = restore_from_trash()
         if error:
-            bot.reply_to(message, f"❌ {error}")
+            bot.reply_to(message, f" {error}")
         else:
             bot.reply_to(message, result)
         return
@@ -673,7 +689,7 @@ def handle_message(message):
             items = c.fetchall()
             conn.close()
             if not items:
-                bot.reply_to(message, "️ Корзина пуста")
+                bot.reply_to(message, "🗑️ Корзина пуста")
             else:
                 msg = "📦 Корзина (последние удаления):\n\n"
                 for i, (obj_type, data, deleted_at) in enumerate(items, 1):
@@ -685,7 +701,7 @@ def handle_message(message):
                     elif obj_type == 'zone':
                         msg += f"{i}. 🔴 Зона\n"
                     elif obj_type == 'parking':
-                        msg += f"{i}. ️ Парковка '{data.get('title', '')}'\n"
+                        msg += f"{i}. 🅿️ Парковка '{data.get('title', '')}'\n"
                 msg += "\nНапиши Z чтобы восстановить последнее"
                 bot.reply_to(message, msg)
         except Exception as e:
@@ -697,14 +713,14 @@ def handle_message(message):
         c.execute("DELETE FROM routes")
         count = c.rowcount
         conn.commit(); conn.close()
-        bot.reply_to(message, f"️ Удалено всех маршрутов: {count}")
+        bot.reply_to(message, f"🗑️ Удалено всех маршрутов: {count}")
         return
     
     if text_lower == 'off last маршрут':
         conn = get_db_connection(); c = conn.cursor()
         c.execute("DELETE FROM routes WHERE id = (SELECT MAX(id) FROM routes)")
         if c.rowcount > 0:
-            bot.reply_to(message, "️ Последний маршрут удалён.")
+            bot.reply_to(message, "🗑️ Последний маршрут удалён.")
         else:
             bot.reply_to(message, "❌ Маршрутов нет.")
         conn.commit(); conn.close()
@@ -901,7 +917,7 @@ def handle_message(message):
             conn.commit(); conn.close()
             bot.reply_to(message, f"✅ Точка '{title}' добавлена!")
         else:
-            bot.reply_to(message, f"❌ Не найдено: '{location_part}'")
+            bot.reply_to(message, f" Не найдено: '{location_part}'")
         return
 
     if text_lower == 'все p off':
@@ -909,7 +925,7 @@ def handle_message(message):
         c.execute("DELETE FROM parkings")
         count = c.rowcount
         conn.commit(); conn.close()
-        bot.reply_to(message, f"🗑️ Удалено парковок: {count}")
+        bot.reply_to(message, f"️ Удалено парковок: {count}")
         return
     if text_lower == 'все с off':
         conn = get_db_connection(); c = conn.cursor()
@@ -933,7 +949,7 @@ def handle_message(message):
         c.execute("DELETE FROM departures WHERE point_id = (SELECT MAX(id) FROM points)")
         c.execute("DELETE FROM points WHERE id = (SELECT MAX(id) FROM points)")
         if c.rowcount > 0:
-            bot.reply_to(message, "🗑️ Последний самокат удалён.")
+            bot.reply_to(message, "️ Последний самокат удалён.")
         else:
             bot.reply_to(message, "❌ Самокатов нет.")
         conn.commit(); conn.close()
@@ -983,7 +999,7 @@ def get_points():
         print(f"✅ /get_points: возвращено {len(points)} точек")
         return jsonify(points)
     except Exception as e:
-        print(f" /get_points: {e}")
+        print(f"❌ /get_points: {e}")
         traceback.print_exc()
         return jsonify([]), 200
 
@@ -1131,7 +1147,7 @@ def delete_parking():
             parking_data = {'id': row[0], 'title': row[1], 'address': row[2], 'lat': row[3], 'lon': row[4],
                 'available_count': row[5], 'dead_count': row[6], 'broken_count': row[7], 'photo_url': row[8]}
             save_to_trash('parking', parking_data)
-            print(f"🗑️ Удалена парковка ID {row[0]}, сохранена в trash")
+            print(f"️ Удалена парковка ID {row[0]}, сохранена в trash")
         c.execute("DELETE FROM parkings WHERE id = %s", (data.get('id'),))
         conn.commit(); conn.close()
         return jsonify({"success": True})
@@ -1423,13 +1439,13 @@ def run_bot():
         print("⚠️ Бот уже запущен, пропускаем")
         return
     bot_running = True
-    print(" Запускаю бота...")
+    print("🤖 Запускаю бота...")
     try:
         bot.remove_webhook()
         print("✅ Webhook очищен")
     except Exception as e:
         print(f"⚠️ Не удалось очистить webhook: {e}")
-    print(" Ожидаю 15 секунд...")
+    print("⏳ Ожидаю 15 секунд...")
     time.sleep(15)
     while bot_running:
         try:
@@ -1437,7 +1453,7 @@ def run_bot():
             bot.polling(none_stop=True, timeout=120, long_polling_timeout=120, allowed_updates=["message"])
         except telebot.apihelper.ApiTelegramException as e:
             if e.error_code == 409:
-                print("️ Конфликт 409, жду 90 секунд...")
+                print("⚠️ Конфликт 409, жду 90 секунд...")
                 try: bot.stop_polling()
                 except: pass
                 time.sleep(90)
@@ -1445,7 +1461,7 @@ def run_bot():
                 print(f"❌ Ошибка Telegram API {e.error_code}: {e}")
                 time.sleep(30)
         except Exception as e:
-            print(f" Ошибка polling: {e}")
+            print(f"❌ Ошибка polling: {e}")
             traceback.print_exc()
             try: bot.stop_polling()
             except: pass
@@ -1460,7 +1476,7 @@ signal.signal(signal.SIGTERM, handle_signal)
 signal.signal(signal.SIGINT, handle_signal)
 
 if __name__ == '__main__':
-    print("🚀 Запуск сервера...")
+    print(" Запуск сервера...")
     print(f"PID процесса: {os.getpid()}")
     bot_thread = threading.Thread(target=run_bot, daemon=True)
     bot_thread.start()
