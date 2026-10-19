@@ -41,7 +41,7 @@ def get_db_connection():
     try:
         return psycopg.connect(DATABASE_URL)
     except Exception as e:
-        print(f" Ошибка подключения к БД: {e}")
+        print(f"❌ Ошибка подключения к БД: {e}")
         return None
 
 def column_exists(c, table, column):
@@ -55,7 +55,7 @@ def init_db():
     global db_initialized
     if db_initialized:
         return
-    print(" Начинаю инициализацию БД...")
+    print("🔄 Начинаю инициализацию БД...")
     try:
         conn = get_db_connection()
         if not conn:
@@ -82,7 +82,7 @@ def init_db():
                      (id SERIAL PRIMARY KEY, type TEXT, data JSON, deleted_at TIMESTAMP DEFAULT NOW())''')
         conn.commit()
         print("✅ Таблицы созданы")
-        print(" Проверяю колонки...")
+        print("🔧 Проверяю колонки...")
         if not column_exists(c, 'points', 'comment'):
             c.execute("ALTER TABLE points ADD COLUMN comment TEXT"); conn.commit()
         if not column_exists(c, 'points', 'url'):
@@ -216,9 +216,15 @@ def start_monitor(message):
     
     chat_id = message.chat.id
     user_id = message.from_user.id
+    
+    # ✅ Проверка дубликата
+    monitor_key = f"{chat_id}_{last_three}"
+    if monitor_key in active_monitors and active_monitors[monitor_key]['active']:
+        bot.reply_to(message, f"⚠️ Мониторинг для самоката 7703{last_three} уже активирован!")
+        return
+    
     start_time = datetime.now()
     
-    monitor_key = f"{chat_id}_{last_three}"
     active_monitors[monitor_key] = {
         'chat_id': chat_id,
         'last_three': last_three,
@@ -257,10 +263,11 @@ def stop_monitor(message):
 
 @bot.message_handler(commands=['мониторы'])
 def list_monitors(message):
-    """Показать активные мониторинги"""
-    chat_id = message.chat.id
+    """Показать активные мониторинги пользователя"""
+    user_id = message.from_user.id
+    # ✅ Показываем все мониторинги пользователя
     user_monitors = {k: v for k, v in active_monitors.items() 
-                     if v['chat_id'] == chat_id and v['user_id'] == message.from_user.id and v['active']}
+                     if v['user_id'] == user_id and v['active']}
     
     if not user_monitors:
         bot.reply_to(message, "Нет активных мониторингов")
@@ -271,6 +278,50 @@ def list_monitors(message):
         text += f"• 7703{monitor['last_three']}\n  С {monitor['start_time'].strftime('%d.%m.%Y %H:%M')}\n\n"
     
     bot.reply_to(message, text)
+
+
+@bot.message_handler(commands=['off'])
+def off_monitors(message):
+    """Команды: /off все мониторинги, /off last мониторинг"""
+    text = message.text.strip()
+    
+    if 'все мониторинги' in text.lower() or 'все мониторы' in text.lower():
+        # ✅ Удалить все мониторинги пользователя
+        user_id = message.from_user.id
+        keys_to_delete = [k for k, v in active_monitors.items() 
+                         if v['user_id'] == user_id and v['active']]
+        
+        if not keys_to_delete:
+            bot.reply_to(message, "❌ У тебя нет активных мониторингов")
+            return
+        
+        for key in keys_to_delete:
+            del active_monitors[key]
+        
+        bot.reply_to(message, f"🗑️ Удалено мониторингов: {len(keys_to_delete)}")
+        return
+    
+    elif 'last мониторинг' in text.lower() or 'последний мониторинг' in text.lower():
+        # ✅ Удалить последний мониторинг пользователя
+        user_id = message.from_user.id
+        user_monitors = {k: v for k, v in active_monitors.items() 
+                        if v['user_id'] == user_id and v['active']}
+        
+        if not user_monitors:
+            bot.reply_to(message, "❌ У тебя нет активных мониторингов")
+            return
+        
+        # Находим последний по времени создания
+        last_key = max(user_monitors.keys(), key=lambda k: user_monitors[k]['start_time'])
+        last_three = user_monitors[last_key]['last_three']
+        del active_monitors[last_key]
+        
+        bot.reply_to(message, f"️ Последний мониторинг 7703{last_three} удалён")
+        return
+    
+    else:
+        bot.reply_to(message, "Использование:\n/off все мониторинги\n/off last мониторинг")
+        return
 
 
 # ✅ ОСНОВНОЙ ОБРАБОТЧИК СООБЩЕНИЙ
@@ -298,22 +349,24 @@ def handle_message(message):
                             f"Произошло новое ФЗ {monitor['last_three']}!"
                         )
                         print(f"✅ Найдено: {pattern} в группе {message.chat.id}")
+                        # ✅ Автоматически удаляем мониторинг после находки
+                        del active_monitors[key]
+                        print(f"️ Мониторинг {key} удалён после находки")
                     except Exception as e:
                         print(f"Ошибка отправки уведомления: {e}")
         
         # ✅ В группах дальше не обрабатываем обычные команды
         return
 
-    # ✅ КОМАНДА ОТМЕНЫ УДАЛЕНИЯ
+    # ✅ ВСЕ ОСТАЛЬНЫЕ КОМАНДЫ - только в личке с ботом
     if text_lower == 'z':
         result, error = restore_from_trash()
         if error:
-            bot.reply_to(message, f" {error}")
+            bot.reply_to(message, f"❌ {error}")
         else:
             bot.reply_to(message, result)
         return
 
-    # ✅ ПРОСМОТР КОРЗИНЫ
     if text_lower in ('trash', 'корзина'):
         try:
             conn = get_db_connection()
@@ -322,7 +375,7 @@ def handle_message(message):
             items = c.fetchall()
             conn.close()
             if not items:
-                bot.reply_to(message, "🗑️ Корзина пуста")
+                bot.reply_to(message, "️ Корзина пуста")
             else:
                 msg = "📦 Корзина (последние удаления):\n\n"
                 for i, (obj_type, data, deleted_at) in enumerate(items, 1):
@@ -341,7 +394,6 @@ def handle_message(message):
             bot.reply_to(message, f"❌ Ошибка: {e}")
         return
 
-    # ✅ УДАЛЕНИЕ МАРШРУТОВ
     if text_lower == 'off все маршруты':
         conn = get_db_connection(); c = conn.cursor()
         c.execute("DELETE FROM routes")
@@ -354,7 +406,7 @@ def handle_message(message):
         conn = get_db_connection(); c = conn.cursor()
         c.execute("DELETE FROM routes WHERE id = (SELECT MAX(id) FROM routes)")
         if c.rowcount > 0:
-            bot.reply_to(message, "️ Последний маршрут удалён.")
+            bot.reply_to(message, "🗑️ Последний маршрут удалён.")
         else:
             bot.reply_to(message, "❌ Маршрутов нет.")
         conn.commit(); conn.close()
@@ -488,7 +540,7 @@ def handle_message(message):
                 if broken is not None: response_parts.append(f"П:{new_broken}")
                 bot.reply_to(message, f"✅ '{title}' обновлена: {', '.join(response_parts)}")
             else:
-                bot.reply_to(message, f" Парковка '{title}' не найдена.")
+                bot.reply_to(message, f"❌ Парковка '{title}' не найдена.")
             return
 
     if text_lower.endswith(' - доп инфа'):
@@ -524,7 +576,7 @@ def handle_message(message):
         if coord_match:
             lat, lon = float(coord_match.group(1)), float(coord_match.group(2))
         else:
-            bot.reply_to(message, f" Ищу '{location_part}'...")
+            bot.reply_to(message, f"⏳ Ищу '{location_part}'...")
             lat, lon = get_coordinates(location_part)
         if lat and lon:
             url_match = re.search(r'(https?://\S+)', right_side)
@@ -576,6 +628,16 @@ def handle_message(message):
             bot.reply_to(message, "🗑️ Последняя парковка удалена.")
         else:
             bot.reply_to(message, "❌ Парковок нет.")
+        conn.commit(); conn.close()
+        return
+    if text_lower == 'last с off' or text_lower == 'last s off':
+        conn = get_db_connection(); c = conn.cursor()
+        c.execute("DELETE FROM departures WHERE point_id = (SELECT MAX(id) FROM points)")
+        c.execute("DELETE FROM points WHERE id = (SELECT MAX(id) FROM points)")
+        if c.rowcount > 0:
+            bot.reply_to(message, "🗑️ Последний самокат удалён.")
+        else:
+            bot.reply_to(message, "❌ Самокатов нет.")
         conn.commit(); conn.close()
         return
 
@@ -670,7 +732,7 @@ def update_status():
                     'status': row[5], 'comment': row[6], 'url': row[7], 'assigned_to': row[8]}
                 obj_type = 'info' if row[5] == 'info' else 'point'
                 save_to_trash(obj_type, point_data)
-                print(f"🗑️ Удалён {obj_type} ID {row[0]}, сохранён в trash")
+                print(f"️ Удалён {obj_type} ID {row[0]}, сохранён в trash")
             c.execute("DELETE FROM points WHERE id = %s", (data.get('id'),))
         else:
             c.execute("UPDATE points SET status = %s WHERE id = %s", (data.get('status'), data.get('id')))
@@ -906,7 +968,7 @@ def clear_temp_routes():
         c.execute("DELETE FROM routes WHERE temporary = TRUE")
         count = c.rowcount
         conn.commit(); conn.close()
-        print(f"️ Очищено {count} временных маршрутов")
+        print(f"🗑️ Очищено {count} временных маршрутов")
         return jsonify({"success": True, "count": count})
     except Exception as e:
         return jsonify({"error": str(e), "success": False}), 500
@@ -926,7 +988,7 @@ def add_route():
         c.execute("INSERT INTO routes (coords, comment, temporary) VALUES (%s, %s, %s)", 
                  (json.dumps(data.get('coords')), data.get('comment', ''), temp_value))
         conn.commit(); conn.close()
-        print(f"✅ Маршрут сохранён, temporary={temp_value}")
+        print(f"✅ Маршрут сохранён, temporary={temp_value}, comment='{data.get('comment', '')}'")
         return jsonify({"success": True})
     except Exception as e:
         return jsonify({"error": str(e), "success": False}), 500
@@ -1068,7 +1130,7 @@ def run_bot():
         bot.remove_webhook()
         print("✅ Webhook очищен")
     except Exception as e:
-        print(f"️ Не удалось очистить webhook: {e}")
+        print(f"⚠️ Не удалось очистить webhook: {e}")
     print("⏳ Ожидаю 15 секунд...")
     time.sleep(15)
     while bot_running:
@@ -1077,7 +1139,7 @@ def run_bot():
             bot.polling(none_stop=True, timeout=120, long_polling_timeout=120, allowed_updates=["message"])
         except telebot.apihelper.ApiTelegramException as e:
             if e.error_code == 409:
-                print("️ Конфликт 409, жду 90 секунд...")
+                print("⚠️ Конфликт 409, жду 90 секунд...")
                 try: bot.stop_polling()
                 except: pass
                 time.sleep(90)
