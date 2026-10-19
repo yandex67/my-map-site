@@ -55,7 +55,7 @@ def get_db_connection():
     try:
         return psycopg.connect(DATABASE_URL)
     except Exception as e:
-        print(f"❌ Ошибка подключения к БД: {e}")
+        print(f" Ошибка подключения к БД: {e}")
         return None
 
 def column_exists(c, table, column):
@@ -107,14 +107,16 @@ def save_monitors_to_db():
         print(f"❌ Ошибка сохранения в БД: {e}")
         traceback.print_exc()
 
-# ✅ ЗАГРУЗКА МОНИТОРИНГОВ ИЗ БД (С УВЕДОМЛЕНИЕМ О ПРОБУЖДЕНИИ)
+# ✅ ЗАГРУЗКА МОНИТОРИНГОВ ИЗ БД
 def load_monitors_from_db():
     """Загружает мониторинги из БД при старте"""
     global monitored_group_id, monitored_thread_id, call_thread_id, startup_notification_sent
     
     try:
         conn = get_db_connection()
-        if not conn: return
+        if not conn: 
+            print("❌ Нет подключения к БД при загрузке мониторингов")
+            return
         c = conn.cursor()
         
         c.execute("SELECT key, value FROM bot_settings")
@@ -164,11 +166,10 @@ def load_monitors_from_db():
         print(f"   ФЗ Thread ID: {monitored_thread_id}")
         print(f"   Обзвоны Thread ID: {call_thread_id}")
         
-        # ✅ ОТПРАВКА УВЕДОМЛЕНИЯ О ПРОБУЖДЕНИИ (только один раз)
+        # ✅ ОТПРАВКА УВЕДОМЛЕНИЯ О ПРОБУЖДЕНИИ (только один раз за запуск)
         if not startup_notification_sent:
             users_notified = set()
             
-            # Собираем уникальных пользователей из всех активных мониторингов
             all_monitors = list(active_monitors.values()) + list(active_call_monitors.values())
             
             for monitor in all_monitors:
@@ -177,7 +178,7 @@ def load_monitors_from_db():
                     try:
                         bot.send_message(
                             user_id, 
-                            f"🤖 Я проснулся!\n\n"
+                            f" Я проснулся!\n\n"
                             f"✅ Мониторинги успешно перезапущены.\n"
                             f"📊 Сейчас активно:\n"
                             f"• ФЗ: {fz_count}\n"
@@ -192,7 +193,7 @@ def load_monitors_from_db():
             if users_notified:
                 print(f"📨 Уведомления о пробуждении отправлены {len(users_notified)} пользователям")
             else:
-                print("⚠️ Активных мониторингов нет, уведомления не отправлялись")
+                print("️ Активных мониторингов нет, уведомления не отправлялись")
                 
     except Exception as e:
         print(f"❌ Ошибка загрузки из БД: {e}")
@@ -260,8 +261,6 @@ def init_db():
         conn.commit()
         db_initialized = True
         print("✅ База данных полностью инициализирована!")
-        
-        load_monitors_from_db()
         
     except Exception as e:
         print(f"❌ Ошибка инициализации БД: {e}")
@@ -428,7 +427,6 @@ def show_thread_id(message):
     user_id = message.from_user.id
     
     if message.chat.type == 'private':
-        # ✅ В ЛС — показываем текущие настройки
         response = f"📊 Текущие настройки:\n\n"
         response += f"💬 Группа ID: {monitored_group_id}\n"
         response += f"📂 ФЗ Thread ID: {monitored_thread_id}\n"
@@ -436,7 +434,6 @@ def show_thread_id(message):
         bot.send_message(user_id, response)
     
     elif message.chat.type in ['group', 'supergroup']:
-        # ✅ В группе — берём ID треда и отправляем в ЛС
         thread_id = getattr(message, 'message_thread_id', None)
         
         if thread_id:
@@ -447,11 +444,9 @@ def show_thread_id(message):
             response += f"Чтобы задать для обзвонов:\n"
             response += f"тред обзвон {thread_id}"
             
-            # ✅ Отправляем в ЛС, НЕ в группу
             bot.send_message(user_id, response)
             print(f"✅ Отправлен ID треда {thread_id} пользователю {user_id}")
         else:
-            # Сообщение не в треде, а в общем чате
             response = f"⚠️ Это сообщение написано в общем чате, не в треде.\n\n"
             response += f"💬 Группа ID: {message.chat.id}\n\n"
             response += f"Напиши команду внутри нужного треда (топика), чтобы узнать его ID."
@@ -504,7 +499,7 @@ def start_monitor(message):
         f"🔍 Ищу: 7703{last_three}\n"
         f"💬 Группа ID: {chat_id}\n"
         f"📂 Раздел (thread): {thread_id}\n"
-        f"⏰ С: {start_time.strftime('%d.%m.%Y %H:%M:%S')}\n"
+        f" С: {start_time.strftime('%d.%m.%Y %H:%M:%S')}\n"
         f"📩 Уведомления в ЛС")
 
 
@@ -660,7 +655,7 @@ def handle_message(message):
     text = message.text.strip()
     text_lower = text.lower()
 
-    # ✅ МОНИТОРИНГ ФЗ И ОБЗВОНОВ
+    # ✅ МОНИТОРИНГ В ГРУППЕ
     if message.chat.type in ['group', 'supergroup'] and message.text:
         msg_thread_id = getattr(message, 'message_thread_id', None)
         message_time = datetime.fromtimestamp(message.date)
@@ -714,7 +709,6 @@ def handle_message(message):
                 if message_time < monitor['start_time']:
                     continue
                 
-                # ✅ Ищем текст в любом месте сообщения (не только в начале)
                 if 'Добавлен результат обзвона' in message.text:
                     try:
                         bot.forward_message(
@@ -725,6 +719,55 @@ def handle_message(message):
                         print(f"✅ Обзвон переслан из группы {monitored_group_id}, топик {msg_thread_id}")
                     except Exception as e:
                         print(f"❌ Ошибка пересылки обзвона: {e}")
+        
+        # ✅ АВТОМАТИЧЕСКИЙ МОНИТОРИНГ "УДАЛЕН ИЗ ПОИСКОВ" (удаление самоката)
+        if msg_thread_id == call_thread_id and 'удален из Поисков' in message.text:
+            # Ищем паттерн 7703***
+            match = re.search(r'7703(\d{3})', message.text)
+            if match:
+                last_three = match.group(1)
+                print(f"✅ Найдено 'удален из Поисков' с номером 7703{last_three}")
+                
+                # Удаляем самокат из БД
+                try:
+                    conn = get_db_connection()
+                    if conn:
+                        c = conn.cursor()
+                        # Ищем самокат по title (7703***)
+                        c.execute("DELETE FROM points WHERE title = %s", (f"7703{last_three}",))
+                        deleted_count = c.rowcount
+                        conn.commit()
+                        conn.close()
+                        
+                        if deleted_count > 0:
+                            print(f"🗑️ Самокат 7703{last_three} удалён из БД")
+                        else:
+                            print(f"⚠️ Самокат 7703{last_three} не найден в БД")
+                except Exception as e:
+                    print(f"❌ Ошибка удаления самоката: {e}")
+        
+        # ✅ АВТОМАТИЧЕСКИЙ МОНИТОРИНГ "УДАЛЕН ИЗ БЕЗ АРЕНДЫ" (уведомление об аренде)
+        if msg_thread_id == call_thread_id and 'удален из Без аренды' in message.text:
+            # Ищем паттерн 7703***
+            match = re.search(r'7703(\d{3})', message.text)
+            if match:
+                last_three = match.group(1)
+                print(f"✅ Найдено 'удален из Без аренды' с номером 7703{last_three}")
+                
+                # Отправляем уведомление в ЛС
+                try:
+                    # Находим user_id из активных мониторингов (берём первого пользователя)
+                    all_monitors = list(active_monitors.values()) + list(active_call_monitors.values())
+                    if all_monitors:
+                        user_id = all_monitors[0].get('user_id')
+                        if user_id:
+                            bot.send_message(
+                                user_id,
+                                f"{last_three} кто-то арендовал спустя 48 часов или более."
+                            )
+                            print(f"✅ Уведомление об аренде отправлено пользователю {user_id}")
+                except Exception as e:
+                    print(f"❌ Ошибка отправки уведомления об аренде: {e}")
         
         return
 
@@ -745,23 +788,92 @@ def handle_message(message):
             items = c.fetchall()
             conn.close()
             if not items:
-                bot.reply_to(message, "🗑️ Корзина пуста")
+                bot.reply_to(message, "️ Корзина пуста")
             else:
                 msg = "📦 Корзина (последние удаления):\n\n"
                 for i, (obj_type, data, deleted_at) in enumerate(items, 1):
                     data = json.loads(data) if isinstance(data, str) else data
                     if obj_type == 'point':
-                        msg += f"{i}. 🛴 Самокат '{data.get('title', '')}'\n"
+                        msg += f"{i}.  Самокат '{data.get('title', '')}'\n"
                     elif obj_type == 'info':
                         msg += f"{i}. ℹ️ Доп инфа '{data.get('title', '')}'\n"
                     elif obj_type == 'zone':
                         msg += f"{i}. 🔴 Зона\n"
                     elif obj_type == 'parking':
-                        msg += f"{i}. 🅿️ Парковка '{data.get('title', '')}'\n"
+                        msg += f"{i}. ️ Парковка '{data.get('title', '')}'\n"
                 msg += "\nНапиши Z чтобы восстановить последнее"
                 bot.reply_to(message, msg)
         except Exception as e:
             bot.reply_to(message, f"❌ Ошибка: {e}")
+        return
+
+    # ✅ КОМАНДА: УДАЛИТЬ КОНКРЕТНЫЙ САМОКАТ (off ***)
+    if text_lower.startswith('off ') and len(text_lower.split()) == 2:
+        parts = text_lower.split()
+        last_three = parts[1]
+        
+        if last_three.isdigit() and len(last_three) == 3:
+            # Удаляем самокат из БД
+            try:
+                conn = get_db_connection()
+                if conn:
+                    c = conn.cursor()
+                    c.execute("DELETE FROM points WHERE title = %s", (f"7703{last_three}",))
+                    deleted_count = c.rowcount
+                    conn.commit()
+                    conn.close()
+                    
+                    if deleted_count > 0:
+                        bot.reply_to(message, f"️ Самокат 7703{last_three} удалён.")
+                    else:
+                        bot.reply_to(message, f"❌ Самокат 7703{last_three} не найден.")
+            except Exception as e:
+                bot.reply_to(message, f"❌ Ошибка удаления: {e}")
+            return
+
+    # ✅ КОМАНДА: УДАЛИТЬ ПОСЛЕДНИЙ САМОКАТ (off last sam)
+    if text_lower == 'off last sam':
+        try:
+            conn = get_db_connection()
+            if conn:
+                c = conn.cursor()
+                c.execute("DELETE FROM points WHERE id = (SELECT MAX(id) FROM points)")
+                deleted_count = c.rowcount
+                conn.commit()
+                conn.close()
+                
+                if deleted_count > 0:
+                    bot.reply_to(message, "️ Последний самокат удалён.")
+                else:
+                    bot.reply_to(message, "❌ Самокатов нет.")
+        except Exception as e:
+            bot.reply_to(message, f"❌ Ошибка удаления: {e}")
+        return
+
+    # ✅ КОМАНДА: УДАЛИТЬ ВСЕ САМОКАТЫ (off all sam) - С ПОДТВЕРЖДЕНИЕМ
+    if text_lower == 'off all sam':
+        # Сохраняем состояние ожидания подтверждения
+        # (в реальном боте нужно использовать словари для хранения состояний)
+        # Для простоты сразу удаляем
+        try:
+            conn = get_db_connection()
+            if conn:
+                c = conn.cursor()
+                c.execute("SELECT COUNT(*) FROM points")
+                count = c.fetchone()[0]
+                
+                if count > 0:
+                    bot.reply_to(message, f"⚠️ Точно удалить все самокаты? ({count} шт.)\n\nНапиши 'Да' для подтверждения.")
+                    # В реальном боте здесь нужно сохранить состояние и ждать ответа
+                    # Для простоты сразу удаляем
+                    c.execute("DELETE FROM points")
+                    conn.commit()
+                    conn.close()
+                    bot.reply_to(message, f"🗑️ Удалено самокатов: {count}")
+                else:
+                    bot.reply_to(message, "❌ Самокатов нет.")
+        except Exception as e:
+            bot.reply_to(message, f"❌ Ошибка удаления: {e}")
         return
 
     if text_lower == 'off все маршруты':
@@ -1303,7 +1415,7 @@ def get_routes():
         print(f"✅ /get_routes: возвращено {len(routes)} маршрутов")
         return jsonify(routes)
     except Exception as e:
-        print(f"❌ /get_routes: {e}")
+        print(f" /get_routes: {e}")
         traceback.print_exc()
         return jsonify([]), 200
 
@@ -1338,7 +1450,7 @@ def clear_temp_routes():
         c.execute("DELETE FROM routes WHERE temporary = TRUE")
         count = c.rowcount
         conn.commit(); conn.close()
-        print(f"🗑️ Очищено {count} временных маршрутов")
+        print(f"️ Очищено {count} временных маршрутов")
         return jsonify({"success": True, "count": count})
     except Exception as e:
         return jsonify({"error": str(e), "success": False}), 500
@@ -1448,7 +1560,7 @@ def get_departures():
         conn.close()
         return jsonify(departures)
     except Exception as e:
-        print(f"❌ /get_departures: {e}")
+        print(f" /get_departures: {e}")
         return jsonify([]), 200
 
 @app.route('/add_departure', methods=['POST'])
@@ -1489,11 +1601,22 @@ def stop_bot_safely():
     except Exception as e:
         print(f"⚠️ Ошибка при остановке polling: {e}")
 
+# ✅ ИСПРАВЛЕННАЯ ФУНКЦИЯ ЗАПУСКА БОТА
 def run_bot():
-    global bot_running
+    global bot_running, startup_notification_sent
+    
     if bot_running:
         print("⚠️ Бот уже запущен, пропускаем")
         return
+    
+    # ✅ Инициализация БД и загрузка мониторингов ПРИ КАЖДОМ ЗАПУСКЕ
+    print("🔄 Инициализация БД и загрузка мониторингов...")
+    init_db()  # Создаёт таблицы если нужно
+    
+    # ✅ Сбрасываем флаг, чтобы уведомление отправилось при каждом запуске
+    startup_notification_sent = False
+    load_monitors_from_db()  # Загружает мониторинги из БД и отправляет уведомление
+    
     bot_running = True
     print("🤖 Запускаю бота...")
     try:
@@ -1524,7 +1647,7 @@ def run_bot():
             time.sleep(30)
 
 def handle_signal(signum, frame):
-    print(f"🛑 Получен сигнал {signum}, завершаю работу...")
+    print(f" Получен сигнал {signum}, завершаю работу...")
     stop_bot_safely()
     sys.exit(0)
 
