@@ -1115,7 +1115,7 @@
             document.getElementById('confirmAssignModal').style.display = 'flex';
         }
         function showRouteCommentInput() {
-            console.log('📝 Клик на кнопку "Комментарий"');
+            console.log(' Клик на кнопку "Комментарий"');
             console.log('Текущий routeComment:', routeComment);
             document.getElementById('routeCommentBtn').style.display = 'none';
             document.getElementById('routeCommentInput').style.display = 'block';
@@ -1151,7 +1151,7 @@
         function saveRouteToServer() {
             var comment = routeComment || '';
             
-            console.log('📤 Отправка на сервер...');
+            console.log(' Отправка на сервер...');
             console.log('📍 Координаты:', routePoints);
             console.log('💬 Комментарий:', comment);
             console.log('⏱️ Временный:', isTempRoute);
@@ -1178,7 +1178,7 @@
                     document.getElementById('confirmAssignModal').style.display = 'none';
                     loadRoutes(); 
                 } else {
-                    console.error('❌ Ошибка сохранения маршрута:', data);
+                    console.error(' Ошибка сохранения маршрута:', data);
                 }
             })
             .catch(function(error) {
@@ -1351,7 +1351,6 @@
         function confirmFromModal() {
             console.log('🔘 Нажата кнопка Ок в модалке');
             
-            // ✅ Если поле ввода комментария видимо — сначала сохраняем комментарий
             var commentInput = document.getElementById('routeCommentInput');
             if (commentInput.style.display === 'block') {
                 console.log('📝 Поле ввода видимо, сохраняем комментарий перед отправкой');
@@ -1359,7 +1358,7 @@
                 console.log('💾 Сохранён routeComment:', routeComment);
             }
             
-            console.log('📋 Текущий routeComment:', routeComment);
+            console.log(' Текущий routeComment:', routeComment);
             
             if (isRouteConfirmMode) {
                 saveRouteToServer();
@@ -1488,12 +1487,14 @@
                         if (assigningUser) { toggleAssignRoute(route); }
                     });
                     
-                    // ✅ Комментарий маршрута без рамки и фона
+                    // ✅ Комментарий маршрута с правильным позиционированием
                     var textMarker = null;
                     if (route.comment && route.comment.trim() !== '') {
                         var center = getRouteCenter(route.coords);
                         var isVertical = isRouteVertical(route.coords);
-                        var offset = [0, -15];
+                        // ✅ Горизонтальный: по центру над линией, отступ 7px
+                        // ✅ Вертикальный: по центру справа от линии, отступ 7px
+                        var offset = isVertical ? [7, -10] : [-100, -20];
                         textMarker = new ymaps.Placemark(center, {}, {
                             iconLayout: ymaps.templateLayoutFactory.createClass(
                                 '<div style="color: #640000; font-weight: bold; font-size: 12px; white-space: nowrap; pointer-events: none;">' + route.comment + '</div>'
@@ -1523,11 +1524,12 @@
                     var arrowMarker = createArrowMarker(lastPoint, prevPoint);
                     myMap.geoObjects.add(arrowMarker);
                     
-                    // ✅ Комментарий маршрута без рамки и фона
+                    // ✅ Комментарий маршрута с правильным позиционированием
                     var textMarker = null;
                     if (route.comment && route.comment.trim() !== '') {
                         var center = getRouteCenter(route.coords);
-                        var offset = [0, -15];
+                        var isVertical = isRouteVertical(route.coords);
+                        var offset = isVertical ? [7, -10] : [-100, -20];
                         textMarker = new ymaps.Placemark(center, {}, {
                             iconLayout: ymaps.templateLayoutFactory.createClass(
                                 '<div style="color: #640000; font-weight: bold; font-size: 12px; white-space: nowrap; pointer-events: none;">' + route.comment + '</div>'
