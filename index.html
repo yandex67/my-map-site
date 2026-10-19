@@ -1142,17 +1142,44 @@
             });
         }
         function saveRouteToServer() {
-            var comment = routeComment || '';
-            fetch(API_URL + '/add_route', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ coords: routePoints, comment: comment, temporary: isTempRoute }) })
-                .then(function(r) { return r.json(); }).then(function(data) {
-                    if (data.success) { 
-                        resetDrawingState(); 
-                        document.getElementById('drawingIndicator').style.display = 'none';
-                        document.getElementById('confirmAssignModal').style.display = 'none';
-                        loadRoutes(); 
-                    }
-                });
+    var comment = routeComment || '';
+    
+    // ✅ ЛОГИРОВАНИЕ В КОНСОЛЬ
+    console.log(' Сохранение маршрута...');
+    console.log('Координаты:', routePoints);
+    console.log('Комментарий:', comment);
+    console.log('Временный:', isTempRoute);
+    
+    fetch(API_URL + '/add_route', { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify({ 
+            coords: routePoints, 
+            comment: comment, 
+            temporary: isTempRoute 
+        }) 
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) { 
+            // ✅ УВЕДОМЛЕНИЕ В КОНСОЛЬ
+            if (comment && comment.trim() !== '') {
+                console.log('✅ Комментарий для маршрута сохранен!');
+            } else {
+                console.log('✅ Маршрут сохранен без комментария');
+            }
+            resetDrawingState(); 
+            document.getElementById('drawingIndicator').style.display = 'none';
+            document.getElementById('confirmAssignModal').style.display = 'none';
+            loadRoutes(); 
+        } else {
+            console.error('❌ Ошибка сохранения маршрута:', data);
         }
+    })
+    .catch(function(error) {
+        console.error('❌ Ошибка запроса:', error);
+    });
+}
         function exitDrawingModeKeepPolygon() {
             isDrawingZone = false; drawMode = 1; willSaveZone = false; isZoneConfirmed = false;
             drawModeSelected = false; isMode3SubMode = false; zonePoints = []; zoneComment = "";
