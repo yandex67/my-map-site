@@ -1446,20 +1446,21 @@
                     
                     // ✅ Исправлено отображение комментария маршрута
                     var textMarker = null;
-                    if (route.comment && route.comment.trim() !== '') {
-                        var center = getRouteCenter(route.coords);
-                        var isVertical = isRouteVertical(route.coords);
-                        // ✅ Для горизонтального - сверху на 20px, для вертикального - справа на 20px
-                        var offset = isVertical ? [20, -10] : [-100, -20];
-                        textMarker = new ymaps.Placemark(center, {}, {
-                            iconLayout: ymaps.templateLayoutFactory.createClass(
-                                '<div style="color: #640000; font-weight: bold; font-size: 12px; white-space: nowrap; pointer-events: none; background: rgba(255,255,255,0.8); padding: 2px 6px; border-radius: 3px;">' + route.comment + '</div>'
-                            ),
-                            iconOffset: offset,
-                            zIndex: 500
-                        });
-                        myMap.geoObjects.add(textMarker);
-                    }
+if (route.comment && route.comment.trim() !== '') {
+    var center = getRouteCenter(route.coords);
+    var isVertical = isRouteVertical(route.coords);
+    // ✅ Правильные offset: горизонтальный - текст сверху по центру, вертикальный - справа
+    var offset = isVertical ? [15, -10] : [-100, -25];
+    textMarker = new ymaps.Placemark(center, {}, {
+        iconLayout: ymaps.templateLayoutFactory.createClass(
+            '<div style="color: #640000; font-weight: bold; font-size: 12px; white-space: nowrap; pointer-events: none; background: rgba(255,255,255,0.9); padding: 3px 8px; border-radius: 4px; border: 1px solid #ff3b30;">' + route.comment + '</div>'
+        ),
+        iconOffset: offset,
+        iconShape: { type: 'Rectangle', coordinates: [[0, 0], [200, 25]] },
+        zIndex: 500
+    });
+    myMap.geoObjects.add(textMarker);
+}
                     
                     polyline.events.add('contextmenu', function(e) { e.get('domEvent').preventDefault(); e.get('domEvent').stopPropagation(); contextMenuHandled = true; deleteRouteId = route.id; document.getElementById('deleteRouteModal').style.display = 'flex'; });
                     routes.push({ id: route.id, polyline: polyline, arrow: arrowMarker, textMarker: textMarker, comment: route.comment, assigned_to: route.assigned_to });
