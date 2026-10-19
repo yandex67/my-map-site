@@ -282,28 +282,27 @@ def handle_message(message):
     text = message.text.strip()
     text_lower = text.lower()
 
-    # ✅ МОНИТОРИНГ - проверяем в самом начале
+    # ✅ МОНИТОРИНГ - работает везде, включая группы
     if message.chat.type in ['group', 'supergroup'] and message.text:
         message_time = datetime.fromtimestamp(message.date)
         
         for key, monitor in list(active_monitors.items()):
             if monitor['chat_id'] == message.chat.id and monitor['active']:
-                # Пропускаем сообщения до начала мониторинга
                 if message_time < monitor['start_time']:
                     continue
-                
-                # Ищем паттерн 7703XXX
                 pattern = f"7703{monitor['last_three']}"
                 if pattern in message.text:
                     try:
-                        # ✅ Отправляем в ЛС пользователю
                         bot.send_message(
                             monitor['user_id'],
                             f"Произошло новое ФЗ {monitor['last_three']}!"
                         )
-                        print(f"✅ Найдено: {pattern} в группе {message.chat.id}, отправлено пользователю {monitor['user_id']}")
+                        print(f"✅ Найдено: {pattern} в группе {message.chat.id}")
                     except Exception as e:
                         print(f"Ошибка отправки уведомления: {e}")
+        
+        # ✅ В группах дальше не обрабатываем обычные команды
+        return
 
     # ✅ КОМАНДА ОТМЕНЫ УДАЛЕНИЯ
     if text_lower == 'z':
