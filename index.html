@@ -1349,14 +1349,24 @@
             }
         }
         function confirmFromModal() {
-            console.log('🔘 Нажата кнопка Ок в модалке');
-            console.log(' Текущий routeComment:', routeComment);
-            if (isRouteConfirmMode) {
-                saveRouteToServer();
-            } else {
-                confirmOrangeModal();
-            }
-        }
+    console.log(' Нажата кнопка Ок в модалке');
+    
+    // ✅ Если поле ввода комментария видимо — сначала сохраняем комментарий
+    var commentInput = document.getElementById('routeCommentInput');
+    if (commentInput.style.display === 'block') {
+        console.log('📝 Поле ввода видимо, сохраняем комментарий перед отправкой');
+        routeComment = commentInput.value.trim();
+        console.log('💾 Сохранён routeComment:', routeComment);
+    }
+    
+    console.log('📋 Текущий routeComment:', routeComment);
+    
+    if (isRouteConfirmMode) {
+        saveRouteToServer();
+    } else {
+        confirmOrangeModal();
+    }
+}
 
         function loadPoints() {
             labelMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); labelMarkers = [];
