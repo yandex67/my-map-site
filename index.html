@@ -1152,7 +1152,7 @@
             var comment = routeComment || '';
             
             console.log('📤 Отправка на сервер...');
-            console.log(' Координаты:', routePoints);
+            console.log('📍 Координаты:', routePoints);
             console.log('💬 Комментарий:', comment);
             console.log('⏱️ Временный:', isTempRoute);
             
@@ -1178,7 +1178,7 @@
                     document.getElementById('confirmAssignModal').style.display = 'none';
                     loadRoutes(); 
                 } else {
-                    console.error(' Ошибка сохранения маршрута:', data);
+                    console.error('❌ Ошибка сохранения маршрута:', data);
                 }
             })
             .catch(function(error) {
@@ -1349,24 +1349,24 @@
             }
         }
         function confirmFromModal() {
-    console.log(' Нажата кнопка Ок в модалке');
-    
-    // ✅ Если поле ввода комментария видимо — сначала сохраняем комментарий
-    var commentInput = document.getElementById('routeCommentInput');
-    if (commentInput.style.display === 'block') {
-        console.log('📝 Поле ввода видимо, сохраняем комментарий перед отправкой');
-        routeComment = commentInput.value.trim();
-        console.log('💾 Сохранён routeComment:', routeComment);
-    }
-    
-    console.log('📋 Текущий routeComment:', routeComment);
-    
-    if (isRouteConfirmMode) {
-        saveRouteToServer();
-    } else {
-        confirmOrangeModal();
-    }
-}
+            console.log('🔘 Нажата кнопка Ок в модалке');
+            
+            // ✅ Если поле ввода комментария видимо — сначала сохраняем комментарий
+            var commentInput = document.getElementById('routeCommentInput');
+            if (commentInput.style.display === 'block') {
+                console.log('📝 Поле ввода видимо, сохраняем комментарий перед отправкой');
+                routeComment = commentInput.value.trim();
+                console.log('💾 Сохранён routeComment:', routeComment);
+            }
+            
+            console.log('📋 Текущий routeComment:', routeComment);
+            
+            if (isRouteConfirmMode) {
+                saveRouteToServer();
+            } else {
+                confirmOrangeModal();
+            }
+        }
 
         function loadPoints() {
             labelMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); labelMarkers = [];
@@ -1488,17 +1488,17 @@
                         if (assigningUser) { toggleAssignRoute(route); }
                     });
                     
+                    // ✅ Комментарий маршрута без рамки и фона
                     var textMarker = null;
                     if (route.comment && route.comment.trim() !== '') {
                         var center = getRouteCenter(route.coords);
                         var isVertical = isRouteVertical(route.coords);
-                        var offset = isVertical ? [15, -10] : [-100, -25];
+                        var offset = [0, -15];
                         textMarker = new ymaps.Placemark(center, {}, {
                             iconLayout: ymaps.templateLayoutFactory.createClass(
-                                '<div style="color: #640000; font-weight: bold; font-size: 12px; white-space: nowrap; pointer-events: none; background: rgba(255,255,255,0.9); padding: 3px 8px; border-radius: 4px; border: 1px solid #ff3b30;">' + route.comment + '</div>'
+                                '<div style="color: #640000; font-weight: bold; font-size: 12px; white-space: nowrap; pointer-events: none;">' + route.comment + '</div>'
                             ),
                             iconOffset: offset,
-                            iconShape: { type: 'Rectangle', coordinates: [[0, 0], [200, 25]] },
                             zIndex: 500
                         });
                         myMap.geoObjects.add(textMarker);
@@ -1523,17 +1523,16 @@
                     var arrowMarker = createArrowMarker(lastPoint, prevPoint);
                     myMap.geoObjects.add(arrowMarker);
                     
+                    // ✅ Комментарий маршрута без рамки и фона
                     var textMarker = null;
                     if (route.comment && route.comment.trim() !== '') {
                         var center = getRouteCenter(route.coords);
-                        var isVertical = isRouteVertical(route.coords);
-                        var offset = isVertical ? [15, -10] : [-100, -25];
+                        var offset = [0, -15];
                         textMarker = new ymaps.Placemark(center, {}, {
                             iconLayout: ymaps.templateLayoutFactory.createClass(
-                                '<div style="color: #640000; font-weight: bold; font-size: 12px; white-space: nowrap; pointer-events: none; background: rgba(255,255,255,0.9); padding: 3px 8px; border-radius: 4px; border: 1px solid #ff3b30;">' + route.comment + '</div>'
+                                '<div style="color: #640000; font-weight: bold; font-size: 12px; white-space: nowrap; pointer-events: none;">' + route.comment + '</div>'
                             ),
                             iconOffset: offset,
-                            iconShape: { type: 'Rectangle', coordinates: [[0, 0], [200, 25]] },
                             zIndex: 500
                         });
                         myMap.geoObjects.add(textMarker);
