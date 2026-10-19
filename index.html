@@ -1063,6 +1063,7 @@
                 if (willSaveZone) { saveZoneToServer(); } else { exitDrawingModeKeepPolygon(); }
             }
         }
+        // ✅ ИСПРАВЛЕНО: сразу показываем модалку с кнопкой "Комментарий"
         function finishRoute() {
             if (routePoints.length < 2) { cancelZoneDrawing(); return; }
             if (!routeEditMode) {
@@ -1070,10 +1071,9 @@
                 routePolyline = new ymaps.Polyline(routePoints, {}, { strokeColor: '#ff3b30', strokeWidth: 4, strokeStyle: 'solid' });
                 myMap.geoObjects.add(routePolyline);
                 enableRouteVertexEditing(); routeEditMode = true;
-                document.getElementById('indicatorText').textContent = 'Точно всё?';
-                document.getElementById('commentBtn').style.display = 'none';
-                document.getElementById('commentDisplayBtn').style.display = 'none';
-                document.getElementById('commentInput').style.display = 'none';
+                // ✅ Сразу открываем модалку "Точно всё?" с кнопкой "Комментарий"
+                document.getElementById('drawingIndicator').style.display = 'none';
+                showRouteConfirmModal();
                 return;
             }
             routePointMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); routePointMarkers = [];
@@ -1084,6 +1084,7 @@
             var prevPoint = routePoints[routePoints.length - 2];
             var arrowMarker = createArrowMarker(lastPoint, prevPoint);
             myMap.geoObjects.add(arrowMarker);
+            // ✅ Сразу открываем модалку "Точно всё?" с кнопкой "Комментарий"
             document.getElementById('drawingIndicator').style.display = 'none';
             showRouteConfirmModal();
         }
@@ -1574,16 +1575,16 @@
             }
         }
 
-        // ✅ ИКОНКА ПАРКОВКИ С УЧЁТОМ КОЛИЧЕСТВА СЕВШИХ
+        // ✅ ПОРОГ ИЗМЕНЁН: > 2 (то есть 3+ севших)
         function createParkingIcon(deadCount) {
-            var iconFile = (deadCount > 3) ? 'pr.png' : 'p.png';
+            var iconFile = (deadCount > 2) ? 'pr.png' : 'p.png';
             return { 
                 iconLayout: ymaps.templateLayoutFactory.createClass('<div style="width: 18px; height: 18px; text-align: center; line-height: 18px;"><img src="' + BASE_URL + iconFile + '" style="width: 18px; height: 18px; display: block;"></div>'), 
                 iconShape: { type: 'Circle', coordinates: [9, 9], radius: 9 } 
             }; 
         }
         function createOsmParkingIcon(deadCount) {
-            var iconFile = (deadCount > 3) ? 'pr.png' : 'p.png';
+            var iconFile = (deadCount > 2) ? 'pr.png' : 'p.png';
             return L.divIcon({ 
                 className: 'custom-div-icon', 
                 html: '<img src="' + BASE_URL + iconFile + '" style="width: 18px; height: 18px; display: block;">', 
@@ -1633,7 +1634,6 @@
                     try {
                         var deadNum = parseInt(p.dead, 10); if (isNaN(deadNum)) deadNum = 0;
                         if (appSettings.show_parkings) {
-                            // ✅ Передаём количество севших в функцию создания иконки
                             var pm = new ymaps.Placemark([p.lat, p.lon], { balloonContent: buildParkingBalloon(p) }, createParkingIcon(deadNum));
                             pm.properties.set('parkingData', p);
                             pm.events.add('contextmenu', function(e) { e.get('domEvent').preventDefault(); e.get('domEvent').stopPropagation(); contextMenuHandled = true; deleteParkingId = p.id; document.getElementById('deleteParkingModal').style.display = 'flex'; });
