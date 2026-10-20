@@ -546,9 +546,10 @@ def parse_scooter_message_8694(text):
     return None
 
 # ✅ УПРОЩЁННАЯ ФУНКЦИЯ: Создание самоката СРАЗУ с карточкой ТГ
+# ✅ ФУНКЦИЯ: Создание самоката БЕЗ уведомлений
 def create_scooter_only(address, last_three, status, tgk_url):
     """
-    Создаёт самокат СРАЗУ с карточкой ТГ.
+    Создаёт самокат СРАЗУ с карточкой ТГ БЕЗ уведомлений в ЛС.
     Возвращает True если самокат готов (создан или уже существовал).
     """
     try:
@@ -575,6 +576,36 @@ def create_scooter_only(address, last_three, status, tgk_url):
             
             conn.close()
             return True
+        
+        # 2. Создаём новый самокат СРАЗУ с карточкой ТГ
+        print(f"🔧 Создаю самокат {last_three} по адресу '{address}' (статус: {status}) с карточкой ТГ...")
+        c.execute("""INSERT INTO points (title, address, lat, lon, status, comment, url, tgk_url) 
+                    VALUES (%s, %s, NULL, NULL, %s, '', '', %s)""", 
+                 (last_three, address, status, tgk_url))
+        conn.commit()
+        
+        # 3. ✅ ПРОВЕРКА: реально ли самокат создан?
+        c.execute("SELECT id FROM points WHERE title = %s AND status != 'found'", (last_three,))
+        created = c.fetchone()
+        
+        if not created:
+            conn.close()
+            print(f"❌❌❌ Самокат {last_three} НЕ создан в БД после INSERT!")
+            return False
+        
+        new_id = created[0]
+        conn.close()
+        
+        print(f"✅ Самокат {last_three} успешно создан (ID: {new_id}) с карточкой ТГ")
+        
+        # ✅ УВЕДОМЛЕНИЯ УБРАНЫ — бот создаёт самокаты тихо
+        
+        return True
+        
+    except Exception as e:
+        print(f"❌❌❌ Ошибка create_scooter_only: {e}")
+        traceback.print_exc()
+        return False
         
         # 2. Создаём новый самокат СРАЗУ с карточкой ТГ
         print(f"🔧 Создаю самокат {last_three} по адресу '{address}' (статус: {status}) с карточкой ТГ...")
@@ -948,20 +979,22 @@ def handle_message(message):
                         print(f"✅ Обзвон успешно переслан пользователю {monitor['user_id']}")
                     except Exception as e:
                         print(f"❌ Ошибка пересылки обзвона: {e}")
-
-        # 3. ✅ ПОСТОЯННЫЙ МОНИТОРИНГ ТОПИА 8694 (сразу с карточкой ТГ)
+                        
+        # 3. ✅ ПОСТОЯННЫЙ МОНИТОРИНГ ТОПИА 8694 (создаёт самокаты тихо, без уведомлений)
         if msg_thread_id == TGK_THREAD_ID:
             parsed = parse_scooter_message_8694(message.text)
             if parsed:
                 address, last_three, status = parsed
                 print(f"🔗 Обработано сообщение из топика {TGK_THREAD_ID}: адрес='{address}', номер={last_three}, статус={status}")
                 
-                # Формируем ссылку на этот пост — это и есть карточка ТГ
+                # ✅ СРАЗУ получаем ссылку на этот пост — это и есть карточка ТГ
                 raw_chat_id = str(monitored_group_id)
                 chat_id_for_link = raw_chat_id[4:] if raw_chat_id.startswith('-100') else raw_chat_id.lstrip('-')
                 message_link = f"https://t.me/c/{chat_id_for_link}/{message.message_id}"
                 
-                # Создаём самокат СРАЗУ с карточкой ТГ
+                print(f"🔗 Ссылка на пост: {message_link}")
+                
+                # Создаём самокат СРАЗУ с карточкой ТГ (без уведомлений)
                 create_scooter_only(address, last_three, status, message_link)
 
         # 4. Авто-удаление "удален из Поисков"
