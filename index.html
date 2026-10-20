@@ -31,12 +31,12 @@
         .controls h3 { margin: 0 0 5px 0; font-size: 15px; cursor: pointer; user-select: none; display: inline-block; }
         .info { font-size: 13px; color: #666; margin-bottom: 0; cursor: pointer; user-select: none; display: inline-block; }
         
-        /* ✅ КНОПКА ПЕРЕЗАГРУЗКИ (на переднем плане, перекрывает плашку) */
+        /* ✅ КНОПКА ПЕРЕЗАГРУЗКИ (на переднем плане) */
         .restart-btn {
             position: absolute;
             top: 15px;
             right: 15px;
-            z-index: 1100; /* ✅ ВЫШЕ плашки "Задачи на сегодня" (у неё 1000) */
+            z-index: 1100;
             width: 56px;
             height: 56px;
             background: transparent;
@@ -60,21 +60,16 @@
         .bottom-panel .close-btn { 
             position: absolute; 
             top: 8px; 
-            right: 12px; 
+            right: 10px; 
             background: none; 
             border: none; 
-            font-size: 24px; 
-            font-weight: bold;
+            font-size: 20px; 
             cursor: pointer; 
-            color: #666; 
+            color: #333; 
             padding: 0; 
             width: auto; 
             margin: 0; 
             line-height: 1; 
-            transition: color 0.2s ease;
-        }
-        .bottom-panel .close-btn:hover {
-            color: #f44336;
         }
         .departure-item { font-size: 15px; color: #333; text-align: center; margin: 4px 0; }
         .dead-info { font-size: 15px; color: #333; margin: 4px 0; font-weight: bold; cursor: pointer; display: inline-block; }
@@ -227,7 +222,6 @@
     <div id="map"></div>
     <div id="osmMap"></div>
     
-    <!-- ✅ КНОПКА ПЕРЕЗАГРУЗКИ -->
     <div class="restart-btn" onclick="location.reload();" title="Обновить карту">
         <img src="https://yandex67.github.io/my-map-site/restart.png" alt="Обновить">
     </div>
@@ -244,7 +238,7 @@
         <div class="info" onclick="onInfoClick()">Всего: <span id="pointCount">0</span></div>
     </div>
     <div class="bottom-panel" id="bottomPanel">
-        <button class="close-btn" onclick="closeBottomPanel()">&times;</button>
+        <button class="close-btn" onclick="closeBottomPanel()"></button>
         <div id="userFilterText" class="user-filter-text" style="display:none;"></div>
         <div id="bottomDeparturesList"></div>
         <div class="dead-info" id="deadInfo" onclick="onDeadInfoClick()">Севшие на парковке: <span id="deadCount">0</span></div>
