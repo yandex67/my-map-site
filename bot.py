@@ -121,7 +121,7 @@ def save_monitors_to_db():
         print(f"❌ Ошибка сохранения в БД: {e}")
         traceback.print_exc()
 
-# ✅ ЗАГРУЗКА МОНИТОРИНГОВ ИЗ БД (С ИСПРАВЛЕННЫМ УВЕДОМЛЕНИЕМ)
+# ✅ ЗАГРУЗКА МОНИТОРИНГОВ ИЗ БД
 def load_monitors_from_db():
     global monitored_group_id, monitored_thread_id, call_thread_id, startup_notification_sent, monitored_user_id
     try:
@@ -200,7 +200,7 @@ def load_monitors_from_db():
                 print(f"✅ Автозапуск мониторинга обзвонов (топик {call_thread_id}, user {target_user})")
                 call_count = len(active_call_monitors)
 
-        # ✅ ОТПРАВКА УВЕДОМЛЕНИЯ О ПРОБУЖДЕНИИ (ВСЕГДА, НЕЗАВИСИМО ОТ МОНИТОРИНГОВ)
+        # ✅ ОТПРАВКА УВЕДОМЛЕНИЯ О ПРОБУЖДЕНИИ (ВСЕГДА)
         if not startup_notification_sent:
             print(f"🔍 Проверка startup_notification_sent: {startup_notification_sent}")
             
@@ -212,7 +212,6 @@ def load_monitors_from_db():
                 f"• Обзвоны: {call_count}"
             )
             
-            # ✅ ВСЕГДА отправляем тебе (OWNER_USER_ID)
             try:
                 bot.send_message(OWNER_USER_ID, msg)
                 print(f"✅✅✅ Уведомление 'Я проснулся!' отправлено тебе (ID: {OWNER_USER_ID})")
@@ -220,7 +219,6 @@ def load_monitors_from_db():
                 print(f"❌❌❌ Ошибка отправки уведомления OWNER_USER_ID: {e}")
                 traceback.print_exc()
             
-            # Дополнительно отправляем другим пользователям с активными мониторингами
             users_notified = {OWNER_USER_ID}
             all_monitors = list(active_monitors.values()) + list(active_call_monitors.values())
             for monitor in all_monitors:
@@ -382,52 +380,76 @@ def get_coordinates(address):
 # ✅ НОВАЯ ФУНКЦИЯ: Парсинг сообщения из топика 8694
 def parse_scooter_message_8694(text):
     """
-    Парсит сообщение из топика 8694 и возвращает (address, last_three) или None.
+    Парсит сообщение из топика 8694.
+    
+    Новый формат: "улица Ленина, 11 - 666 red"
+    Старый формат: "🛴 7703666" + адрес отдельно
+    
+    Возвращает (address, last_three, status) или None
     """
-    scooter_match = re.search(r'🛴\s*7703(\d{3})', text)
-    if not scooter_match:
+    last_three = None
+    status = 'active'
+    address = None
+    
+    # === НОВЫЙ ФОРМАТ: "улица Ленина, 11 - 666 red" ===
+    scooter_match = re.search(r'-\s*(\d{3})(?:\s+(red|sev))?\b', text, re.IGNORECASE)
+    if scooter_match:
+        last_three = scooter_match.group(1)
+        if scooter_match.group(2):
+            status = scooter_match.group(2).lower()
+        print(f"🔍 Найден номер самоката (новый формат): {last_three}, статус: {status}")
+    
+    if not last_three:
+        # === СТАРЫЙ ФОРМАТ: "🛴 7703666" ===
+        scooter_match = re.search(r'🛴\s*7703(\d{3})', text)
+        if scooter_match:
+            last_three = scooter_match.group(1)
+            print(f"🔍 Найден номер самоката (старый формат): {last_three}")
+    
+    if not last_three:
         return None
     
-    last_three = scooter_match.group(1)
+    # Ищем адрес (4 сценария)
     
-    # Сценарий 1: "Текущий gps: улица Ленина, 11"
-    match = re.search(r'Текущий gps:\s*улица\s+(\S+?)\s*,\s*(\d+)', text, re.IGNORECASE)
+    # Сценарий 1: "улица Ленина, 11" или "улица Ленина 11"
+    match = re.search(r'улица\s+(\S+?)\s*,?\s*(\d+)', text, re.IGNORECASE)
     if match:
         street = match.group(1)
         number = match.group(2)
         address = f"{street}, {number}"
-        print(f"📍 Сценарий 1 (улица): адрес='{address}', номер={last_three}")
-        return address, last_three
+        print(f"📍 Сценарий 1 (улица): адрес='{address}'")
+        return address, last_three, status
     
-    # Сценарий 2: "г Смоленск, пр-кт Мира, 5"
-    match = re.search(r'г\s*Смоленск,\s*пр-кт\s+(\S+?)\s*,\s*(\d+)', text, re.IGNORECASE)
+    # Сценарий 2: "г Смоленск, пр-кт Мира, 5" или "пр-кт Мира, 5"
+    match = re.search(r'пр-кт\s+(\S+?)\s*,?\s*(\d+)', text, re.IGNORECASE)
     if match:
         street = match.group(1)
         number = match.group(2)
         address = f"{street}, {number}"
-        print(f"📍 Сценарий 2 (пр-кт): адрес='{address}', номер={last_three}")
-        return address, last_three
+        print(f"📍 Сценарий 2 (пр-кт): адрес='{address}'")
+        return address, last_three, status
     
-    # Сценарий 3: "г Смоленск, ул Ленина, 11"
-    match = re.search(r'г\s*Смоленск,\s*ул\s+(\S+?)\s*,\s*(\d+)', text, re.IGNORECASE)
+    # Сценарий 3: "г Смоленск, ул Ленина, 11" или "ул Ленина, 11"
+    match = re.search(r'\bул\.?\s+(\S+?)\s*,?\s*(\d+)', text, re.IGNORECASE)
     if match:
         street = match.group(1)
         number = match.group(2)
         address = f"{street}, {number}"
-        print(f"📍 Сценарий 3 (ул): адрес='{address}', номер={last_three}")
-        return address, last_three
+        print(f"📍 Сценарий 3 (ул): адрес='{address}'")
+        return address, last_three, status
     
     # Сценарий 4: "Нет координат в пределах города"
     if re.search(r'Нет координат в пределах города', text, re.IGNORECASE):
         address = "54.776443, 32.050324"
-        print(f"📍 Сценарий 4 (нет координат): адрес='{address}', номер={last_three}")
-        return address, last_three
+        print(f"📍 Сценарий 4 (нет координат): адрес='{address}'")
+        return address, last_three, status
     
     print(f"⚠️ Не удалось распарсить адрес из сообщения")
     return None
 
-# ✅ НОВАЯ ФУНКЦИЯ: Создание самоката + добавление карточки ТГ
-def create_scooter_and_tgk(address, last_three, message_link, chat_id_for_link):
+# ✅ НОВАЯ ФУНКЦИЯ: Создание самоката БЕЗ карточки ТГ
+def create_scooter_only(address, last_three, status):
+    """Создаёт самокат БЕЗ карточки ТГ. Возвращает True если самокат готов."""
     try:
         conn = get_db_connection()
         if not conn:
@@ -435,14 +457,64 @@ def create_scooter_and_tgk(address, last_three, message_link, chat_id_for_link):
         
         c = conn.cursor()
         
-        # 1. Проверяем, есть ли уже такой самокат в БД
+        # Проверяем, есть ли уже такой самокат
         c.execute("SELECT id, tgk_url FROM points WHERE title = %s AND status != 'found'", (last_three,))
-        existing = c.fetchall()
+        existing = c.fetchone()
         
         if existing:
-            has_tgk = any(row[1] for row in existing)
+            print(f"⚠️ Самокат {last_three} уже существует (ID: {existing[0]})")
+            conn.close()
+            return True
+        
+        # Создаём новый самокат БЕЗ карточки ТГ
+        c.execute("""INSERT INTO points (title, address, lat, lon, status, comment, url, tgk_url) 
+                    VALUES (%s, %s, NULL, NULL, %s, '', '', '')""", 
+                 (last_three, address, status))
+        conn.commit()
+        conn.close()
+        
+        print(f"✅ Создан самокат {last_three} по адресу '{address}' (статус: {status}) БЕЗ карточки ТГ")
+        try:
+            bot.send_message(OWNER_USER_ID, 
+                f"🆕 Создан самокат {last_three}!\n"
+                f"📍 Адрес: {address}\n"
+                f"🎨 Статус: {status}\n\n"
+                f"⏱️ Через 5 сек проверю карточку ТГ...")
+        except Exception as e:
+            print(f"❌ Ошибка уведомления: {e}")
+        return True
+        
+    except Exception as e:
+        print(f"❌ Ошибка create_scooter_only: {e}")
+        traceback.print_exc()
+        return False
+
+# ✅ НОВАЯ ФУНКЦИЯ: Отложенная проверка и добавление карточки ТГ (через 5 сек)
+def check_and_add_tgk_after_delay(last_three, message_link):
+    """Через 5 секунд проверяет, есть ли карточка ТГ, и добавляет если нет"""
+    
+    def delayed_check():
+        try:
+            print(f"⏱️ [через 5 сек] Проверяю самокат {last_three}...")
+            conn = get_db_connection()
+            if not conn:
+                return
+            c = conn.cursor()
+            c.execute("SELECT id, tgk_url FROM points WHERE title = %s AND status != 'found'", (last_three,))
+            rows = c.fetchall()
             
-            if not has_tgk:
+            if not rows:
+                conn.close()
+                print(f"⚠️ [через 5 сек] Самокат {last_three} не найден в БД")
+                return
+            
+            needs_update = False
+            for row in rows:
+                if not row[1]:
+                    needs_update = True
+                    break
+            
+            if needs_update:
                 c.execute("""UPDATE points SET tgk_url = %s 
                             WHERE title = %s AND status != 'found' 
                             AND (tgk_url IS NULL OR tgk_url = '')""", 
@@ -452,40 +524,24 @@ def create_scooter_and_tgk(address, last_three, message_link, chat_id_for_link):
                 conn.close()
                 
                 if updated_count > 0:
-                    print(f"🔗 Добавлена карточка ТГ для {updated_count} самокат(а/ов) {last_three}")
+                    print(f"🔗 [через 5 сек] Добавлена карточка ТГ для {updated_count} самокат(а/ов) {last_three}")
                     try:
                         bot.send_message(OWNER_USER_ID, 
                             f"🔗 Для самоката {last_three} добавлена карточка в ТГ!")
                     except Exception as e:
                         print(f"❌ Ошибка уведомления: {e}")
-                return True
             else:
-                print(f"⚠️ У самоката {last_three} уже есть карточка ТГ")
                 conn.close()
-                return True
-        else:
-            # 2. Самоката нет — создаём новый с карточкой ТГ
-            c.execute("""INSERT INTO points (title, address, lat, lon, status, comment, url, tgk_url) 
-                        VALUES (%s, %s, NULL, NULL, 'active', '', '', %s) RETURNING id""", 
-                     (last_three, address, message_link))
-            new_id = c.fetchone()[0]
-            conn.commit()
-            conn.close()
-            
-            print(f"✅ Создан самокат {last_three} по адресу '{address}' с карточкой ТГ")
-            try:
-                bot.send_message(OWNER_USER_ID, 
-                    f"🆕 Создан самокат {last_three}!\n"
-                    f"📍 Адрес: {address}\n"
-                    f"🔗 Карточка ТГ добавлена")
-            except Exception as e:
-                print(f"❌ Ошибка уведомления: {e}")
-            return True
-            
-    except Exception as e:
-        print(f"❌ Ошибка create_scooter_and_tgk: {e}")
-        traceback.print_exc()
-        return False
+                print(f"⚠️ [через 5 сек] У самоката {last_three} уже есть карточка ТГ")
+        except Exception as e:
+            print(f"❌ Ошибка delayed_check: {e}")
+            traceback.print_exc()
+    
+    # ✅ Запускаем таймер на 5 секунд
+    timer = threading.Timer(5.0, delayed_check)
+    timer.daemon = True
+    timer.start()
+    print(f"⏱️ Запущен таймер на 5 секунд для самоката {last_three}")
 
 bot = telebot.TeleBot(BOT_TOKEN, threaded=False)
 
@@ -640,8 +696,8 @@ def list_monitors(message):
     
     text += "\n🔗 Авто-создание самокатов + карточки ТГ:\n"
     text += f"  ✅ Всегда активен (топик {TGK_THREAD_ID})\n"
-    text += f"  Ищет: '🛴 7703***' + адрес\n"
-    text += f"  Действие: создаёт самокат и добавляет карточку ТГ\n"
+    text += f"  Формат: 'улица Ленина, 11 - 666 red'\n"
+    text += f"  Действие: создаёт самокат, через 5 сек добавляет карточку ТГ\n"
     
     text += "\n🗑️ Авто-удаление самокатов:\n"
     text += f"  ✅ Всегда активен (топик {call_thread_id})\n"
@@ -806,7 +862,7 @@ def handle_message(message):
                     except Exception as e:
                         print(f"❌ Ошибка ФЗ: {e}")
 
-        # 2. ✅ ПОСТОЯННЫЙ МОНИТОРИНГ ОБЗВОНОВ (без фильтра по start_time)
+        # 2. ✅ ПОСТОЯННЫЙ МОНИТОРИНГ ОБЗВОНОВ
         for key, monitor in list(active_call_monitors.items()):
             if monitor['chat_id'] == monitored_group_id and monitor['active']:
                 monitor_thread = monitor.get('thread_id')
@@ -821,18 +877,21 @@ def handle_message(message):
                     except Exception as e:
                         print(f"❌ Ошибка пересылки обзвона: {e}")
 
-        # 3. ✅ ПОСТОЯННЫЙ МОНИТОРИНГ ТОПИА 8694 (создание самоката + карточка ТГ)
+        # 3. ✅ ПОСТОЯННЫЙ МОНИТОРИНГ ТОПИА 8694 (новая логика с 5 сек задержкой)
         if msg_thread_id == TGK_THREAD_ID:
             parsed = parse_scooter_message_8694(message.text)
             if parsed:
-                address, last_three = parsed
-                print(f"🔗 Обработано сообщение из топика {TGK_THREAD_ID}: адрес='{address}', номер={last_three}")
+                address, last_three, status = parsed
+                print(f"🔗 Обработано сообщение из топика {TGK_THREAD_ID}: адрес='{address}', номер={last_three}, статус={status}")
                 
                 raw_chat_id = str(monitored_group_id)
                 chat_id_for_link = raw_chat_id[4:] if raw_chat_id.startswith('-100') else raw_chat_id.lstrip('-')
                 message_link = f"https://t.me/c/{chat_id_for_link}/{message.message_id}"
                 
-                create_scooter_and_tgk(address, last_three, message_link, chat_id_for_link)
+                # ШАГ 1: Создаём самокат БЕЗ карточки ТГ
+                if create_scooter_only(address, last_three, status):
+                    # ШАГ 2: Через 5 секунд проверяем и добавляем карточку ТГ
+                    check_and_add_tgk_after_delay(last_three, message_link)
 
         # 4. Авто-удаление "удален из Поисков"
         msg_text_lower = message.text.lower()
@@ -1354,7 +1413,7 @@ def update_status():
                 save_to_trash(obj_type, point_data)
                 scooter_title = row[1]
                 
-                # ✅ НОВОЕ: Уведомление владельцу о нажатии "Нашёл"
+                # ✅ Уведомление владельцу о нажатии "Нашёл"
                 if obj_type == 'point':
                     try:
                         bot.send_message(OWNER_USER_ID, f"🎯 Кто-то нашёл самокат {scooter_title}!")
