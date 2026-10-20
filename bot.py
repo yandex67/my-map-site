@@ -337,7 +337,7 @@ def restore_from_trash():
 def build_address_queries(address):
     a = ' '.join(address.split()).strip()
     a = re.sub(r'^(г\.?\s*)?Смоленск\s*,?\s*', '', a, flags=re.IGNORECASE).strip()
-    m = re.match(r'^(?:улица|ул\.?)?\s*([\w\-]+)[\s,]+(\d+[А-Яа-я]?)$', a, re.IGNORECASE)
+    m = re.match(r'^(?:улица|ул\.?|проспект|пр-кт|переулок|пер\.?|бульвар|б-р)?\s*([а-яА-ЯёЁ\w\-]+)\s*,?\s*(\d+[А-Яа-яЁё]?)$', a, re.IGNORECASE)
     
     if m:
         street = m.group(1)
@@ -400,43 +400,68 @@ def parse_scooter_command(text):
         return None
     return location, last_three, rest
 
+def normalize_address(raw_address):
+    # Если это координаты, возвращаем как есть
+    if re.match(r'^-?\d+\.\d+\s*,\s*-?\d+\.\d+$', raw_address.strip()):
+        return raw_address.strip()
+        
+    a = raw_address.strip()
+    a = re.sub(r'^г\.?\s*Смоленск\s*,?\s*', '', a, flags=re.IGNORECASE).strip()
+    a = re.sub(r',?\s*(?:д\.?|дом\.?)\s*', ' ', a, flags=re.IGNORECASE).strip()
+    a = re.sub(r',\s*', ' ', a)
+    a = re.sub(r'\s+', ' ', a).strip()
+    
+    m = re.match(r'^(ул\.?|улица|пр-кт|проспект|переулок|пер\.?|бульвар|б-р)\.?\s+(.+?)\s+(\d+[А-Яа-яЁё]?)$', a, re.IGNORECASE)
+    if m:
+        return f"{m.group(2).strip()} {m.group(3).strip()}"
+    
+    m = re.match(r'^(.+?)\s+(ул\.?|улица|пр-кт|проспект|переулок|пер\.?|бульвар|б-р)\.?\s+(\d+[А-Яа-яЁё]?)$', a, re.IGNORECASE)
+    if m:
+        return f"{m.group(1).strip()} {m.group(3).strip()}"
+    
+    m = re.match(r'^([а-яА-ЯёЁ\w\-]+(?:\s+[а-яА-ЯёЁ\w\-]+)*)\s+(\d+[А-Яа-яЁё]?)$', a)
+    if m:
+        return f"{m.group(1).strip()} {m.group(2).strip()}"
+    
+    return a if len(a) > 3 else None
+
 def parse_scooter_message_8694(text):
     last_three = None
-    status = 'active'
+    status = 'sev' # ВСЕГДА ставим статус 'sev'
+    
+    scooter_match = re.search(r'(?:🛴\s*)?7703(\d{3})\b', text)
+    if not scooter_match:
+        return None
+    last_three = scooter_match.group(1)
+    
     address = None
     
-    scooter_match = re.search(r'-\s*(\d{3})(?:\s+(red|sev))?\b', text, re.IGNORECASE)
-    if scooter_match:
-        last_three = scooter_match.group(1)
-        if scooter_match.group(2):
-            status = scooter_match.group(2).lower()
+    match = re.search(r'Самокат GPS:\s*(.+?)(?:\n|$)', text, re.IGNORECASE)
+    if match:
+        address = match.group(1).strip()
     
-    if not last_three:
-        scooter_match = re.search(r'🛴\s*7703(\d{3})', text)
-        if scooter_match:
-            last_three = scooter_match.group(1)
+    if not address:
+        match = re.search(r'Текущий gps:\s*(.+?)(?:\n|$)', text, re.IGNORECASE)
+        if match:
+            address = match.group(1).strip()
     
-    if not last_three:
+    if not address:
+        match = re.search(r'г\.?\s*Смоленск,\s*((?:ул\.?|улица|пр-кт|проспект|переулок|пер\.?)\s+[^,\n]+(?:,\s*(?:д\.?\s*)?\d+[А-Яа-яЁё]?)?)', text, re.IGNORECASE)
+        if match:
+            address = match.group(1).strip()
+    
+    if not address and re.search(r'Нет координат в пределах города', text, re.IGNORECASE):
+        address = "54.776443, 32.050324"
+    
+    if not address:
         return None
     
-    match = re.search(r'улица\s+(\S+?)\s*,?\s*(\d+)', text, re.IGNORECASE)
-    if match:
-        return f"{match.group(1)}, {match.group(2)}", last_three, status
+    address = normalize_address(address)
+    if not address:
+        return None
     
-    match = re.search(r'пр-кт\s+(\S+?)\s*,?\s*(\d+)', text, re.IGNORECASE)
-    if match:
-        return f"{match.group(1)}, {match.group(2)}", last_three, status
-    
-    match = re.search(r'\bул\.?\s+(\S+?)\s*,?\s*(\d+)', text, re.IGNORECASE)
-    if match:
-        return f"{match.group(1)}, {match.group(2)}", last_three, status
-    
-    if re.search(r'Нет координат в пределах города', text, re.IGNORECASE):
-        return "54.776443, 32.050324", last_three, status
-    
-    return None
+    return address, last_three, status
 
-# ✅ ФУНКЦИЯ: Создание самоката с возвратом статуса и причины
 def create_scooter_only(address, last_three, status, tgk_url):
     try:
         conn = get_db_connection()
@@ -475,7 +500,6 @@ def create_scooter_only(address, last_three, status, tgk_url):
 
 bot = telebot.TeleBot(BOT_TOKEN, threaded=False)
 
-# --- КОМАНДЫ УПРАВЛЕНИЯ ТРЕДАМИ ---
 @bot.message_handler(regexp=r'^удали тред айди$')
 def delete_thread_id(message):
     global monitored_thread_id, call_thread_id
@@ -551,7 +575,6 @@ def show_my_id(message):
         f"Текущий monitored_user_id: `{monitored_user_id}`",
         parse_mode='Markdown')
 
-# --- МОНИТОРИНГ ФЗ ---
 @bot.message_handler(commands=['мониторь'])
 def start_monitor(message):
     text = message.text.strip()
@@ -654,7 +677,6 @@ def off_monitors(message):
         bot.reply_to(message, "Использование:\n/off все мониторинги\n/off last мониторинг")
         return
 
-# --- МОНИТОРИНГ ОБЗВОНОВ ---
 @bot.message_handler(commands=['обзвоны'])
 def start_call_monitor(message):
     user_id = message.from_user.id
@@ -677,7 +699,6 @@ def stop_call_monitor(message):
     else:
         bot.reply_to(message, "Мониторинг обзвонов не найден")
 
-# --- ОСНОВНОЙ ОБРАБОТЧИК ---
 @bot.message_handler(func=lambda message: True)
 def handle_message(message):
     if message.text is None:
@@ -953,7 +974,6 @@ def handle_message(message):
                 bot.reply_to(message, f"❌ Не найдено: '{loc}'")
         return
 
-    # ✅ УНИВЕРСАЛЬНЫЙ ПАРСЕР КОМАНДЫ СОЗДАНИЯ САМОКАТА
     scooter_cmd = parse_scooter_command(text)
     if scooter_cmd:
         location_part, last_three, rest = scooter_cmd
@@ -1001,7 +1021,6 @@ def handle_message(message):
             bot.reply_to(message, f"❌ Ошибка: {e}")
         return
 
-    # ✅ ОБРАБОТКА " - " (Парковки)
     if ' - ' in text:
         parts = text.split(' - ', 1)
         title, action = parts[0].strip(), parts[1].strip()
@@ -1445,7 +1464,6 @@ def run_bot():
     startup_notification_sent = False
     load_monitors_from_db()
     
-    # ✅ ОТПРАВЛЯЕМ СООБЩЕНИЕ О НАЧАЛЕ МОНИТОРИНГА
     log_to_owner("✅ Я начал мониторить новые самокаты из Поиска (топик 8694).")
     
     bot_running = True
