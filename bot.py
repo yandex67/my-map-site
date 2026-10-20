@@ -357,36 +357,44 @@ def restore_from_trash():
 
 # ✅ НОРМАЛИЗАЦИЯ АДРЕСА
 def build_address_queries(address):
-    """Превращает 'Ленина 11' / 'Ленина, 11' / 'улица Ленина 11' в набор нормальных запросов."""
+    """Превращает 'Ленина 22' / 'Ленина, 22' / 'улица Ленина 22' в набор нормальных запросов."""
     a = ' '.join(address.split()).strip()
-    a = re.sub(r'^(г\.?\s*)?Смоленск\s*,?\s*', '', a, flags=re.IGNORECASE).strip()
-    a = re.sub(r'^(улица|ул\.?)\s+', '', a, flags=re.IGNORECASE).strip()
     
-    m = re.match(r'^([\w\-]+)[\s,]+(\d+[А-Яа-я]?)$', a)
+    # Убираем дублирующий город
+    a = re.sub(r'^(г\.?\s*)?Смоленск\s*,?\s*', '', a, flags=re.IGNORECASE).strip()
+    
+    # Пытаемся отделить название улицы от номера дома
+    m = re.match(r'^(?:улица|ул\.?)?\s*([\w\-]+)[\s,]+(\d+[А-Яа-я]?)$', a, re.IGNORECASE)
     
     if m:
         street = m.group(1)
         house = m.group(2)
+        
+        # ✅ РАСШИРЕННЫЙ СПИСОК: добавляем "улица" впереди для всех вариантов
         variants = [
             f"Смоленск, улица {street}, {house}",
             f"г. Смоленск, улица {street}, {house}",
-            f"Смоленск, {street}, {house}",
             f"Смоленск, улица {street} {house}",
+            f"Смоленск, {street}, {house}",
             f"Смоленск, {street} {house}",
             f"Смоленская область, Смоленск, улица {street}, {house}",
             f"Смоленск, улица {street}",
+            f"Смоленск, {street}",
         ]
     else:
         variants = [
             f"Смоленск, {a}",
             f"г. Смоленск, {a}",
             f"Смоленская область, Смоленск, {a}",
+            f"Смоленск, улица {a}",
         ]
     
     result = []
     for v in variants:
         if v not in result:
             result.append(v)
+    
+    print(f"🔍 Варианты запросов для '{address}': {result}")
     return result
 
 # ✅ ПОИСК КООРДИНАТ С НОРМАЛИЗАЦИЕЙ И ПАУЗАМИ
@@ -449,7 +457,6 @@ def parse_scooter_command(text):
     """
     t = ' '.join(text.split()).strip()
     
-    # Проверяем, что это команда создания самоката (должен быть дефис и 3 цифры)
     m = re.match(r'^(.+?)\s*-\s*(\d{3})(?:\s+(.*))?$', t, re.IGNORECASE)
     if not m:
         return None
@@ -538,11 +545,10 @@ def parse_scooter_message_8694(text):
     print(f"⚠️ Не удалось распарсить адрес из сообщения")
     return None
 
-# ✅ ИСПРАВЛЕННАЯ ФУНКЦИЯ: Создание самоката с проверкой
-def create_scooter_only(address, last_three, status):
+# ✅ УПРОЩЁННАЯ ФУНКЦИЯ: Создание самоката СРАЗУ с карточкой ТГ
+def create_scooter_only(address, last_three, status, tgk_url):
     """
-    Создаёт самокат БЕЗ карточки ТГ.
-    Сначала создаёт, потом проверяет что реально в БД, только потом уведомляет.
+    Создаёт самокат СРАЗУ с карточкой ТГ.
     Возвращает True если самокат готов (создан или уже существовал).
     """
     try:
@@ -558,15 +564,23 @@ def create_scooter_only(address, last_three, status):
         existing = c.fetchone()
         
         if existing:
-            print(f"⚠️ Самокат {last_three} уже существует (ID: {existing[0]})")
+            existing_id, existing_tgk = existing
+            print(f"⚠️ Самокат {last_three} уже существует (ID: {existing_id})")
+            
+            # Если у существующего самоката НЕТ карточки ТГ — добавляем
+            if not existing_tgk and tgk_url:
+                c.execute("UPDATE points SET tgk_url = %s WHERE id = %s", (tgk_url, existing_id))
+                conn.commit()
+                print(f"🔗 Добавлена карточка ТГ к существующему самокату {last_three}")
+            
             conn.close()
             return True
         
-        # 2. Создаём новый самокат БЕЗ карточки ТГ
-        print(f"🔧 Создаю самокат {last_three} по адресу '{address}' (статус: {status})...")
+        # 2. Создаём новый самокат СРАЗУ с карточкой ТГ
+        print(f"🔧 Создаю самокат {last_three} по адресу '{address}' (статус: {status}) с карточкой ТГ...")
         c.execute("""INSERT INTO points (title, address, lat, lon, status, comment, url, tgk_url) 
-                    VALUES (%s, %s, NULL, NULL, %s, '', '', '')""", 
-                 (last_three, address, status))
+                    VALUES (%s, %s, NULL, NULL, %s, '', '', %s)""", 
+                 (last_three, address, status, tgk_url))
         conn.commit()
         
         # 3. ✅ ПРОВЕРКА: реально ли самокат создан?
@@ -581,15 +595,15 @@ def create_scooter_only(address, last_three, status):
         new_id = created[0]
         conn.close()
         
-        print(f"✅ Самокат {last_three} успешно создан (ID: {new_id}) по адресу '{address}' (статус: {status})")
+        print(f"✅ Самокат {last_three} успешно создан (ID: {new_id}) с карточкой ТГ")
         
-        # 4. ✅ Только теперь уведомляем (потому что самокат РЕАЛЬНО создан)
+        # 4. ✅ Уведомляем
         try:
             bot.send_message(OWNER_USER_ID, 
                 f"🆕 Создан самокат {last_three}!\n"
                 f"📍 Адрес: {address}\n"
-                f"🎨 Статус: {status}\n\n"
-                f"⏱️ Через 5 сек проверю карточку ТГ...")
+                f"🎨 Статус: {status}\n"
+                f"🔗 Карточка ТГ добавлена")
             print(f"📨 Уведомление о создании самоката {last_three} отправлено")
         except Exception as e:
             print(f"❌ Ошибка отправки уведомления: {e}")
@@ -600,60 +614,6 @@ def create_scooter_only(address, last_three, status):
         print(f"❌❌❌ Ошибка create_scooter_only: {e}")
         traceback.print_exc()
         return False
-
-# ✅ НОВАЯ ФУНКЦИЯ: Отложенная проверка и добавление карточки ТГ (через 5 сек)
-def check_and_add_tgk_after_delay(last_three, message_link):
-    """Через 5 секунд проверяет, есть ли карточка ТГ, и добавляет если нет"""
-    
-    def delayed_check():
-        try:
-            print(f"⏱️ [через 5 сек] Проверяю самокат {last_three}...")
-            conn = get_db_connection()
-            if not conn:
-                return
-            c = conn.cursor()
-            c.execute("SELECT id, tgk_url FROM points WHERE title = %s AND status != 'found'", (last_three,))
-            rows = c.fetchall()
-            
-            if not rows:
-                conn.close()
-                print(f"⚠️ [через 5 сек] Самокат {last_three} не найден в БД")
-                return
-            
-            needs_update = False
-            for row in rows:
-                if not row[1]:
-                    needs_update = True
-                    break
-            
-            if needs_update:
-                c.execute("""UPDATE points SET tgk_url = %s 
-                            WHERE title = %s AND status != 'found' 
-                            AND (tgk_url IS NULL OR tgk_url = '')""", 
-                         (message_link, last_three))
-                updated_count = c.rowcount
-                conn.commit()
-                conn.close()
-                
-                if updated_count > 0:
-                    print(f"🔗 [через 5 сек] Добавлена карточка ТГ для {updated_count} самокат(а/ов) {last_three}")
-                    try:
-                        bot.send_message(OWNER_USER_ID, 
-                            f"🔗 Для самоката {last_three} добавлена карточка в ТГ!")
-                    except Exception as e:
-                        print(f"❌ Ошибка уведомления: {e}")
-            else:
-                conn.close()
-                print(f"⚠️ [через 5 сек] У самоката {last_three} уже есть карточка ТГ")
-        except Exception as e:
-            print(f"❌ Ошибка delayed_check: {e}")
-            traceback.print_exc()
-    
-    # ✅ Запускаем таймер на 5 секунд
-    timer = threading.Timer(5.0, delayed_check)
-    timer.daemon = True
-    timer.start()
-    print(f"⏱️ Запущен таймер на 5 секунд для самоката {last_three}")
 
 bot = telebot.TeleBot(BOT_TOKEN, threaded=False)
 
@@ -809,7 +769,7 @@ def list_monitors(message):
     text += "\n🔗 Авто-создание самокатов + карточки ТГ:\n"
     text += f"  ✅ Всегда активен (топик {TGK_THREAD_ID})\n"
     text += f"  Формат: 'улица Ленина, 11 - 666 sev'\n"
-    text += f"  Действие: создаёт самокат, через 5 сек добавляет карточку ТГ\n"
+    text += f"  Действие: создаёт самокат СРАЗУ с карточкой ТГ\n"
     
     text += "\n🗑️ Авто-удаление самокатов:\n"
     text += f"  ✅ Всегда активен (топик {call_thread_id})\n"
@@ -989,19 +949,20 @@ def handle_message(message):
                     except Exception as e:
                         print(f"❌ Ошибка пересылки обзвона: {e}")
 
-        # 3. ✅ ПОСТОЯННЫЙ МОНИТОРИНГ ТОПИА 8694
+        # 3. ✅ ПОСТОЯННЫЙ МОНИТОРИНГ ТОПИА 8694 (сразу с карточкой ТГ)
         if msg_thread_id == TGK_THREAD_ID:
             parsed = parse_scooter_message_8694(message.text)
             if parsed:
                 address, last_three, status = parsed
                 print(f"🔗 Обработано сообщение из топика {TGK_THREAD_ID}: адрес='{address}', номер={last_three}, статус={status}")
                 
+                # Формируем ссылку на этот пост — это и есть карточка ТГ
                 raw_chat_id = str(monitored_group_id)
                 chat_id_for_link = raw_chat_id[4:] if raw_chat_id.startswith('-100') else raw_chat_id.lstrip('-')
                 message_link = f"https://t.me/c/{chat_id_for_link}/{message.message_id}"
                 
-                if create_scooter_only(address, last_three, status):
-                    check_and_add_tgk_after_delay(last_three, message_link)
+                # Создаём самокат СРАЗУ с карточкой ТГ
+                create_scooter_only(address, last_three, status, message_link)
 
         # 4. Авто-удаление "удален из Поисков"
         msg_text_lower = message.text.lower()
@@ -1277,7 +1238,7 @@ def handle_message(message):
                 bot.reply_to(message, f"❌ Не найдено: '{location_part}'")
         return
 
-    # ✅ УНИВЕРСАЛЬНЫЙ ПАРСЕР КОМАНДЫ СОЗДАНИЯ САМОКАТА (дефис с пробелами или без)
+    # ✅ УНИВЕРСАЛЬНЫЙ ПАРСЕР КОМАНДЫ СОЗДАНИЯ САМОКАТА
     scooter_cmd = parse_scooter_command(text)
     if scooter_cmd:
         location_part, last_three, rest = scooter_cmd
