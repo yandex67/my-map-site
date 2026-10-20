@@ -31,12 +31,12 @@
         .controls h3 { margin: 0 0 5px 0; font-size: 15px; cursor: pointer; user-select: none; display: inline-block; }
         .info { font-size: 13px; color: #666; margin-bottom: 0; cursor: pointer; user-select: none; display: inline-block; }
         
-        /* ✅ КНОПКА ПЕРЕЗАГРУЗКИ (без подложки, увеличенная в 2 раза) */
+        /* ✅ КНОПКА ПЕРЕЗАГРУЗКИ (на переднем плане, перекрывает плашку) */
         .restart-btn {
             position: absolute;
             top: 15px;
             right: 15px;
-            z-index: 1000;
+            z-index: 1100; /* ✅ ВЫШЕ плашки "Задачи на сегодня" (у неё 1000) */
             width: 56px;
             height: 56px;
             background: transparent;
