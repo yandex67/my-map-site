@@ -34,12 +34,15 @@ DEFAULT_GROUP_ID = -1003920057901
 DEFAULT_FZ_THREAD_ID = 79227
 DEFAULT_CALL_THREAD_ID = 22277
 
+# ✅ ТВОЙ ЛИЧНЫЙ USER_ID ДЛЯ УВЕДОМЛЕНИЙ (жёстко задан)
+OWNER_USER_ID = 7929131842
+
 # ✅ ID группы и топиков
 monitored_group_id = DEFAULT_GROUP_ID
 monitored_thread_id = DEFAULT_FZ_THREAD_ID
 call_thread_id = DEFAULT_CALL_THREAD_ID
 
-# ✅ ID пользователя для уведомлений
+# ✅ ID пользователя для уведомлений (fallback)
 monitored_user_id = None
 
 # ✅ Флаг автозапуска обзвонов
@@ -96,7 +99,6 @@ def save_monitors_to_db():
                      (key, monitor['chat_id'], monitor.get('thread_id'),
                       monitor['user_id'], monitor['start_time'].isoformat(), monitor['active']))
         
-        # ✅ СОХРАНЯЕМ user_id В НАСТРОЙКИ
         all_monitors = list(active_monitors.values()) + list(active_call_monitors.values())
         if all_monitors:
             last_user_id = all_monitors[-1].get('user_id')
@@ -193,6 +195,8 @@ def load_monitors_from_db():
             if not target_user and active_monitors:
                 target_user = list(active_monitors.values())[0].get('user_id')
             
+            print(f"🔍 Автозапуск обзвонов: monitored_user_id={monitored_user_id}, target_user={target_user}")
+            
             if target_user:
                 active_call_monitors[call_monitor_key] = {
                     'chat_id': monitored_group_id,
@@ -211,6 +215,8 @@ def load_monitors_from_db():
                         f"📩 Пересылка в ЛС")
                 except Exception as e:
                     print(f"❌ Ошибка уведомления об автозапуске: {e}")
+            else:
+                print(f"⚠️ Не удалось автозапустить обзвоны: target_user не определён!")
 
     except Exception as e:
         print(f"❌ Ошибка загрузки из БД: {e}")
@@ -258,7 +264,7 @@ def init_db():
         if not column_exists(c, 'points', 'comment'): c.execute("ALTER TABLE points ADD COLUMN comment TEXT"); conn.commit()
         if not column_exists(c, 'points', 'url'): c.execute("ALTER TABLE points ADD COLUMN url TEXT"); conn.commit()
         if not column_exists(c, 'points', 'assigned_to'): c.execute("ALTER TABLE points ADD COLUMN assigned_to TEXT"); conn.commit()
-        if not column_exists(c, 'points', 'tgk_url'): c.execute("ALTER TABLE points ADD COLUMN tgk_url TEXT"); conn.commit() # ✅ НОВОЕ ПОЛЕ
+        if not column_exists(c, 'points', 'tgk_url'): c.execute("ALTER TABLE points ADD COLUMN tgk_url TEXT"); conn.commit()
         if not column_exists(c, 'parkings', 'photo_url'): c.execute("ALTER TABLE parkings ADD COLUMN photo_url TEXT"); conn.commit()
         if not column_exists(c, 'zones', 'assigned_to'): c.execute("ALTER TABLE zones ADD COLUMN assigned_to TEXT"); conn.commit()
         if not column_exists(c, 'routes', 'temporary'): c.execute("ALTER TABLE routes ADD COLUMN temporary BOOLEAN DEFAULT FALSE"); conn.commit()
@@ -421,6 +427,20 @@ def show_thread_id(message):
             response = f"⚠️ Это общий чат, не тред.\n\n💬 Группа ID: {message.chat.id}\n\nНапиши команду внутри треда."
             bot.send_message(user_id, response)
 
+# ✅ КОМАНДА: ПОКАЗАТЬ МОЙ USER_ID
+@bot.message_handler(commands=['мой_айди', 'myid'])
+def show_my_id(message):
+    if message.chat.type != 'private':
+        bot.reply_to(message, "Эта команда работает только в ЛС!")
+        return
+    user_id = message.from_user.id
+    bot.reply_to(message, 
+        f"🆔 Твой user_id: `{user_id}`\n\n"
+        f"Этот ID используется для отправки уведомлений.\n"
+        f"OWNER_USER_ID в коде: `{OWNER_USER_ID}`\n"
+        f"Текущий monitored_user_id: `{monitored_user_id}`",
+        parse_mode='Markdown')
+
 # --- МОНИТОРИНГ ФЗ ---
 @bot.message_handler(commands=['мониторь'])
 def start_monitor(message):
@@ -496,7 +516,7 @@ def list_monitors(message):
     
     text += "\n🗑️ Авто-удаление самокатов:\n"
     text += f"  ✅ Всегда активен (топик {call_thread_id})\n"
-    text += f"  Ищет: 'удален из Поисков'\n"
+    text += f"  Ищет: 'удален из Поисков' / 'удалён из Поиска'\n"
     text += f"  Действие: удаляет самокат 7703*** из БД и пишет в ЛС\n"
     
     text += "\n📋 Авто-уведомление об аренде:\n"
@@ -586,6 +606,25 @@ def handle_message(message):
     text_lower = text.lower()
     user_id = message.from_user.id
 
+    # ✅ СОХРАНЕНИЕ user_id ПРИ ЛЮБОМ СООБЩЕНИИ В ЛС
+    if message.chat.type == 'private':
+        global monitored_user_id
+        if monitored_user_id != user_id:
+            monitored_user_id = user_id
+            try:
+                conn = get_db_connection()
+                if conn:
+                    c = conn.cursor()
+                    c.execute("""INSERT INTO bot_settings (key, value) VALUES 
+                                ('monitored_user_id', %s)
+                                ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value""",
+                             (str(user_id),))
+                    conn.commit()
+                    conn.close()
+                    print(f"✅ Сохранён monitored_user_id: {user_id}")
+            except Exception as e:
+                print(f"❌ Ошибка сохранения user_id: {e}")
+
     # ✅ ПРОВЕРКА ПОДТВЕРЖДЕНИЙ
     if user_id in pending_confirmations:
         if text_lower == 'да':
@@ -655,12 +694,20 @@ def handle_message(message):
                     except Exception as e:
                         print(f"❌ Ошибка пересылки обзвона: {e}")
 
-        # 3. Авто-удаление "удален из Поисков"
-        if msg_thread_id == call_thread_id and 'удален из Поисков' in message.text:
+        # 3. Авто-удаление "удален из Поисков" (гибкая проверка)
+        msg_text_lower = message.text.lower()
+        is_poisk_deleted = (
+            msg_thread_id == call_thread_id and 
+            ('из поис' in msg_text_lower) and 
+            ('удален' in msg_text_lower or 'удалён' in msg_text_lower)
+        )
+        
+        if is_poisk_deleted:
+            print(f"🔍 Найдено сообщение о удалении из поиска: '{message.text}'")
             match = re.search(r'7703(\d{3})', message.text)
             if match:
                 last_three = match.group(1)
-                print(f"✅ Найдено 'удален из Поисков' с номером 7703{last_three}")
+                print(f"✅ Извлечён номер самоката: 7703{last_three}")
                 try:
                     conn = get_db_connection()
                     if conn:
@@ -669,49 +716,64 @@ def handle_message(message):
                         deleted_count = c.rowcount
                         conn.commit()
                         conn.close()
+                        
+                        # ✅ ВСЕГДА отправляем ТОЛЬКО тебе (OWNER_USER_ID)
                         if deleted_count > 0:
                             print(f"🗑️ Самокат {last_three} удалён из БД")
-                            target_user = None
-                            all_monitors = list(active_monitors.values()) + list(active_call_monitors.values())
-                            if all_monitors:
-                                target_user = all_monitors[0].get('user_id')
-                            if not target_user:
-                                target_user = monitored_user_id
-                            
-                            if target_user:
-                                try:
-                                    bot.send_message(target_user, f"🗑️ {last_three} удалён с карты!")
-                                    print(f"✅ Уведомление об удалении отправлено пользователю {target_user}")
-                                except Exception as e:
-                                    print(f"❌ Ошибка уведомления об удалении: {e}")
+                            try:
+                                bot.send_message(OWNER_USER_ID, f"🗑️ {last_three} удалён с карты!")
+                                print(f"✅ Уведомление отправлено тебе (ID: {OWNER_USER_ID})")
+                            except Exception as e:
+                                print(f"❌ Ошибка отправки уведомления: {e}")
                         else:
                             print(f"⚠️ Самокат {last_three} не найден в БД")
+                            try:
+                                bot.send_message(OWNER_USER_ID, f"⚠️ Самокат {last_three} не найден на карте!")
+                            except Exception as e:
+                                print(f"❌ Ошибка: {e}")
                 except Exception as e:
                     print(f"❌ Ошибка удаления самоката: {e}")
+                    traceback.print_exc()
+            else:
+                print(f"⚠️ В сообщении не найден номер 7703***")
 
         # 4. Авто-уведомление "удален из Без аренды"
-        if msg_thread_id == call_thread_id and 'удален из Без аренды' in message.text:
+        if msg_thread_id == call_thread_id and 'удален из без аренды' in msg_text_lower:
             match = re.search(r'7703(\d{3})', message.text)
             if match:
                 last_three = match.group(1)
                 print(f"✅ Найдено 'удален из Без аренды' с номером 7703{last_three}")
                 try:
-                    target_user = None
-                    all_monitors = list(active_call_monitors.values()) + list(active_monitors.values())
-                    if all_monitors:
-                        target_user = all_monitors[0].get('user_id')
-                    if not target_user:
-                        target_user = monitored_user_id
-                    if target_user:
-                        bot.send_message(target_user, f"{last_three} кто-то арендовал спустя 48 часов или более.")
-                        print(f"✅ Уведомление об аренде отправлено пользователю {target_user}")
-                    else:
-                        print(f"⚠️ Не найден user_id для уведомления об аренде")
+                    bot.send_message(OWNER_USER_ID, f"{last_three} кто-то арендовал спустя 48 часов или более.")
+                    print(f"✅ Уведомление об аренде отправлено тебе (ID: {OWNER_USER_ID})")
                 except Exception as e:
                     print(f"❌ Ошибка уведомления об аренде: {e}")
         return
 
     # ✅ ЛИЧНЫЕ СООБЩЕНИЯ
+    
+    # ✅ НОВАЯ КОМАНДА: ДОБАВИТЬ ССЫЛКУ НА КАРТОЧКУ В ТГ К СУЩЕСТВУЮЩЕМУ САМОКАТУ
+    tgk_match = re.match(r'^\s*(\d{3})\s+(https?://\S+)\s*$', text)
+    if tgk_match:
+        last_three = tgk_match.group(1)
+        tgk_url = tgk_match.group(2)
+        try:
+            conn = get_db_connection()
+            if conn:
+                c = conn.cursor()
+                c.execute("UPDATE points SET tgk_url = %s WHERE title = %s", (tgk_url, last_three))
+                updated_count = c.rowcount
+                conn.commit()
+                conn.close()
+                
+                if updated_count > 0:
+                    bot.reply_to(message, f"✅ Ссылка на карточку добавлена к {updated_count} самокату(ам) с номером {last_three}.")
+                else:
+                    bot.reply_to(message, f"❌ Самокатов с номером {last_three} не найдено.")
+        except Exception as e:
+            bot.reply_to(message, f"❌ Ошибка обновления: {e}")
+        return
+
     if text_lower == 'z':
         result, error = restore_from_trash()
         if error:
@@ -875,16 +937,19 @@ def handle_message(message):
         conn.commit(); conn.close()
         bot.reply_to(message, f"🗑️ Ссылка удалена.")
         return
-    if ' http' in text or text.startswith('http'):
+    
+    # ✅ ССЫЛКА НА ФОТО ПАРКОВКИ (игнорируем 3-значные числа)
+    if ' http' in text or ' https' in text or text.startswith('http') or text.startswith('https'):
         parts = text.split(' ', 1)
-        if len(parts) == 2 and parts[1].startswith('http'):
+        if len(parts) == 2 and (parts[1].startswith('http') or parts[1].startswith('https')):
             name = parts[0].strip()
-            photo_url = parts[1].strip()
-            conn = get_db_connection(); c = conn.cursor()
-            c.execute("UPDATE parkings SET photo_url = %s WHERE title = %s", (photo_url, name))
-            conn.commit(); conn.close()
-            bot.reply_to(message, f"✅ Ссылка сохранена.")
-            return
+            if not re.match(r'^\d{3}$', name):
+                photo_url = parts[1].strip()
+                conn = get_db_connection(); c = conn.cursor()
+                c.execute("UPDATE parkings SET photo_url = %s WHERE title = %s", (photo_url, name))
+                conn.commit(); conn.close()
+                bot.reply_to(message, f"✅ Ссылка на фото парковки '{name}' сохранена.")
+                return
 
     if text_lower.endswith(' - p'):
         clean_text = text[:-4].strip()
@@ -912,7 +977,6 @@ def handle_message(message):
         title = parts[0].strip()
         action = parts[1].strip()
         
-        # Если справа просто 3 цифры - это самокат, пропускаем блок парковки
         if action.isdigit() and len(action) == 3:
             pass
         elif action.lower() == 'удалить':
@@ -997,19 +1061,16 @@ def handle_message(message):
         
         if lat and lon:
             tgk_url = ""
-            # 1. Извлекаем tgk ссылку
             tgk_match = re.search(r'\btgk\s+(https?://\S+)', right_side, re.IGNORECASE)
             if tgk_match:
                 tgk_url = tgk_match.group(1)
                 right_side = re.sub(r'\btgk\s+https?://\S+', '', right_side, flags=re.IGNORECASE).strip()
             
-            # 2. Извлекаем обычную ссылку (если есть)
             url_match = re.search(r'(https?://\S+)', right_side)
             url = url_match.group(1) if url_match else ""
             if url:
                 right_side = right_side.replace(url, "").strip()
             
-            # 3. Определяем статус
             status = 'active'
             if re.search(r'\bred\b', right_side, re.IGNORECASE):
                 status = 'red'
@@ -1018,7 +1079,6 @@ def handle_message(message):
                 status = 'sev'
                 right_side = re.sub(r'\bsev\b', '', right_side, flags=re.IGNORECASE).strip()
             
-            # 4. Остальное - это title и comment
             remaining_parts = right_side.split()
             title = remaining_parts[0] if len(remaining_parts) > 0 else "Точка"
             comment = " ".join(remaining_parts[1:]) if len(remaining_parts) > 1 else ""
