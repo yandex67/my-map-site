@@ -355,34 +355,125 @@ def restore_from_trash():
         traceback.print_exc()
         return None, str(e)
 
+# ✅ НОРМАЛИЗАЦИЯ АДРЕСА
+def build_address_queries(address):
+    """Превращает 'Ленина 11' / 'Ленина, 11' / 'улица Ленина 11' в набор нормальных запросов."""
+    a = ' '.join(address.split()).strip()
+    a = re.sub(r'^(г\.?\s*)?Смоленск\s*,?\s*', '', a, flags=re.IGNORECASE).strip()
+    a = re.sub(r'^(улица|ул\.?)\s+', '', a, flags=re.IGNORECASE).strip()
+    
+    m = re.match(r'^([\w\-]+)[\s,]+(\d+[А-Яа-я]?)$', a)
+    
+    if m:
+        street = m.group(1)
+        house = m.group(2)
+        variants = [
+            f"Смоленск, улица {street}, {house}",
+            f"г. Смоленск, улица {street}, {house}",
+            f"Смоленск, {street}, {house}",
+            f"Смоленск, улица {street} {house}",
+            f"Смоленск, {street} {house}",
+            f"Смоленская область, Смоленск, улица {street}, {house}",
+            f"Смоленск, улица {street}",
+        ]
+    else:
+        variants = [
+            f"Смоленск, {a}",
+            f"г. Смоленск, {a}",
+            f"Смоленская область, Смоленск, {a}",
+        ]
+    
+    result = []
+    for v in variants:
+        if v not in result:
+            result.append(v)
+    return result
+
+# ✅ ПОИСК КООРДИНАТ С НОРМАЛИЗАЦИЕЙ И ПАУЗАМИ
 def get_coordinates(address):
-    queries = [
-        f"г. Смоленск, {address}",
-        f"Смоленск, {address}",
-        f"г. Смоленск, улица {address}",
-        f"Смоленская область, Смоленск, {address}",
-    ]
+    """Поиск координат с нормализацией адреса, паузами и понятным логом."""
+    variants = build_address_queries(address)
     url = "https://nominatim.openstreetmap.org/search"
-    headers = {"User-Agent": "SmolenskMapBot/1.0"}
-    for query in queries:
+    headers = {"User-Agent": "SmolenskMapBot/1.0 (contact: telegram)"}
+    
+    print(f"📍 Ищу координаты для '{address}'")
+    
+    for i, query in enumerate(variants):
+        if i > 0:
+            time.sleep(1.1)
+        
         try:
-            response = requests.get(url, params={"q": query, "format": "json", "limit": 1}, headers=headers, timeout=5)
+            response = requests.get(
+                url,
+                params={"q": query, "format": "json", "limit": 1},
+                headers=headers,
+                timeout=8
+            )
+            
+            if response.status_code == 429:
+                print(f"⚠️ Nominatim 429 (лимит) на запросе '{query}', жду 3 сек...")
+                time.sleep(3)
+                continue
+            
+            if response.status_code != 200:
+                print(f"⚠️ Nominatim HTTP {response.status_code} на '{query}'")
+                continue
+            
             data = response.json()
-            if data:
-                print(f"✅ Найдены координаты для '{address}'")
-                return float(data[0]["lat"]), float(data[0]["lon"])
+            if data and 'lat' in data[0] and 'lon' in data[0]:
+                lat = float(data[0]["lat"])
+                lon = float(data[0]["lon"])
+                print(f"✅ Найдено: '{address}' → {lat}, {lon} (запрос: '{query}')")
+                return lat, lon
+            
+            print(f"⚠️ Пустой ответ Nominatim для '{query}'")
+            
         except Exception as e:
             print(f"⚠️ Ошибка поиска '{query}': {e}")
             continue
-    print(f"❌ Не найдены координаты для '{address}'")
+    
+    print(f"❌ Не найдены координаты для '{address}' ни одним вариантом")
     return None, None
+
+# ✅ НОВЫЙ ПАРСЕР: Универсальный парсер команды самоката
+def parse_scooter_command(text):
+    """
+    Принимает любые варианты:
+      Ленина 11- 333
+      Ленина 11 - 333
+      улица Ленина, 11 - 333 red
+      54.776443, 32.050324 - 333 sev коммент
+      Ленина 11 - 333 коммент tgk https://t.me/xxx
+
+    Возвращает (location_part, last_three, rest) или None
+    """
+    t = ' '.join(text.split()).strip()
+    
+    # Проверяем, что это команда создания самоката (должен быть дефис и 3 цифры)
+    m = re.match(r'^(.+?)\s*-\s*(\d{3})(?:\s+(.*))?$', t, re.IGNORECASE)
+    if not m:
+        return None
+    
+    location = m.group(1).strip()
+    last_three = m.group(2)
+    rest = (m.group(3) or "").strip()
+    
+    # Проверяем, что это НЕ команда для парковки (не заканчивается на 'p')
+    if rest.lower().endswith('p'):
+        return None
+    
+    # Проверяем, что это НЕ команда удаления парковки
+    if rest.lower() == 'удалить':
+        return None
+    
+    return location, last_three, rest
 
 # ✅ НОВАЯ ФУНКЦИЯ: Парсинг сообщения из топика 8694
 def parse_scooter_message_8694(text):
     """
     Парсит сообщение из топика 8694.
     
-    Новый формат: "улица Ленина, 11 - 666 red"
+    Новый формат: "улица Ленина, 11 - 666 sev"
     Старый формат: "🛴 7703666" + адрес отдельно
     
     Возвращает (address, last_three, status) или None
@@ -391,7 +482,7 @@ def parse_scooter_message_8694(text):
     status = 'active'
     address = None
     
-    # === НОВЫЙ ФОРМАТ: "улица Ленина, 11 - 666 red" ===
+    # === НОВЫЙ ФОРМАТ: "улица Ленина, 11 - 666 sev" ===
     scooter_match = re.search(r'-\s*(\d{3})(?:\s+(red|sev))?\b', text, re.IGNORECASE)
     if scooter_match:
         last_three = scooter_match.group(1)
@@ -447,17 +538,22 @@ def parse_scooter_message_8694(text):
     print(f"⚠️ Не удалось распарсить адрес из сообщения")
     return None
 
-# ✅ НОВАЯ ФУНКЦИЯ: Создание самоката БЕЗ карточки ТГ
+# ✅ ИСПРАВЛЕННАЯ ФУНКЦИЯ: Создание самоката с проверкой
 def create_scooter_only(address, last_three, status):
-    """Создаёт самокат БЕЗ карточки ТГ. Возвращает True если самокат готов."""
+    """
+    Создаёт самокат БЕЗ карточки ТГ.
+    Сначала создаёт, потом проверяет что реально в БД, только потом уведомляет.
+    Возвращает True если самокат готов (создан или уже существовал).
+    """
     try:
         conn = get_db_connection()
         if not conn:
+            print(f"❌ Нет подключения к БД при создании самоката {last_three}")
             return False
         
         c = conn.cursor()
         
-        # Проверяем, есть ли уже такой самокат
+        # 1. Проверяем, есть ли уже такой самокат
         c.execute("SELECT id, tgk_url FROM points WHERE title = %s AND status != 'found'", (last_three,))
         existing = c.fetchone()
         
@@ -466,26 +562,42 @@ def create_scooter_only(address, last_three, status):
             conn.close()
             return True
         
-        # Создаём новый самокат БЕЗ карточки ТГ
+        # 2. Создаём новый самокат БЕЗ карточки ТГ
+        print(f"🔧 Создаю самокат {last_three} по адресу '{address}' (статус: {status})...")
         c.execute("""INSERT INTO points (title, address, lat, lon, status, comment, url, tgk_url) 
                     VALUES (%s, %s, NULL, NULL, %s, '', '', '')""", 
                  (last_three, address, status))
         conn.commit()
+        
+        # 3. ✅ ПРОВЕРКА: реально ли самокат создан?
+        c.execute("SELECT id FROM points WHERE title = %s AND status != 'found'", (last_three,))
+        created = c.fetchone()
+        
+        if not created:
+            conn.close()
+            print(f"❌❌❌ Самокат {last_three} НЕ создан в БД после INSERT!")
+            return False
+        
+        new_id = created[0]
         conn.close()
         
-        print(f"✅ Создан самокат {last_three} по адресу '{address}' (статус: {status}) БЕЗ карточки ТГ")
+        print(f"✅ Самокат {last_three} успешно создан (ID: {new_id}) по адресу '{address}' (статус: {status})")
+        
+        # 4. ✅ Только теперь уведомляем (потому что самокат РЕАЛЬНО создан)
         try:
             bot.send_message(OWNER_USER_ID, 
                 f"🆕 Создан самокат {last_three}!\n"
                 f"📍 Адрес: {address}\n"
                 f"🎨 Статус: {status}\n\n"
                 f"⏱️ Через 5 сек проверю карточку ТГ...")
+            print(f"📨 Уведомление о создании самоката {last_three} отправлено")
         except Exception as e:
-            print(f"❌ Ошибка уведомления: {e}")
+            print(f"❌ Ошибка отправки уведомления: {e}")
+        
         return True
         
     except Exception as e:
-        print(f"❌ Ошибка create_scooter_only: {e}")
+        print(f"❌❌❌ Ошибка create_scooter_only: {e}")
         traceback.print_exc()
         return False
 
@@ -696,7 +808,7 @@ def list_monitors(message):
     
     text += "\n🔗 Авто-создание самокатов + карточки ТГ:\n"
     text += f"  ✅ Всегда активен (топик {TGK_THREAD_ID})\n"
-    text += f"  Формат: 'улица Ленина, 11 - 666 red'\n"
+    text += f"  Формат: 'улица Ленина, 11 - 666 sev'\n"
     text += f"  Действие: создаёт самокат, через 5 сек добавляет карточку ТГ\n"
     
     text += "\n🗑️ Авто-удаление самокатов:\n"
@@ -877,7 +989,7 @@ def handle_message(message):
                     except Exception as e:
                         print(f"❌ Ошибка пересылки обзвона: {e}")
 
-        # 3. ✅ ПОСТОЯННЫЙ МОНИТОРИНГ ТОПИА 8694 (новая логика с 5 сек задержкой)
+        # 3. ✅ ПОСТОЯННЫЙ МОНИТОРИНГ ТОПИА 8694
         if msg_thread_id == TGK_THREAD_ID:
             parsed = parse_scooter_message_8694(message.text)
             if parsed:
@@ -888,9 +1000,7 @@ def handle_message(message):
                 chat_id_for_link = raw_chat_id[4:] if raw_chat_id.startswith('-100') else raw_chat_id.lstrip('-')
                 message_link = f"https://t.me/c/{chat_id_for_link}/{message.message_id}"
                 
-                # ШАГ 1: Создаём самокат БЕЗ карточки ТГ
                 if create_scooter_only(address, last_three, status):
-                    # ШАГ 2: Через 5 секунд проверяем и добавляем карточку ТГ
                     check_and_add_tgk_after_delay(last_three, message_link)
 
         # 4. Авто-удаление "удален из Поисков"
@@ -1167,15 +1277,89 @@ def handle_message(message):
                 bot.reply_to(message, f"❌ Не найдено: '{location_part}'")
         return
 
-    # ✅ ОБРАБОТКА " - " (Парковки и Самокаты)
+    # ✅ УНИВЕРСАЛЬНЫЙ ПАРСЕР КОМАНДЫ СОЗДАНИЯ САМОКАТА (дефис с пробелами или без)
+    scooter_cmd = parse_scooter_command(text)
+    if scooter_cmd:
+        location_part, last_three, rest = scooter_cmd
+        print(f"🛴 Команда самоката: адрес='{location_part}', номер={last_three}, остаток='{rest}'")
+
+        tgk_url = ""
+        fz_url = ""
+
+        # 1. Вытаскиваем tgk-ссылку
+        tgk_match = re.search(r'\btgk\s+(https?://\S+)', rest, re.IGNORECASE)
+        if tgk_match:
+            tgk_url = tgk_match.group(1)
+            rest = re.sub(r'\btgk\s+https?://\S+', '', rest, flags=re.IGNORECASE).strip()
+
+        # 2. Вытаскиваем обычную ссылку (ФЗ)
+        url_match = re.search(r'https?://\S+', rest)
+        if url_match:
+            fz_url = url_match.group(0)
+            rest = rest.replace(fz_url, "").strip()
+
+        # 3. Статус (sev проверяем первым)
+        status = 'active'
+        if re.search(r'\bsev\b', rest, re.IGNORECASE):
+            status = 'sev'
+            rest = re.sub(r'\bsev\b', '', rest, flags=re.IGNORECASE).strip()
+        elif re.search(r'\bred\b', rest, re.IGNORECASE):
+            status = 'red'
+            rest = re.sub(r'\bred\b', '', rest, flags=re.IGNORECASE).strip()
+
+        comment = rest.strip()
+
+        # 4. Координаты: либо переданы явно, либо ищем по адресу
+        coord_match = re.match(r'^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$', location_part)
+        if coord_match:
+            lat = float(coord_match.group(1))
+            lon = float(coord_match.group(2))
+        else:
+            lat, lon = get_coordinates(location_part)
+
+        if lat is None or lon is None:
+            bot.reply_to(message,
+                f"⚠️ Не нашёл адрес '{location_part}' в Смоленске.\n\n"
+                f"Попробуй:\n"
+                f"улица Ленина, 11 - {last_three}\n"
+                f"или координатами:\n"
+                f"54.776443, 32.050324 - {last_three}")
+            return
+
+        # 5. Создаём самокат
+        try:
+            conn = get_db_connection()
+            if not conn:
+                bot.reply_to(message, "❌ Нет подключения к БД")
+                return
+            c = conn.cursor()
+            c.execute("""INSERT INTO points 
+                        (title, address, lat, lon, status, comment, url, tgk_url) 
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
+                     (last_three, location_part, lat, lon, status, comment, fz_url, tgk_url))
+            conn.commit()
+            conn.close()
+
+            answer = f"✅ Самокат {last_three} добавлен!\n📍 {location_part}\n🎨 {status}"
+            if comment:
+                answer += f"\n💬 {comment}"
+            if tgk_url:
+                answer += "\n🔗 Карточка ТГ привязана"
+            bot.reply_to(message, answer)
+            print(f"✅ Создан самокат {last_three} ({lat}, {lon}), статус={status}")
+        except Exception as e:
+            print(f"❌ Ошибка создания самоката: {e}")
+            traceback.print_exc()
+            bot.reply_to(message, f"❌ Ошибка создания: {e}")
+        return
+
+    # ✅ ОБРАБОТКА " - " (Парковки)
     if ' - ' in text:
         parts = text.split(' - ', 1)
         title = parts[0].strip()
         action = parts[1].strip()
         
-        if action.isdigit() and len(action) == 3:
-            pass
-        elif action.lower() == 'удалить':
+        if action.lower() == 'удалить':
             conn = get_db_connection(); c = conn.cursor()
             c.execute("SELECT id, title, address, lat, lon, available_count, dead_count, broken_count, photo_url FROM parkings WHERE title = %s", (title,))
             row = c.fetchone()
@@ -1241,51 +1425,6 @@ def handle_message(message):
             bot.reply_to(message, f"✅ Доп инфа добавлена!")
         else:
             bot.reply_to(message, f"❌ Не найдено: '{location_part}'")
-        return
-
-    # ✅ СОЗДАНИЕ САМОКАТА
-    if '-' in text:
-        parts = text.rsplit('-', 1)
-        location_part = parts[0].strip()
-        right_side = parts[1].strip()
-        coord_match = re.match(r'^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$', location_part)
-        if coord_match:
-            lat, lon = float(coord_match.group(1)), float(coord_match.group(2))
-        else:
-            bot.reply_to(message, f"⏳ Ищу '{location_part}'...")
-            lat, lon = get_coordinates(location_part)
-        
-        if lat and lon:
-            tgk_url = ""
-            tgk_match = re.search(r'\btgk\s+(https?://\S+)', right_side, re.IGNORECASE)
-            if tgk_match:
-                tgk_url = tgk_match.group(1)
-                right_side = re.sub(r'\btgk\s+https?://\S+', '', right_side, flags=re.IGNORECASE).strip()
-            
-            url_match = re.search(r'(https?://\S+)', right_side)
-            url = url_match.group(1) if url_match else ""
-            if url:
-                right_side = right_side.replace(url, "").strip()
-            
-            status = 'active'
-            if re.search(r'\bred\b', right_side, re.IGNORECASE):
-                status = 'red'
-                right_side = re.sub(r'\bred\b', '', right_side, flags=re.IGNORECASE).strip()
-            elif re.search(r'\bsev\b', right_side, re.IGNORECASE):
-                status = 'sev'
-                right_side = re.sub(r'\bsev\b', '', right_side, flags=re.IGNORECASE).strip()
-            
-            remaining_parts = right_side.split()
-            title = remaining_parts[0] if len(remaining_parts) > 0 else "Точка"
-            comment = " ".join(remaining_parts[1:]) if len(remaining_parts) > 1 else ""
-            
-            conn = get_db_connection(); c = conn.cursor()
-            c.execute("INSERT INTO points (title, address, lat, lon, status, comment, url, tgk_url) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)", 
-                     (title, location_part, lat, lon, status, comment, url, tgk_url))
-            conn.commit(); conn.close()
-            bot.reply_to(message, f"✅ Точка '{title}' добавлена!")
-        else:
-            bot.reply_to(message, f"❌ Не найдено: '{location_part}'\n\nПопробуй: 'улица Ленина, 11 - 666'")
         return
 
     if text_lower == 'все p off':
@@ -1413,7 +1552,6 @@ def update_status():
                 save_to_trash(obj_type, point_data)
                 scooter_title = row[1]
                 
-                # ✅ Уведомление владельцу о нажатии "Нашёл"
                 if obj_type == 'point':
                     try:
                         bot.send_message(OWNER_USER_ID, f"🎯 Кто-то нашёл самокат {scooter_title}!")
