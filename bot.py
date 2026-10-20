@@ -37,7 +37,7 @@ DEFAULT_CALL_THREAD_ID = 22277
 # ✅ ТВОЙ ЛИЧНЫЙ USER_ID ДЛЯ УВЕДОМЛЕНИЙ
 OWNER_USER_ID = 7929131842
 
-# ✅ НОВЫЙ ТОПИК ДЛЯ АВТО-КАРТОЧЕК ТГ
+# ✅ ТОПИК ДЛЯ АВТО-СОЗДАНИЯ САМОКАТОВ + КАРТОЧКИ ТГ
 TGK_THREAD_ID = 8694
 
 # ✅ ID группы и топиков
@@ -47,9 +47,6 @@ call_thread_id = DEFAULT_CALL_THREAD_ID
 
 # ✅ ID пользователя для уведомлений (fallback)
 monitored_user_id = None
-
-# ✅ Флаг автозапуска обзвонов
-AUTO_CALL_MONITOR = True
 
 # ✅ Флаг для отправки уведомления о пробуждении
 startup_notification_sent = False
@@ -124,7 +121,7 @@ def save_monitors_to_db():
         print(f"❌ Ошибка сохранения в БД: {e}")
         traceback.print_exc()
 
-# ✅ ЗАГРУЗКА МОНИТОРИНГОВ ИЗ БД
+# ✅ ЗАГРУЗКА МОНИТОРИНГОВ ИЗ БД (С ИСПРАВЛЕННЫМ УВЕДОМЛЕНИЕМ)
 def load_monitors_from_db():
     global monitored_group_id, monitored_thread_id, call_thread_id, startup_notification_sent, monitored_user_id
     try:
@@ -144,22 +141,33 @@ def load_monitors_from_db():
                 try: monitored_user_id = int(value)
                 except: pass
                 
+        # ✅ ЗАГРУЗКА ФЗ МОНИТОРИНГОВ (с обнулением start_time)
         c.execute("SELECT key, chat_id, thread_id, last_three, user_id, start_time, active FROM active_monitors")
         for row in c.fetchall():
             key, chat_id, thread_id, last_three, user_id, start_time_str, active = row
             if active:
                 active_monitors[key] = {
-                    'chat_id': chat_id, 'thread_id': thread_id, 'last_three': last_three,
-                    'user_id': user_id, 'start_time': datetime.fromisoformat(start_time_str), 'active': True
+                    'chat_id': chat_id, 
+                    'thread_id': thread_id, 
+                    'last_three': last_three,
+                    'user_id': user_id, 
+                    'start_time': datetime.now(),
+                    'active': True
                 }
+        
+        # ✅ ЗАГРУЗКА ОБЗВОНОВ (с обнулением start_time)
         c.execute("SELECT key, chat_id, thread_id, user_id, start_time, active FROM active_call_monitors")
         for row in c.fetchall():
             key, chat_id, thread_id, user_id, start_time_str, active = row
             if active:
                 active_call_monitors[key] = {
-                    'chat_id': chat_id, 'thread_id': thread_id,
-                    'user_id': user_id, 'start_time': datetime.fromisoformat(start_time_str), 'active': True
+                    'chat_id': chat_id, 
+                    'thread_id': thread_id,
+                    'user_id': user_id, 
+                    'start_time': datetime.now(),
+                    'active': True
                 }
+        
         conn.close()
         fz_count = len(active_monitors)
         call_count = len(active_call_monitors)
@@ -167,61 +175,66 @@ def load_monitors_from_db():
         print(f"   Group ID: {monitored_group_id}")
         print(f"   ФЗ Thread ID: {monitored_thread_id}")
         print(f"   Обзвоны Thread ID: {call_thread_id}")
-        
-        if not startup_notification_sent:
-            users_notified = set()
-            all_monitors = list(active_monitors.values()) + list(active_call_monitors.values())
-            for monitor in all_monitors:
-                user_id = monitor.get('user_id')
-                if user_id and user_id not in users_notified:
-                    try:
-                        bot.send_message(user_id, 
-                            f"🤖 Я проснулся!\n\n"
-                            f"✅ Мониторинги перезапущены.\n"
-                            f"📊 Сейчас активно:\n"
-                            f"• ФЗ: {fz_count}\n"
-                            f"• Обзвоны: {call_count}")
-                        users_notified.add(user_id)
-                        print(f"✅ Уведомление отправлено пользователю {user_id}")
-                    except Exception as e:
-                        print(f"❌ Ошибка уведомления {user_id}: {e}")
-            startup_notification_sent = True
-            if users_notified:
-                print(f"📨 Уведомления отправлены {len(users_notified)} пользователям")
-            else:
-                print("⚠️ Активных мониторингов нет")
+        print(f"   OWNER_USER_ID: {OWNER_USER_ID}")
 
-        # ✅ АВТОЗАПУСК МОНИТОРИНГА ОБЗВОНОВ
+        # ✅ АВТОЗАПУСК МОНИТОРИНГА ОБЗВОНОВ (постоянный)
         call_monitor_key = f"{monitored_group_id}_{call_thread_id}_call"
-        if AUTO_CALL_MONITOR and call_monitor_key not in active_call_monitors:
+        if call_monitor_key not in active_call_monitors:
             target_user = monitored_user_id
             if not target_user and active_monitors:
                 target_user = list(active_monitors.values())[0].get('user_id')
             if not target_user:
                 target_user = OWNER_USER_ID
             
-            print(f"🔍 Автозапуск обзвонов: monitored_user_id={monitored_user_id}, target_user={target_user}")
+            print(f"🔍 Автозапуск обзвонов: target_user={target_user}")
             
             if target_user:
                 active_call_monitors[call_monitor_key] = {
                     'chat_id': monitored_group_id,
                     'thread_id': call_thread_id,
                     'user_id': target_user,
-                    'start_time': datetime.fromtimestamp(0),  # ✅ ВАЖНО: стартовая дата = 0, чтобы ловить ВСЕ сообщения
+                    'start_time': datetime.now(),
                     'active': True
                 }
                 save_monitors_to_db()
                 print(f"✅ Автозапуск мониторинга обзвонов (топик {call_thread_id}, user {target_user})")
-                try:
-                    bot.send_message(target_user, 
-                        f"🤖 Мониторинг обзвонов активирован автоматически!\n\n"
-                        f"📂 Топик: {call_thread_id}\n"
-                        f"🔍 Ищу: 'Добавлен результат обзвона'\n"
-                        f"📩 Пересылка в ЛС")
-                except Exception as e:
-                    print(f"❌ Ошибка уведомления об автозапуске: {e}")
-            else:
-                print(f"⚠️ Не удалось автозапустить обзвоны: target_user не определён!")
+                call_count = len(active_call_monitors)
+
+        # ✅ ОТПРАВКА УВЕДОМЛЕНИЯ О ПРОБУЖДЕНИИ (ВСЕГДА, НЕЗАВИСИМО ОТ МОНИТОРИНГОВ)
+        if not startup_notification_sent:
+            print(f"🔍 Проверка startup_notification_sent: {startup_notification_sent}")
+            
+            msg = (
+                f"🤖 Я проснулся!\n\n"
+                f"✅ Мониторинги перезапущены.\n"
+                f"📊 Сейчас активно:\n"
+                f"• ФЗ: {fz_count}\n"
+                f"• Обзвоны: {call_count}"
+            )
+            
+            # ✅ ВСЕГДА отправляем тебе (OWNER_USER_ID)
+            try:
+                bot.send_message(OWNER_USER_ID, msg)
+                print(f"✅✅✅ Уведомление 'Я проснулся!' отправлено тебе (ID: {OWNER_USER_ID})")
+            except Exception as e:
+                print(f"❌❌❌ Ошибка отправки уведомления OWNER_USER_ID: {e}")
+                traceback.print_exc()
+            
+            # Дополнительно отправляем другим пользователям с активными мониторингами
+            users_notified = {OWNER_USER_ID}
+            all_monitors = list(active_monitors.values()) + list(active_call_monitors.values())
+            for monitor in all_monitors:
+                user_id = monitor.get('user_id')
+                if user_id and user_id not in users_notified:
+                    try:
+                        bot.send_message(user_id, msg)
+                        users_notified.add(user_id)
+                        print(f"✅ Доп. уведомление отправлено пользователю {user_id}")
+                    except Exception as e:
+                        print(f"❌ Ошибка уведомления {user_id}: {e}")
+            
+            startup_notification_sent = True
+            print(f"📨 Всего уведомлений отправлено: {len(users_notified)}")
 
     except Exception as e:
         print(f"❌ Ошибка загрузки из БД: {e}")
@@ -366,6 +379,114 @@ def get_coordinates(address):
     print(f"❌ Не найдены координаты для '{address}'")
     return None, None
 
+# ✅ НОВАЯ ФУНКЦИЯ: Парсинг сообщения из топика 8694
+def parse_scooter_message_8694(text):
+    """
+    Парсит сообщение из топика 8694 и возвращает (address, last_three) или None.
+    """
+    scooter_match = re.search(r'🛴\s*7703(\d{3})', text)
+    if not scooter_match:
+        return None
+    
+    last_three = scooter_match.group(1)
+    
+    # Сценарий 1: "Текущий gps: улица Ленина, 11"
+    match = re.search(r'Текущий gps:\s*улица\s+(\S+?)\s*,\s*(\d+)', text, re.IGNORECASE)
+    if match:
+        street = match.group(1)
+        number = match.group(2)
+        address = f"{street}, {number}"
+        print(f"📍 Сценарий 1 (улица): адрес='{address}', номер={last_three}")
+        return address, last_three
+    
+    # Сценарий 2: "г Смоленск, пр-кт Мира, 5"
+    match = re.search(r'г\s*Смоленск,\s*пр-кт\s+(\S+?)\s*,\s*(\d+)', text, re.IGNORECASE)
+    if match:
+        street = match.group(1)
+        number = match.group(2)
+        address = f"{street}, {number}"
+        print(f"📍 Сценарий 2 (пр-кт): адрес='{address}', номер={last_three}")
+        return address, last_three
+    
+    # Сценарий 3: "г Смоленск, ул Ленина, 11"
+    match = re.search(r'г\s*Смоленск,\s*ул\s+(\S+?)\s*,\s*(\d+)', text, re.IGNORECASE)
+    if match:
+        street = match.group(1)
+        number = match.group(2)
+        address = f"{street}, {number}"
+        print(f"📍 Сценарий 3 (ул): адрес='{address}', номер={last_three}")
+        return address, last_three
+    
+    # Сценарий 4: "Нет координат в пределах города"
+    if re.search(r'Нет координат в пределах города', text, re.IGNORECASE):
+        address = "54.776443, 32.050324"
+        print(f"📍 Сценарий 4 (нет координат): адрес='{address}', номер={last_three}")
+        return address, last_three
+    
+    print(f"⚠️ Не удалось распарсить адрес из сообщения")
+    return None
+
+# ✅ НОВАЯ ФУНКЦИЯ: Создание самоката + добавление карточки ТГ
+def create_scooter_and_tgk(address, last_three, message_link, chat_id_for_link):
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return False
+        
+        c = conn.cursor()
+        
+        # 1. Проверяем, есть ли уже такой самокат в БД
+        c.execute("SELECT id, tgk_url FROM points WHERE title = %s AND status != 'found'", (last_three,))
+        existing = c.fetchall()
+        
+        if existing:
+            has_tgk = any(row[1] for row in existing)
+            
+            if not has_tgk:
+                c.execute("""UPDATE points SET tgk_url = %s 
+                            WHERE title = %s AND status != 'found' 
+                            AND (tgk_url IS NULL OR tgk_url = '')""", 
+                         (message_link, last_three))
+                updated_count = c.rowcount
+                conn.commit()
+                conn.close()
+                
+                if updated_count > 0:
+                    print(f"🔗 Добавлена карточка ТГ для {updated_count} самокат(а/ов) {last_three}")
+                    try:
+                        bot.send_message(OWNER_USER_ID, 
+                            f"🔗 Для самоката {last_three} добавлена карточка в ТГ!")
+                    except Exception as e:
+                        print(f"❌ Ошибка уведомления: {e}")
+                return True
+            else:
+                print(f"⚠️ У самоката {last_three} уже есть карточка ТГ")
+                conn.close()
+                return True
+        else:
+            # 2. Самоката нет — создаём новый с карточкой ТГ
+            c.execute("""INSERT INTO points (title, address, lat, lon, status, comment, url, tgk_url) 
+                        VALUES (%s, %s, NULL, NULL, 'active', '', '', %s) RETURNING id""", 
+                     (last_three, address, message_link))
+            new_id = c.fetchone()[0]
+            conn.commit()
+            conn.close()
+            
+            print(f"✅ Создан самокат {last_three} по адресу '{address}' с карточкой ТГ")
+            try:
+                bot.send_message(OWNER_USER_ID, 
+                    f"🆕 Создан самокат {last_three}!\n"
+                    f"📍 Адрес: {address}\n"
+                    f"🔗 Карточка ТГ добавлена")
+            except Exception as e:
+                print(f"❌ Ошибка уведомления: {e}")
+            return True
+            
+    except Exception as e:
+        print(f"❌ Ошибка create_scooter_and_tgk: {e}")
+        traceback.print_exc()
+        return False
+
 bot = telebot.TeleBot(BOT_TOKEN, threaded=False)
 
 # --- КОМАНДЫ УПРАВЛЕНИЯ ТРЕДАМИ ---
@@ -428,7 +549,6 @@ def show_thread_id(message):
             response += f"Чтобы задать для ФЗ, напиши в ЛС:\nтред фз {thread_id}\n\n"
             response += f"Чтобы задать для обзвонов:\nтред обзвон {thread_id}"
             bot.send_message(user_id, response)
-            print(f"✅ Отправлен ID треда {thread_id} пользователю {user_id}")
         else:
             response = f"⚠️ Это общий чат, не тред.\n\n💬 Группа ID: {message.chat.id}\n\nНапиши команду внутри треда."
             bot.send_message(user_id, response)
@@ -513,14 +633,15 @@ def list_monitors(message):
         text += "  (нет активных)\n"
     
     text += "\n📞 Обзвоны:\n"
-    text += f"  ✅ {'АКТИВЕН' if call_monitor_active else 'НЕ АКТИВЕН'} (топик {call_thread_id})\n"
+    text += f"  ✅ {'ПОСТОЯННО АКТИВЕН' if call_monitor_active else 'НЕ АКТИВЕН'} (топик {call_thread_id})\n"
     text += f"  Ищет: 'Добавлен результат обзвона'\n"
     text += f"  Действие: пересылка в ЛС\n"
+    text += f"  Запускается автоматически при старте бота\n"
     
-    text += "\n🔗 Авто-карточки ТГ:\n"
+    text += "\n🔗 Авто-создание самокатов + карточки ТГ:\n"
     text += f"  ✅ Всегда активен (топик {TGK_THREAD_ID})\n"
-    text += f"  Ищет: '🛴 7703***'\n"
-    text += f"  Действие: добавляет ссылку на пост как карточку ТГ\n"
+    text += f"  Ищет: '🛴 7703***' + адрес\n"
+    text += f"  Действие: создаёт самокат и добавляет карточку ТГ\n"
     
     text += "\n🗑️ Авто-удаление самокатов:\n"
     text += f"  ✅ Всегда активен (топик {call_thread_id})\n"
@@ -659,13 +780,6 @@ def handle_message(message):
         msg_thread_id = getattr(message, 'message_thread_id', None)
         message_time = datetime.fromtimestamp(message.date)
         
-        # 🔍 ДЕТАЛЬНОЕ ЛОГИРОВАНИЕ для отладки обзвонов
-        if msg_thread_id == call_thread_id and 'обзвон' in text_lower:
-            print(f"🔍 [ОТЛАДКА] Сообщение в треде обзвонов ({msg_thread_id}): '{text}'")
-            print(f"   Активных обзвон-мониторов: {len(active_call_monitors)}")
-            for key, mon in active_call_monitors.items():
-                print(f"   - {key}: chat={mon['chat_id']}, thread={mon.get('thread_id')}, active={mon['active']}, start={mon['start_time']}")
-        
         # 1. ФЗ Мониторинг
         for key, monitor in list(active_monitors.items()):
             if monitor['chat_id'] == monitored_group_id and monitor['active']:
@@ -692,70 +806,33 @@ def handle_message(message):
                     except Exception as e:
                         print(f"❌ Ошибка ФЗ: {e}")
 
-        # 2. Обзвоны Мониторинг
+        # 2. ✅ ПОСТОЯННЫЙ МОНИТОРИНГ ОБЗВОНОВ (без фильтра по start_time)
         for key, monitor in list(active_call_monitors.items()):
             if monitor['chat_id'] == monitored_group_id and monitor['active']:
                 monitor_thread = monitor.get('thread_id')
                 if monitor_thread is not None and msg_thread_id != monitor_thread:
                     continue
-                # ✅ ИСПРАВЛЕНО: не фильтруем по start_time, чтобы ловить ВСЕ сообщения
+                
                 if 'Добавлен результат обзвона' in message.text:
+                    print(f"✅ [ОТЛАДКА] Пытаемся переслать обзвон из топика {msg_thread_id}")
                     try:
                         bot.forward_message(monitor['user_id'], monitored_group_id, message.message_id)
-                        print(f"✅ Обзвон переслан из группы {monitored_group_id}, топик {msg_thread_id}")
+                        print(f"✅ Обзвон успешно переслан пользователю {monitor['user_id']}")
                     except Exception as e:
                         print(f"❌ Ошибка пересылки обзвона: {e}")
 
-        # 3. ✅ НОВОЕ: Авто-добавление карточки ТГ из топика TGK_THREAD_ID
+        # 3. ✅ ПОСТОЯННЫЙ МОНИТОРИНГ ТОПИА 8694 (создание самоката + карточка ТГ)
         if msg_thread_id == TGK_THREAD_ID:
-            tgk_auto_match = re.search(r'🛴\s*7703(\d{3})', message.text)
-            if tgk_auto_match:
-                last_three = tgk_auto_match.group(1)
-                print(f"🔗 Найдено '🛴 7703{last_three}' в топике TGK ({TGK_THREAD_ID})")
-                try:
-                    conn = get_db_connection()
-                    if conn:
-                        c = conn.cursor()
-                        # Проверяем есть ли самокаты с этим номером БЕЗ tgk_url
-                        c.execute("SELECT id, title, tgk_url FROM points WHERE title = %s AND status != 'found'", (last_three,))
-                        rows = c.fetchall()
-                        
-                        needs_update = False
-                        for row in rows:
-                            if not row[2]:  # tgk_url пустой
-                                needs_update = True
-                                break
-                        
-                        if needs_update:
-                            # Формируем ссылку на сообщение
-                            raw_chat_id = str(monitored_group_id)
-                            chat_id_for_link = raw_chat_id[4:] if raw_chat_id.startswith('-100') else raw_chat_id.lstrip('-')
-                            message_link = f"https://t.me/c/{chat_id_for_link}/{message.message_id}"
-                            
-                            # Обновляем все самокаты с этим номером, у которых нет tgk_url
-                            c.execute("""UPDATE points SET tgk_url = %s 
-                                        WHERE title = %s AND status != 'found' 
-                                        AND (tgk_url IS NULL OR tgk_url = '')""", 
-                                     (message_link, last_three))
-                            updated_count = c.rowcount
-                            conn.commit()
-                            conn.close()
-                            
-                            if updated_count > 0:
-                                print(f"🔗 Добавлена карточка ТГ для {updated_count} самокат(а/ов) {last_three}")
-                                try:
-                                    bot.send_message(OWNER_USER_ID, 
-                                        f"🔗 Для самоката {last_three} добавлена карточка в ТГ!")
-                                except Exception as e:
-                                    print(f"❌ Ошибка уведомления: {e}")
-                            else:
-                                print(f"⚠️ У всех самокатов {last_three} уже есть карточка ТГ")
-                        else:
-                            conn.close()
-                            print(f"⚠️ У всех самокатов {last_three} уже есть карточка ТГ")
-                except Exception as e:
-                    print(f"❌ Ошибка TGK авто-добавления: {e}")
-                    traceback.print_exc()
+            parsed = parse_scooter_message_8694(message.text)
+            if parsed:
+                address, last_three = parsed
+                print(f"🔗 Обработано сообщение из топика {TGK_THREAD_ID}: адрес='{address}', номер={last_three}")
+                
+                raw_chat_id = str(monitored_group_id)
+                chat_id_for_link = raw_chat_id[4:] if raw_chat_id.startswith('-100') else raw_chat_id.lstrip('-')
+                message_link = f"https://t.me/c/{chat_id_for_link}/{message.message_id}"
+                
+                create_scooter_and_tgk(address, last_three, message_link, chat_id_for_link)
 
         # 4. Авто-удаление "удален из Поисков"
         msg_text_lower = message.text.lower()
@@ -812,7 +889,7 @@ def handle_message(message):
 
     # ✅ ЛИЧНЫЕ СООБЩЕНИЯ
     
-    # ✅ КОМАНДА: ДОБАВИТЬ ССЫЛКУ НА КАРТОЧКУ В ТГ К СУЩЕСТВУЮЩЕМУ САМОКАТУ
+    # ✅ КОМАНДА: ДОБАВИТЬ ССЫЛКУ НА КАРТОЧКУ В ТГ
     tgk_match = re.match(r'^\s*(\d{3})\s+(https?://\S+)\s*$', text)
     if tgk_match:
         last_three = tgk_match.group(1)
@@ -1278,7 +1355,7 @@ def update_status():
                 scooter_title = row[1]
                 
                 # ✅ НОВОЕ: Уведомление владельцу о нажатии "Нашёл"
-                if obj_type == 'point':  # Только для самокатов, не для доп инфы
+                if obj_type == 'point':
                     try:
                         bot.send_message(OWNER_USER_ID, f"🎯 Кто-то нашёл самокат {scooter_title}!")
                         print(f"✅ Уведомление о находке самоката {scooter_title} отправлено")
@@ -1353,7 +1430,6 @@ def get_parkings():
         conn.close()
         return jsonify(parkings)
     except Exception as e:
-        print(f"❌ /get_parkings: {e}")
         return jsonify([]), 200
 
 @app.route('/update_parking', methods=['POST'])
