@@ -34,8 +34,11 @@ DEFAULT_GROUP_ID = -1003920057901
 DEFAULT_FZ_THREAD_ID = 79227
 DEFAULT_CALL_THREAD_ID = 22277
 
-# ✅ ТВОЙ ЛИЧНЫЙ USER_ID ДЛЯ УВЕДОМЛЕНИЙ (жёстко задан)
+# ✅ ТВОЙ ЛИЧНЫЙ USER_ID ДЛЯ УВЕДОМЛЕНИЙ
 OWNER_USER_ID = 7929131842
+
+# ✅ НОВЫЙ ТОПИК ДЛЯ АВТО-КАРТОЧЕК ТГ
+TGK_THREAD_ID = 8694
 
 # ✅ ID группы и топиков
 monitored_group_id = DEFAULT_GROUP_ID
@@ -194,6 +197,8 @@ def load_monitors_from_db():
             target_user = monitored_user_id
             if not target_user and active_monitors:
                 target_user = list(active_monitors.values())[0].get('user_id')
+            if not target_user:
+                target_user = OWNER_USER_ID
             
             print(f"🔍 Автозапуск обзвонов: monitored_user_id={monitored_user_id}, target_user={target_user}")
             
@@ -202,7 +207,7 @@ def load_monitors_from_db():
                     'chat_id': monitored_group_id,
                     'thread_id': call_thread_id,
                     'user_id': target_user,
-                    'start_time': datetime.now(),
+                    'start_time': datetime.fromtimestamp(0),  # ✅ ВАЖНО: стартовая дата = 0, чтобы ловить ВСЕ сообщения
                     'active': True
                 }
                 save_monitors_to_db()
@@ -412,7 +417,8 @@ def show_thread_id(message):
         response = f"📊 Текущие настройки:\n\n"
         response += f"💬 Группа ID: {monitored_group_id}\n"
         response += f"📂 ФЗ Thread ID: {monitored_thread_id}\n"
-        response += f"📞 Обзвоны Thread ID: {call_thread_id}"
+        response += f"📞 Обзвоны Thread ID: {call_thread_id}\n"
+        response += f"🔗 TGK авто Thread ID: {TGK_THREAD_ID}"
         bot.send_message(user_id, response)
     elif message.chat.type in ['group', 'supergroup']:
         thread_id = getattr(message, 'message_thread_id', None)
@@ -427,7 +433,6 @@ def show_thread_id(message):
             response = f"⚠️ Это общий чат, не тред.\n\n💬 Группа ID: {message.chat.id}\n\nНапиши команду внутри треда."
             bot.send_message(user_id, response)
 
-# ✅ КОМАНДА: ПОКАЗАТЬ МОЙ USER_ID
 @bot.message_handler(commands=['мой_айди', 'myid'])
 def show_my_id(message):
     if message.chat.type != 'private':
@@ -436,7 +441,6 @@ def show_my_id(message):
     user_id = message.from_user.id
     bot.reply_to(message, 
         f"🆔 Твой user_id: `{user_id}`\n\n"
-        f"Этот ID используется для отправки уведомлений.\n"
         f"OWNER_USER_ID в коде: `{OWNER_USER_ID}`\n"
         f"Текущий monitored_user_id: `{monitored_user_id}`",
         parse_mode='Markdown')
@@ -509,10 +513,14 @@ def list_monitors(message):
         text += "  (нет активных)\n"
     
     text += "\n📞 Обзвоны:\n"
-    text += f"  ✅ ВСЕГДА АКТИВЕН (топик {call_thread_id})\n"
+    text += f"  ✅ {'АКТИВЕН' if call_monitor_active else 'НЕ АКТИВЕН'} (топик {call_thread_id})\n"
     text += f"  Ищет: 'Добавлен результат обзвона'\n"
     text += f"  Действие: пересылка в ЛС\n"
-    text += f"  Запускается автоматически при старте бота\n"
+    
+    text += "\n🔗 Авто-карточки ТГ:\n"
+    text += f"  ✅ Всегда активен (топик {TGK_THREAD_ID})\n"
+    text += f"  Ищет: '🛴 7703***'\n"
+    text += f"  Действие: добавляет ссылку на пост как карточку ТГ\n"
     
     text += "\n🗑️ Авто-удаление самокатов:\n"
     text += f"  ✅ Всегда активен (топик {call_thread_id})\n"
@@ -651,6 +659,13 @@ def handle_message(message):
         msg_thread_id = getattr(message, 'message_thread_id', None)
         message_time = datetime.fromtimestamp(message.date)
         
+        # 🔍 ДЕТАЛЬНОЕ ЛОГИРОВАНИЕ для отладки обзвонов
+        if msg_thread_id == call_thread_id and 'обзвон' in text_lower:
+            print(f"🔍 [ОТЛАДКА] Сообщение в треде обзвонов ({msg_thread_id}): '{text}'")
+            print(f"   Активных обзвон-мониторов: {len(active_call_monitors)}")
+            for key, mon in active_call_monitors.items():
+                print(f"   - {key}: chat={mon['chat_id']}, thread={mon.get('thread_id')}, active={mon['active']}, start={mon['start_time']}")
+        
         # 1. ФЗ Мониторинг
         for key, monitor in list(active_monitors.items()):
             if monitor['chat_id'] == monitored_group_id and monitor['active']:
@@ -672,10 +687,8 @@ def handle_message(message):
                             disable_web_page_preview=True
                         )
                         print(f"✅ Найдено: {pattern} в группе {monitored_group_id}, топик {msg_thread_id}")
-                        print(f"   Ссылка: {message_link}")
                         del active_monitors[key]
                         save_monitors_to_db()
-                        print(f"🗑️ Мониторинг {key} удалён после находки")
                     except Exception as e:
                         print(f"❌ Ошибка ФЗ: {e}")
 
@@ -685,8 +698,7 @@ def handle_message(message):
                 monitor_thread = monitor.get('thread_id')
                 if monitor_thread is not None and msg_thread_id != monitor_thread:
                     continue
-                if message_time < monitor['start_time']:
-                    continue
+                # ✅ ИСПРАВЛЕНО: не фильтруем по start_time, чтобы ловить ВСЕ сообщения
                 if 'Добавлен результат обзвона' in message.text:
                     try:
                         bot.forward_message(monitor['user_id'], monitored_group_id, message.message_id)
@@ -694,7 +706,58 @@ def handle_message(message):
                     except Exception as e:
                         print(f"❌ Ошибка пересылки обзвона: {e}")
 
-        # 3. Авто-удаление "удален из Поисков" (гибкая проверка)
+        # 3. ✅ НОВОЕ: Авто-добавление карточки ТГ из топика TGK_THREAD_ID
+        if msg_thread_id == TGK_THREAD_ID:
+            tgk_auto_match = re.search(r'🛴\s*7703(\d{3})', message.text)
+            if tgk_auto_match:
+                last_three = tgk_auto_match.group(1)
+                print(f"🔗 Найдено '🛴 7703{last_three}' в топике TGK ({TGK_THREAD_ID})")
+                try:
+                    conn = get_db_connection()
+                    if conn:
+                        c = conn.cursor()
+                        # Проверяем есть ли самокаты с этим номером БЕЗ tgk_url
+                        c.execute("SELECT id, title, tgk_url FROM points WHERE title = %s AND status != 'found'", (last_three,))
+                        rows = c.fetchall()
+                        
+                        needs_update = False
+                        for row in rows:
+                            if not row[2]:  # tgk_url пустой
+                                needs_update = True
+                                break
+                        
+                        if needs_update:
+                            # Формируем ссылку на сообщение
+                            raw_chat_id = str(monitored_group_id)
+                            chat_id_for_link = raw_chat_id[4:] if raw_chat_id.startswith('-100') else raw_chat_id.lstrip('-')
+                            message_link = f"https://t.me/c/{chat_id_for_link}/{message.message_id}"
+                            
+                            # Обновляем все самокаты с этим номером, у которых нет tgk_url
+                            c.execute("""UPDATE points SET tgk_url = %s 
+                                        WHERE title = %s AND status != 'found' 
+                                        AND (tgk_url IS NULL OR tgk_url = '')""", 
+                                     (message_link, last_three))
+                            updated_count = c.rowcount
+                            conn.commit()
+                            conn.close()
+                            
+                            if updated_count > 0:
+                                print(f"🔗 Добавлена карточка ТГ для {updated_count} самокат(а/ов) {last_three}")
+                                try:
+                                    bot.send_message(OWNER_USER_ID, 
+                                        f"🔗 Для самоката {last_three} добавлена карточка в ТГ!")
+                                except Exception as e:
+                                    print(f"❌ Ошибка уведомления: {e}")
+                            else:
+                                print(f"⚠️ У всех самокатов {last_three} уже есть карточка ТГ")
+                        else:
+                            conn.close()
+                            print(f"⚠️ У всех самокатов {last_three} уже есть карточка ТГ")
+                except Exception as e:
+                    print(f"❌ Ошибка TGK авто-добавления: {e}")
+                    traceback.print_exc()
+
+        # 4. Авто-удаление "удален из Поисков"
         msg_text_lower = message.text.lower()
         is_poisk_deleted = (
             msg_thread_id == call_thread_id and 
@@ -717,7 +780,6 @@ def handle_message(message):
                         conn.commit()
                         conn.close()
                         
-                        # ✅ ВСЕГДА отправляем ТОЛЬКО тебе (OWNER_USER_ID)
                         if deleted_count > 0:
                             print(f"🗑️ Самокат {last_three} удалён из БД")
                             try:
@@ -734,10 +796,8 @@ def handle_message(message):
                 except Exception as e:
                     print(f"❌ Ошибка удаления самоката: {e}")
                     traceback.print_exc()
-            else:
-                print(f"⚠️ В сообщении не найден номер 7703***")
 
-        # 4. Авто-уведомление "удален из Без аренды"
+        # 5. Авто-уведомление "удален из Без аренды"
         if msg_thread_id == call_thread_id and 'удален из без аренды' in msg_text_lower:
             match = re.search(r'7703(\d{3})', message.text)
             if match:
@@ -752,7 +812,7 @@ def handle_message(message):
 
     # ✅ ЛИЧНЫЕ СООБЩЕНИЯ
     
-    # ✅ НОВАЯ КОМАНДА: ДОБАВИТЬ ССЫЛКУ НА КАРТОЧКУ В ТГ К СУЩЕСТВУЮЩЕМУ САМОКАТУ
+    # ✅ КОМАНДА: ДОБАВИТЬ ССЫЛКУ НА КАРТОЧКУ В ТГ К СУЩЕСТВУЮЩЕМУ САМОКАТУ
     tgk_match = re.match(r'^\s*(\d{3})\s+(https?://\S+)\s*$', text)
     if tgk_match:
         last_three = tgk_match.group(1)
@@ -938,7 +998,7 @@ def handle_message(message):
         bot.reply_to(message, f"🗑️ Ссылка удалена.")
         return
     
-    # ✅ ССЫЛКА НА ФОТО ПАРКОВКИ (игнорируем 3-значные числа)
+    # ✅ ССЫЛКА НА ФОТО ПАРКОВКИ
     if ' http' in text or ' https' in text or text.startswith('http') or text.startswith('https'):
         parts = text.split(' ', 1)
         if len(parts) == 2 and (parts[1].startswith('http') or parts[1].startswith('https')):
@@ -1047,7 +1107,7 @@ def handle_message(message):
             bot.reply_to(message, f"❌ Не найдено: '{location_part}'")
         return
 
-    # ✅ СОЗДАНИЕ САМОКАТА (Ленина 11 - 665 red коммент tgk https://t.me/x)
+    # ✅ СОЗДАНИЕ САМОКАТА
     if '-' in text:
         parts = text.rsplit('-', 1)
         location_part = parts[0].strip()
@@ -1167,11 +1227,9 @@ def get_points():
             c.execute("SELECT id, title, address, lat, lon, status, comment, url, assigned_to, tgk_url FROM points WHERE status != 'found'")
         points = [{"id": r[0], "title": r[1], "address": r[2], "lat": float(r[3]) if r[3] else 0, "lon": float(r[4]) if r[4] else 0, "status": r[5], "comment": r[6] or "", "url": r[7] or "", "assigned_to": r[8], "tgk_url": r[9] or ""} for r in c.fetchall()]
         conn.close()
-        print(f"✅ /get_points: возвращено {len(points)} точек")
         return jsonify(points)
     except Exception as e:
         print(f"❌ /get_points: {e}")
-        traceback.print_exc()
         return jsonify([]), 200
 
 @app.route('/create_scooter', methods=['POST'])
@@ -1217,7 +1275,16 @@ def update_status():
                     'status': row[5], 'comment': row[6], 'url': row[7], 'assigned_to': row[8], 'tgk_url': row[9]}
                 obj_type = 'info' if row[5] == 'info' else 'point'
                 save_to_trash(obj_type, point_data)
-                print(f"🗑️ Удалён {obj_type} ID {row[0]}, сохранён в trash")
+                scooter_title = row[1]
+                
+                # ✅ НОВОЕ: Уведомление владельцу о нажатии "Нашёл"
+                if obj_type == 'point':  # Только для самокатов, не для доп инфы
+                    try:
+                        bot.send_message(OWNER_USER_ID, f"🎯 Кто-то нашёл самокат {scooter_title}!")
+                        print(f"✅ Уведомление о находке самоката {scooter_title} отправлено")
+                    except Exception as e:
+                        print(f"❌ Ошибка уведомления о находке: {e}")
+                
             c.execute("DELETE FROM points WHERE id = %s", (data.get('id'),))
         else:
             c.execute("UPDATE points SET status = %s WHERE id = %s", (data.get('status'), data.get('id')))
@@ -1284,11 +1351,9 @@ def get_parkings():
                     "broken": r[7] or '?', "photo_url": r[8] or ""
                 })
         conn.close()
-        print(f"✅ /get_parkings: возвращено {len(parkings)} парковок")
         return jsonify(parkings)
     except Exception as e:
         print(f"❌ /get_parkings: {e}")
-        traceback.print_exc()
         return jsonify([]), 200
 
 @app.route('/update_parking', methods=['POST'])
@@ -1318,7 +1383,6 @@ def delete_parking():
             parking_data = {'id': row[0], 'title': row[1], 'address': row[2], 'lat': row[3], 'lon': row[4],
                 'available_count': row[5], 'dead_count': row[6], 'broken_count': row[7], 'photo_url': row[8]}
             save_to_trash('parking', parking_data)
-            print(f"🗑️ Удалена парковка ID {row[0]}, сохранена в trash")
         c.execute("DELETE FROM parkings WHERE id = %s", (data.get('id'),))
         conn.commit(); conn.close()
         return jsonify({"success": True})
@@ -1344,11 +1408,8 @@ def get_zones():
             except:
                 continue
         conn.close()
-        print(f"✅ /get_zones: возвращено {len(zones)} зон")
         return jsonify(zones)
     except Exception as e:
-        print(f"❌ /get_zones: {e}")
-        traceback.print_exc()
         return jsonify([]), 200
 
 @app.route('/add_zone', methods=['POST'])
@@ -1376,7 +1437,6 @@ def delete_zone():
         if row:
             zone_data = {'id': row[0], 'coords': row[1], 'comment': row[2], 'assigned_to': row[3]}
             save_to_trash('zone', zone_data)
-            print(f"🗑️ Удалена зона ID {row[0]}, сохранена в trash")
         c.execute("DELETE FROM zones WHERE id = %s", (data.get('id'),))
         conn.commit(); conn.close()
         return jsonify({"success": True})
@@ -1415,11 +1475,8 @@ def get_routes():
             except:
                 continue
         conn.close()
-        print(f"✅ /get_routes: возвращено {len(routes)} маршрутов")
         return jsonify(routes)
     except Exception as e:
-        print(f"❌ /get_routes: {e}")
-        traceback.print_exc()
         return jsonify([]), 200
 
 @app.route('/get_temp_routes')
@@ -1437,11 +1494,8 @@ def get_temp_routes():
             except:
                 continue
         conn.close()
-        print(f"✅ /get_temp_routes: возвращено {len(routes)} временных маршрутов")
         return jsonify(routes)
     except Exception as e:
-        print(f"❌ /get_temp_routes: {e}")
-        traceback.print_exc()
         return jsonify([]), 200
 
 @app.route('/clear_temp_routes', methods=['POST'])
@@ -1453,7 +1507,6 @@ def clear_temp_routes():
         c.execute("DELETE FROM routes WHERE temporary = TRUE")
         count = c.rowcount
         conn.commit(); conn.close()
-        print(f"🗑️ Очищено {count} временных маршрутов")
         return jsonify({"success": True, "count": count})
     except Exception as e:
         return jsonify({"error": str(e), "success": False}), 500
@@ -1473,7 +1526,6 @@ def add_route():
         c.execute("INSERT INTO routes (coords, comment, temporary) VALUES (%s, %s, %s)", 
                  (json.dumps(data.get('coords')), data.get('comment', ''), temp_value))
         conn.commit(); conn.close()
-        print(f"✅ Маршрут сохранён, temporary={temp_value}, comment='{data.get('comment', '')}'")
         return jsonify({"success": True})
     except Exception as e:
         return jsonify({"error": str(e), "success": False}), 500
@@ -1563,7 +1615,6 @@ def get_departures():
         conn.close()
         return jsonify(departures)
     except Exception as e:
-        print(f"❌ /get_departures: {e}")
         return jsonify([]), 200
 
 @app.route('/add_departure', methods=['POST'])
