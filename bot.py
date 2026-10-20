@@ -51,6 +51,13 @@ monitored_user_id = None
 # ✅ Флаг для отправки уведомления о пробуждении
 startup_notification_sent = False
 
+# ✅ ФУНКЦИЯ ДЛЯ ЛОГИРОВАНИЯ ПРЯМО В TELEGRAM
+def log_to_owner(text, parse_mode=None):
+    try:
+        bot.send_message(OWNER_USER_ID, text, parse_mode=parse_mode)
+    except Exception as e:
+        print(f"❌ Ошибка отправки лога в ЛС: {e}")
+
 @app.before_request
 def handle_options():
     if request.method == 'OPTIONS':
@@ -141,7 +148,6 @@ def load_monitors_from_db():
                 try: monitored_user_id = int(value)
                 except: pass
                 
-        # ✅ ЗАГРУЗКА ФЗ МОНИТОРИНГОВ (с обнулением start_time)
         c.execute("SELECT key, chat_id, thread_id, last_three, user_id, start_time, active FROM active_monitors")
         for row in c.fetchall():
             key, chat_id, thread_id, last_three, user_id, start_time_str, active = row
@@ -155,7 +161,6 @@ def load_monitors_from_db():
                     'active': True
                 }
         
-        # ✅ ЗАГРУЗКА ОБЗВОНОВ (с обнулением start_time)
         c.execute("SELECT key, chat_id, thread_id, user_id, start_time, active FROM active_call_monitors")
         for row in c.fetchall():
             key, chat_id, thread_id, user_id, start_time_str, active = row
@@ -172,12 +177,8 @@ def load_monitors_from_db():
         fz_count = len(active_monitors)
         call_count = len(active_call_monitors)
         print(f"✅ Загружено из БД: {fz_count} ФЗ, {call_count} обзвонов")
-        print(f"   Group ID: {monitored_group_id}")
-        print(f"   ФЗ Thread ID: {monitored_thread_id}")
-        print(f"   Обзвоны Thread ID: {call_thread_id}")
-        print(f"   OWNER_USER_ID: {OWNER_USER_ID}")
 
-        # ✅ АВТОЗАПУСК МОНИТОРИНГА ОБЗВОНОВ (постоянный)
+        # ✅ АВТОЗАПУСК МОНИТОРИНГА ОБЗВОНОВ
         call_monitor_key = f"{monitored_group_id}_{call_thread_id}_call"
         if call_monitor_key not in active_call_monitors:
             target_user = monitored_user_id
@@ -185,8 +186,6 @@ def load_monitors_from_db():
                 target_user = list(active_monitors.values())[0].get('user_id')
             if not target_user:
                 target_user = OWNER_USER_ID
-            
-            print(f"🔍 Автозапуск обзвонов: target_user={target_user}")
             
             if target_user:
                 active_call_monitors[call_monitor_key] = {
@@ -198,12 +197,9 @@ def load_monitors_from_db():
                 }
                 save_monitors_to_db()
                 print(f"✅ Автозапуск мониторинга обзвонов (топик {call_thread_id}, user {target_user})")
-                call_count = len(active_call_monitors)
 
-        # ✅ ОТПРАВКА УВЕДОМЛЕНИЯ О ПРОБУЖДЕНИИ (ВСЕГДА)
+        # ✅ ОТПРАВКА УВЕДОМЛЕНИЯ О ПРОБУЖДЕНИИ
         if not startup_notification_sent:
-            print(f"🔍 Проверка startup_notification_sent: {startup_notification_sent}")
-            
             msg = (
                 f"🤖 Я проснулся!\n\n"
                 f"✅ Мониторинги перезапущены.\n"
@@ -211,28 +207,13 @@ def load_monitors_from_db():
                 f"• ФЗ: {fz_count}\n"
                 f"• Обзвоны: {call_count}"
             )
-            
             try:
                 bot.send_message(OWNER_USER_ID, msg)
                 print(f"✅✅✅ Уведомление 'Я проснулся!' отправлено тебе (ID: {OWNER_USER_ID})")
             except Exception as e:
                 print(f"❌❌❌ Ошибка отправки уведомления OWNER_USER_ID: {e}")
-                traceback.print_exc()
-            
-            users_notified = {OWNER_USER_ID}
-            all_monitors = list(active_monitors.values()) + list(active_call_monitors.values())
-            for monitor in all_monitors:
-                user_id = monitor.get('user_id')
-                if user_id and user_id not in users_notified:
-                    try:
-                        bot.send_message(user_id, msg)
-                        users_notified.add(user_id)
-                        print(f"✅ Доп. уведомление отправлено пользователю {user_id}")
-                    except Exception as e:
-                        print(f"❌ Ошибка уведомления {user_id}: {e}")
             
             startup_notification_sent = True
-            print(f"📨 Всего уведомлений отправлено: {len(users_notified)}")
 
     except Exception as e:
         print(f"❌ Ошибка загрузки из БД: {e}")
@@ -248,7 +229,6 @@ def init_db():
             print("❌ Нет подключения к БД")
             return
         c = conn.cursor()
-        print("📦 Создаю таблицы...")
         c.execute('''CREATE TABLE IF NOT EXISTS points
                      (id SERIAL PRIMARY KEY, title TEXT, address TEXT, lat REAL, lon REAL, 
                       status TEXT DEFAULT 'active', comment TEXT, url TEXT, tgk_url TEXT)''')
@@ -275,8 +255,7 @@ def init_db():
         c.execute('''CREATE TABLE IF NOT EXISTS bot_settings
                      (key TEXT PRIMARY KEY, value TEXT)''')
         conn.commit()
-        print("✅ Таблицы созданы")
-        print("🔧 Проверяю колонки...")
+        
         if not column_exists(c, 'points', 'comment'): c.execute("ALTER TABLE points ADD COLUMN comment TEXT"); conn.commit()
         if not column_exists(c, 'points', 'url'): c.execute("ALTER TABLE points ADD COLUMN url TEXT"); conn.commit()
         if not column_exists(c, 'points', 'assigned_to'): c.execute("ALTER TABLE points ADD COLUMN assigned_to TEXT"); conn.commit()
@@ -285,6 +264,7 @@ def init_db():
         if not column_exists(c, 'zones', 'assigned_to'): c.execute("ALTER TABLE zones ADD COLUMN assigned_to TEXT"); conn.commit()
         if not column_exists(c, 'routes', 'temporary'): c.execute("ALTER TABLE routes ADD COLUMN temporary BOOLEAN DEFAULT FALSE"); conn.commit()
         if not column_exists(c, 'routes', 'assigned_to'): c.execute("ALTER TABLE routes ADD COLUMN assigned_to TEXT"); conn.commit()
+        
         for key, value in [('hide_empty_labels', 'false'), ('show_parkings', 'true'), ('show_labels', 'true')]:
             c.execute("INSERT INTO settings (key, value) VALUES (%s, %s) ON CONFLICT (key) DO NOTHING", (key, value))
         conn.commit()
@@ -311,7 +291,6 @@ def save_to_trash(obj_type, data):
         c.execute("INSERT INTO trash (type, data) VALUES (%s, %s)", 
                  (obj_type, json.dumps(data, ensure_ascii=False, default=str)))
         conn.commit(); conn.close()
-        print(f"✅ Сохранено в trash: {obj_type}")
     except Exception as e:
         print(f"❌ Ошибка trash: {e}")
 
@@ -355,22 +334,14 @@ def restore_from_trash():
         traceback.print_exc()
         return None, str(e)
 
-# ✅ НОРМАЛИЗАЦИЯ АДРЕСА
 def build_address_queries(address):
-    """Превращает 'Ленина 22' / 'Ленина, 22' / 'улица Ленина 22' в набор нормальных запросов."""
     a = ' '.join(address.split()).strip()
-    
-    # Убираем дублирующий город
     a = re.sub(r'^(г\.?\s*)?Смоленск\s*,?\s*', '', a, flags=re.IGNORECASE).strip()
-    
-    # Пытаемся отделить название улицы от номера дома
     m = re.match(r'^(?:улица|ул\.?)?\s*([\w\-]+)[\s,]+(\d+[А-Яа-я]?)$', a, re.IGNORECASE)
     
     if m:
         street = m.group(1)
         house = m.group(2)
-        
-        # ✅ РАСШИРЕННЫЙ СПИСОК: добавляем "улица" впереди для всех вариантов
         variants = [
             f"Смоленск, улица {street}, {house}",
             f"г. Смоленск, улица {street}, {house}",
@@ -393,258 +364,114 @@ def build_address_queries(address):
     for v in variants:
         if v not in result:
             result.append(v)
-    
-    print(f"🔍 Варианты запросов для '{address}': {result}")
     return result
 
-# ✅ ПОИСК КООРДИНАТ С НОРМАЛИЗАЦИЕЙ И ПАУЗАМИ
 def get_coordinates(address):
-    """Поиск координат с нормализацией адреса, паузами и понятным логом."""
     variants = build_address_queries(address)
     url = "https://nominatim.openstreetmap.org/search"
     headers = {"User-Agent": "SmolenskMapBot/1.0 (contact: telegram)"}
     
-    print(f"📍 Ищу координаты для '{address}'")
-    
     for i, query in enumerate(variants):
         if i > 0:
             time.sleep(1.1)
-        
         try:
-            response = requests.get(
-                url,
-                params={"q": query, "format": "json", "limit": 1},
-                headers=headers,
-                timeout=8
-            )
-            
+            response = requests.get(url, params={"q": query, "format": "json", "limit": 1}, headers=headers, timeout=8)
             if response.status_code == 429:
-                print(f"⚠️ Nominatim 429 (лимит) на запросе '{query}', жду 3 сек...")
                 time.sleep(3)
                 continue
-            
             if response.status_code != 200:
-                print(f"⚠️ Nominatim HTTP {response.status_code} на '{query}'")
                 continue
-            
             data = response.json()
             if data and 'lat' in data[0] and 'lon' in data[0]:
-                lat = float(data[0]["lat"])
-                lon = float(data[0]["lon"])
-                print(f"✅ Найдено: '{address}' → {lat}, {lon} (запрос: '{query}')")
-                return lat, lon
-            
-            print(f"⚠️ Пустой ответ Nominatim для '{query}'")
-            
-        except Exception as e:
-            print(f"⚠️ Ошибка поиска '{query}': {e}")
+                return float(data[0]["lat"]), float(data[0]["lon"])
+        except Exception:
             continue
-    
-    print(f"❌ Не найдены координаты для '{address}' ни одним вариантом")
     return None, None
 
-# ✅ НОВЫЙ ПАРСЕР: Универсальный парсер команды самоката
 def parse_scooter_command(text):
-    """
-    Принимает любые варианты:
-      Ленина 11- 333
-      Ленина 11 - 333
-      улица Ленина, 11 - 333 red
-      54.776443, 32.050324 - 333 sev коммент
-      Ленина 11 - 333 коммент tgk https://t.me/xxx
-
-    Возвращает (location_part, last_three, rest) или None
-    """
     t = ' '.join(text.split()).strip()
-    
     m = re.match(r'^(.+?)\s*-\s*(\d{3})(?:\s+(.*))?$', t, re.IGNORECASE)
     if not m:
         return None
-    
     location = m.group(1).strip()
     last_three = m.group(2)
     rest = (m.group(3) or "").strip()
-    
-    # Проверяем, что это НЕ команда для парковки (не заканчивается на 'p')
-    if rest.lower().endswith('p'):
+    if rest.lower().endswith('p') or rest.lower() == 'удалить':
         return None
-    
-    # Проверяем, что это НЕ команда удаления парковки
-    if rest.lower() == 'удалить':
-        return None
-    
     return location, last_three, rest
 
-# ✅ НОВАЯ ФУНКЦИЯ: Парсинг сообщения из топика 8694
 def parse_scooter_message_8694(text):
-    """
-    Парсит сообщение из топика 8694.
-    
-    Новый формат: "улица Ленина, 11 - 666 sev"
-    Старый формат: "🛴 7703666" + адрес отдельно
-    
-    Возвращает (address, last_three, status) или None
-    """
     last_three = None
     status = 'active'
     address = None
     
-    # === НОВЫЙ ФОРМАТ: "улица Ленина, 11 - 666 sev" ===
     scooter_match = re.search(r'-\s*(\d{3})(?:\s+(red|sev))?\b', text, re.IGNORECASE)
     if scooter_match:
         last_three = scooter_match.group(1)
         if scooter_match.group(2):
             status = scooter_match.group(2).lower()
-        print(f"🔍 Найден номер самоката (новый формат): {last_three}, статус: {status}")
     
     if not last_three:
-        # === СТАРЫЙ ФОРМАТ: "🛴 7703666" ===
         scooter_match = re.search(r'🛴\s*7703(\d{3})', text)
         if scooter_match:
             last_three = scooter_match.group(1)
-            print(f"🔍 Найден номер самоката (старый формат): {last_three}")
     
     if not last_three:
         return None
     
-    # Ищем адрес (4 сценария)
-    
-    # Сценарий 1: "улица Ленина, 11" или "улица Ленина 11"
     match = re.search(r'улица\s+(\S+?)\s*,?\s*(\d+)', text, re.IGNORECASE)
     if match:
-        street = match.group(1)
-        number = match.group(2)
-        address = f"{street}, {number}"
-        print(f"📍 Сценарий 1 (улица): адрес='{address}'")
-        return address, last_three, status
+        return f"{match.group(1)}, {match.group(2)}", last_three, status
     
-    # Сценарий 2: "г Смоленск, пр-кт Мира, 5" или "пр-кт Мира, 5"
     match = re.search(r'пр-кт\s+(\S+?)\s*,?\s*(\d+)', text, re.IGNORECASE)
     if match:
-        street = match.group(1)
-        number = match.group(2)
-        address = f"{street}, {number}"
-        print(f"📍 Сценарий 2 (пр-кт): адрес='{address}'")
-        return address, last_three, status
+        return f"{match.group(1)}, {match.group(2)}", last_three, status
     
-    # Сценарий 3: "г Смоленск, ул Ленина, 11" или "ул Ленина, 11"
     match = re.search(r'\bул\.?\s+(\S+?)\s*,?\s*(\d+)', text, re.IGNORECASE)
     if match:
-        street = match.group(1)
-        number = match.group(2)
-        address = f"{street}, {number}"
-        print(f"📍 Сценарий 3 (ул): адрес='{address}'")
-        return address, last_three, status
+        return f"{match.group(1)}, {match.group(2)}", last_three, status
     
-    # Сценарий 4: "Нет координат в пределах города"
     if re.search(r'Нет координат в пределах города', text, re.IGNORECASE):
-        address = "54.776443, 32.050324"
-        print(f"📍 Сценарий 4 (нет координат): адрес='{address}'")
-        return address, last_three, status
+        return "54.776443, 32.050324", last_three, status
     
-    print(f"⚠️ Не удалось распарсить адрес из сообщения")
     return None
 
-# ✅ УПРОЩЁННАЯ ФУНКЦИЯ: Создание самоката СРАЗУ с карточкой ТГ
-# ✅ ФУНКЦИЯ: Создание самоката БЕЗ уведомлений
+# ✅ ФУНКЦИЯ: Создание самоката с возвратом статуса и причины
 def create_scooter_only(address, last_three, status, tgk_url):
-    """
-    Создаёт самокат СРАЗУ с карточкой ТГ БЕЗ уведомлений в ЛС.
-    Возвращает True если самокат готов (создан или уже существовал).
-    """
     try:
         conn = get_db_connection()
         if not conn:
-            print(f"❌ Нет подключения к БД при создании самоката {last_three}")
-            return False
+            return False, "Нет подключения к БД"
         
         c = conn.cursor()
-        
-        # 1. Проверяем, есть ли уже такой самокат
         c.execute("SELECT id, tgk_url FROM points WHERE title = %s AND status != 'found'", (last_three,))
         existing = c.fetchone()
         
         if existing:
             existing_id, existing_tgk = existing
-            print(f"⚠️ Самокат {last_three} уже существует (ID: {existing_id})")
-            
-            # Если у существующего самоката НЕТ карточки ТГ — добавляем
             if not existing_tgk and tgk_url:
                 c.execute("UPDATE points SET tgk_url = %s WHERE id = %s", (tgk_url, existing_id))
                 conn.commit()
-                print(f"🔗 Добавлена карточка ТГ к существующему самокату {last_three}")
-            
             conn.close()
-            return True
+            return True, "Самокат уже существовал (карточка обновлена или была)"
         
-        # 2. Создаём новый самокат СРАЗУ с карточкой ТГ
-        print(f"🔧 Создаю самокат {last_three} по адресу '{address}' (статус: {status}) с карточкой ТГ...")
         c.execute("""INSERT INTO points (title, address, lat, lon, status, comment, url, tgk_url) 
                     VALUES (%s, %s, NULL, NULL, %s, '', '', %s)""", 
                  (last_three, address, status, tgk_url))
         conn.commit()
         
-        # 3. ✅ ПРОВЕРКА: реально ли самокат создан?
         c.execute("SELECT id FROM points WHERE title = %s AND status != 'found'", (last_three,))
         created = c.fetchone()
         
         if not created:
             conn.close()
-            print(f"❌❌❌ Самокат {last_three} НЕ создан в БД после INSERT!")
-            return False
+            return False, "INSERT выполнен, но запись не найдена в БД"
         
-        new_id = created[0]
         conn.close()
-        
-        print(f"✅ Самокат {last_three} успешно создан (ID: {new_id}) с карточкой ТГ")
-        
-        # ✅ УВЕДОМЛЕНИЯ УБРАНЫ — бот создаёт самокаты тихо
-        
-        return True
+        return True, "Успешно создан"
         
     except Exception as e:
-        print(f"❌❌❌ Ошибка create_scooter_only: {e}")
-        traceback.print_exc()
-        return False
-        
-        # 2. Создаём новый самокат СРАЗУ с карточкой ТГ
-        print(f"🔧 Создаю самокат {last_three} по адресу '{address}' (статус: {status}) с карточкой ТГ...")
-        c.execute("""INSERT INTO points (title, address, lat, lon, status, comment, url, tgk_url) 
-                    VALUES (%s, %s, NULL, NULL, %s, '', '', %s)""", 
-                 (last_three, address, status, tgk_url))
-        conn.commit()
-        
-        # 3. ✅ ПРОВЕРКА: реально ли самокат создан?
-        c.execute("SELECT id FROM points WHERE title = %s AND status != 'found'", (last_three,))
-        created = c.fetchone()
-        
-        if not created:
-            conn.close()
-            print(f"❌❌❌ Самокат {last_three} НЕ создан в БД после INSERT!")
-            return False
-        
-        new_id = created[0]
-        conn.close()
-        
-        print(f"✅ Самокат {last_three} успешно создан (ID: {new_id}) с карточкой ТГ")
-        
-        # 4. ✅ Уведомляем
-        try:
-            bot.send_message(OWNER_USER_ID, 
-                f"🆕 Создан самокат {last_three}!\n"
-                f"📍 Адрес: {address}\n"
-                f"🎨 Статус: {status}\n"
-                f"🔗 Карточка ТГ добавлена")
-            print(f"📨 Уведомление о создании самоката {last_three} отправлено")
-        except Exception as e:
-            print(f"❌ Ошибка отправки уведомления: {e}")
-        
-        return True
-        
-    except Exception as e:
-        print(f"❌❌❌ Ошибка create_scooter_only: {e}")
-        traceback.print_exc()
-        return False
+        return False, str(e)
 
 bot = telebot.TeleBot(BOT_TOKEN, threaded=False)
 
@@ -775,42 +602,25 @@ def stop_monitor(message):
 @bot.message_handler(commands=['мониторы'])
 def list_monitors(message):
     user_id = message.from_user.id
-    user_monitors = {k: v for k, v in active_monitors.items() 
-                     if v['user_id'] == user_id and v['active']}
+    user_monitors = {k: v for k, v in active_monitors.items() if v['user_id'] == user_id and v['active']}
     call_monitor_key = f"{monitored_group_id}_{call_thread_id}_call"
     call_monitor_active = call_monitor_key in active_call_monitors and active_call_monitors[call_monitor_key]['active']
     
     text = "📊 Все мониторинги:\n\n"
-    
     text += "🔍 ФЗ мониторинги:\n"
     if user_monitors:
         for key, monitor in user_monitors.items():
             thread_info = f" (топик {monitor['thread_id']})" if monitor['thread_id'] else ""
             text += f"  • 7703{monitor['last_three']}{thread_info}\n"
-            text += f"    С {monitor['start_time'].strftime('%d.%m.%Y %H:%M')}\n"
     else:
         text += "  (нет активных)\n"
     
     text += "\n📞 Обзвоны:\n"
     text += f"  ✅ {'ПОСТОЯННО АКТИВЕН' if call_monitor_active else 'НЕ АКТИВЕН'} (топик {call_thread_id})\n"
-    text += f"  Ищет: 'Добавлен результат обзвона'\n"
-    text += f"  Действие: пересылка в ЛС\n"
-    text += f"  Запускается автоматически при старте бота\n"
     
     text += "\n🔗 Авто-создание самокатов + карточки ТГ:\n"
     text += f"  ✅ Всегда активен (топик {TGK_THREAD_ID})\n"
     text += f"  Формат: 'улица Ленина, 11 - 666 sev'\n"
-    text += f"  Действие: создаёт самокат СРАЗУ с карточкой ТГ\n"
-    
-    text += "\n🗑️ Авто-удаление самокатов:\n"
-    text += f"  ✅ Всегда активен (топик {call_thread_id})\n"
-    text += f"  Ищет: 'удален из Поисков' / 'удалён из Поиска'\n"
-    text += f"  Действие: удаляет самокат 7703*** из БД и пишет в ЛС\n"
-    
-    text += "\n📋 Авто-уведомление об аренде:\n"
-    text += f"  ✅ Всегда активен (топик {call_thread_id})\n"
-    text += f"  Ищет: 'удален из Без аренды'\n"
-    text += f"  Действие: уведомление в ЛС '*** арендовал спустя 48+ часов'\n"
     
     bot.reply_to(message, text)
 
@@ -819,8 +629,7 @@ def off_monitors(message):
     text = message.text.strip()
     if 'все мониторинги' in text.lower() or 'все мониторы' in text.lower():
         user_id = message.from_user.id
-        keys_to_delete = [k for k, v in active_monitors.items() 
-                         if v['user_id'] == user_id and v['active']]
+        keys_to_delete = [k for k, v in active_monitors.items() if v['user_id'] == user_id and v['active']]
         if not keys_to_delete:
             bot.reply_to(message, "❌ У тебя нет активных мониторингов")
             return
@@ -831,8 +640,7 @@ def off_monitors(message):
         return
     elif 'last мониторинг' in text.lower() or 'последний мониторинг' in text.lower():
         user_id = message.from_user.id
-        user_monitors = {k: v for k, v in active_monitors.items() 
-                        if v['user_id'] == user_id and v['active']}
+        user_monitors = {k: v for k, v in active_monitors.items() if v['user_id'] == user_id and v['active']}
         if not user_monitors:
             bot.reply_to(message, "❌ У тебя нет активных мониторингов")
             return
@@ -851,29 +659,13 @@ def off_monitors(message):
 def start_call_monitor(message):
     user_id = message.from_user.id
     call_monitor_key = f"{monitored_group_id}_{call_thread_id}_call"
-    
-    if call_monitor_key in active_call_monitors:
-        bot.reply_to(message, 
-            f"✅ Мониторинг обзвонов уже активен!\n\n"
-            f"💬 Группа ID: {monitored_group_id}\n"
-            f"📂 Топик: {call_thread_id}\n"
-            f"🔍 Ищу: 'Добавлен результат обзвона'\n"
-            f"📩 Пересылка в ЛС")
-    else:
+    if call_monitor_key not in active_call_monitors:
         active_call_monitors[call_monitor_key] = {
-            'chat_id': monitored_group_id,
-            'thread_id': call_thread_id,
-            'user_id': user_id,
-            'start_time': datetime.now(),
-            'active': True
+            'chat_id': monitored_group_id, 'thread_id': call_thread_id,
+            'user_id': user_id, 'start_time': datetime.now(), 'active': True
         }
         save_monitors_to_db()
-        bot.reply_to(message, 
-            f"✅ Мониторинг обзвонов запущен!\n\n"
-            f"💬 Группа ID: {monitored_group_id}\n"
-            f"📂 Топик: {call_thread_id}\n"
-            f"🔍 Ищу: 'Добавлен результат обзвона'\n"
-            f"📩 Пересылка в ЛС")
+    bot.reply_to(message, "✅ Мониторинг обзвонов активен!")
 
 @bot.message_handler(commands=['стоп_обзвоны'])
 def stop_call_monitor(message):
@@ -894,7 +686,6 @@ def handle_message(message):
     text_lower = text.lower()
     user_id = message.from_user.id
 
-    # ✅ СОХРАНЕНИЕ user_id ПРИ ЛЮБОМ СООБЩЕНИИ В ЛС
     if message.chat.type == 'private':
         global monitored_user_id
         if monitored_user_id != user_id:
@@ -904,16 +695,11 @@ def handle_message(message):
                 if conn:
                     c = conn.cursor()
                     c.execute("""INSERT INTO bot_settings (key, value) VALUES 
-                                ('monitored_user_id', %s)
-                                ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value""",
-                             (str(user_id),))
-                    conn.commit()
-                    conn.close()
-                    print(f"✅ Сохранён monitored_user_id: {user_id}")
-            except Exception as e:
-                print(f"❌ Ошибка сохранения user_id: {e}")
+                                ('monitored_user_id', %s) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value""", (str(user_id),))
+                    conn.commit(); conn.close()
+            except Exception:
+                pass
 
-    # ✅ ПРОВЕРКА ПОДТВЕРЖДЕНИЙ
     if user_id in pending_confirmations:
         if text_lower == 'да':
             action = pending_confirmations.pop(user_id)
@@ -921,165 +707,112 @@ def handle_message(message):
                 try:
                     conn = get_db_connection()
                     if conn:
-                        c = conn.cursor()
-                        c.execute("DELETE FROM points")
-                        count = c.rowcount
-                        conn.commit()
-                        conn.close()
+                        c = conn.cursor(); c.execute("DELETE FROM points"); count = c.rowcount; conn.commit(); conn.close()
                         bot.reply_to(message, f"🗑️ Удалено всех самокатов: {count}")
                 except Exception as e:
-                    bot.reply_to(message, f"❌ Ошибка удаления: {e}")
+                    bot.reply_to(message, f"❌ Ошибка: {e}")
         else:
             pending_confirmations.pop(user_id)
             bot.reply_to(message, "❌ Отменено.")
         return
 
-    # ✅ ГРУППА / СУПЕРГРУППА
     if message.chat.type in ['group', 'supergroup']:
         msg_thread_id = getattr(message, 'message_thread_id', None)
         message_time = datetime.fromtimestamp(message.date)
         
+        # ✅ ОТЛАДКА: Логируем ВСЕ сообщения в целевом топике
+        if msg_thread_id == TGK_THREAD_ID:
+            log_to_owner(f"📥 Получено сообщение в топике {TGK_THREAD_ID}:\n'{message.text}'")
+            
+            parsed = parse_scooter_message_8694(message.text)
+            if parsed:
+                address, last_three, status = parsed
+                log_to_owner(f"👁️ Я увидел новый Поиск самокат номер {last_three}")
+                
+                raw_chat_id = str(monitored_group_id)
+                chat_id_for_link = raw_chat_id[4:] if raw_chat_id.startswith('-100') else raw_chat_id.lstrip('-')
+                message_link = f"https://t.me/c/{chat_id_for_link}/{message.message_id}"
+                
+                log_to_owner(f"⚙️ Создаю его на карте и добавляю ссылку на пост для {last_three}")
+                
+                success, reason = create_scooter_only(address, last_three, status, message_link)
+                if success:
+                    command_text = f"{address} - {last_three} {status} {message_link}"
+                    log_to_owner(f"✅ Успешно создано! Отправляю себе команду:\n`{command_text}`", parse_mode='Markdown')
+                    bot.send_message(OWNER_USER_ID, command_text)
+                else:
+                    log_to_owner(f"❌ Не удалось создать самокат {last_three} на карте и ссылку на пост.\nПо причине: {reason}")
+            else:
+                log_to_owner(f"⚠️ Сообщение в топике {TGK_THREAD_ID} не распознано как самокат.")
+
         # 1. ФЗ Мониторинг
         for key, monitor in list(active_monitors.items()):
             if monitor['chat_id'] == monitored_group_id and monitor['active']:
-                monitor_thread = monitor.get('thread_id')
-                if monitor_thread is not None and msg_thread_id != monitor_thread:
-                    continue
-                if message_time < monitor['start_time']:
-                    continue
+                if monitor.get('thread_id') is not None and msg_thread_id != monitor['thread_id']: continue
+                if message_time < monitor['start_time']: continue
                 pattern = f"7703{monitor['last_three']}"
                 if pattern in message.text:
                     try:
                         raw_chat_id = str(monitored_group_id)
                         chat_id_for_link = raw_chat_id[4:] if raw_chat_id.startswith('-100') else raw_chat_id.lstrip('-')
                         message_link = f"https://t.me/c/{chat_id_for_link}/{message.message_id}"
-                        bot.send_message(
-                            monitor['user_id'],
-                            f"Произошло новое ФЗ {monitor['last_three']} !\n\n"
-                            f"🔗 Ссылка на сообщение:\n{message_link}",
-                            disable_web_page_preview=True
-                        )
-                        print(f"✅ Найдено: {pattern} в группе {monitored_group_id}, топик {msg_thread_id}")
-                        del active_monitors[key]
-                        save_monitors_to_db()
+                        bot.send_message(monitor['user_id'], f"Произошло новое ФЗ {monitor['last_three']} !\n\n🔗 {message_link}", disable_web_page_preview=True)
+                        del active_monitors[key]; save_monitors_to_db()
                     except Exception as e:
                         print(f"❌ Ошибка ФЗ: {e}")
 
-        # 2. ✅ ПОСТОЯННЫЙ МОНИТОРИНГ ОБЗВОНОВ
+        # 2. Обзвоны Мониторинг
         for key, monitor in list(active_call_monitors.items()):
             if monitor['chat_id'] == monitored_group_id and monitor['active']:
-                monitor_thread = monitor.get('thread_id')
-                if monitor_thread is not None and msg_thread_id != monitor_thread:
-                    continue
-                
+                if monitor.get('thread_id') is not None and msg_thread_id != monitor['thread_id']: continue
                 if 'Добавлен результат обзвона' in message.text:
-                    print(f"✅ [ОТЛАДКА] Пытаемся переслать обзвон из топика {msg_thread_id}")
                     try:
                         bot.forward_message(monitor['user_id'], monitored_group_id, message.message_id)
-                        print(f"✅ Обзвон успешно переслан пользователю {monitor['user_id']}")
                     except Exception as e:
                         print(f"❌ Ошибка пересылки обзвона: {e}")
-                        
-        # 3. ✅ ПОСТОЯННЫЙ МОНИТОРИНГ ТОПИА 8694 (создаёт самокаты тихо, без уведомлений)
-        if msg_thread_id == TGK_THREAD_ID:
-            parsed = parse_scooter_message_8694(message.text)
-            if parsed:
-                address, last_three, status = parsed
-                print(f"🔗 Обработано сообщение из топика {TGK_THREAD_ID}: адрес='{address}', номер={last_three}, статус={status}")
-                
-                # ✅ СРАЗУ получаем ссылку на этот пост — это и есть карточка ТГ
-                raw_chat_id = str(monitored_group_id)
-                chat_id_for_link = raw_chat_id[4:] if raw_chat_id.startswith('-100') else raw_chat_id.lstrip('-')
-                message_link = f"https://t.me/c/{chat_id_for_link}/{message.message_id}"
-                
-                print(f"🔗 Ссылка на пост: {message_link}")
-                
-                # Создаём самокат СРАЗУ с карточкой ТГ (без уведомлений)
-                create_scooter_only(address, last_three, status, message_link)
 
         # 4. Авто-удаление "удален из Поисков"
         msg_text_lower = message.text.lower()
-        is_poisk_deleted = (
-            msg_thread_id == call_thread_id and 
-            ('из поис' in msg_text_lower) and 
-            ('удален' in msg_text_lower or 'удалён' in msg_text_lower)
-        )
-        
-        if is_poisk_deleted:
-            print(f"🔍 Найдено сообщение о удалении из поиска: '{message.text}'")
+        if msg_thread_id == call_thread_id and ('из поис' in msg_text_lower) and ('удален' in msg_text_lower or 'удалён' in msg_text_lower):
             match = re.search(r'7703(\d{3})', message.text)
             if match:
                 last_three = match.group(1)
-                print(f"✅ Извлечён номер самоката: 7703{last_three}")
                 try:
                     conn = get_db_connection()
                     if conn:
                         c = conn.cursor()
                         c.execute("DELETE FROM points WHERE title = %s", (last_three,))
-                        deleted_count = c.rowcount
-                        conn.commit()
-                        conn.close()
-                        
-                        if deleted_count > 0:
-                            print(f"🗑️ Самокат {last_three} удалён из БД")
-                            try:
-                                bot.send_message(OWNER_USER_ID, f"🗑️ {last_three} удалён с карты!")
-                                print(f"✅ Уведомление отправлено тебе (ID: {OWNER_USER_ID})")
-                            except Exception as e:
-                                print(f"❌ Ошибка отправки уведомления: {e}")
-                        else:
-                            print(f"⚠️ Самокат {last_three} не найден в БД")
-                            try:
-                                bot.send_message(OWNER_USER_ID, f"⚠️ Самокат {last_three} не найден на карте!")
-                            except Exception as e:
-                                print(f"❌ Ошибка: {e}")
-                except Exception as e:
-                    print(f"❌ Ошибка удаления самоката: {e}")
-                    traceback.print_exc()
+                        if c.rowcount > 0:
+                            bot.send_message(OWNER_USER_ID, f"🗑️ {last_three} удалён с карты!")
+                        conn.commit(); conn.close()
+                except Exception:
+                    pass
 
         # 5. Авто-уведомление "удален из Без аренды"
         if msg_thread_id == call_thread_id and 'удален из без аренды' in msg_text_lower:
             match = re.search(r'7703(\d{3})', message.text)
             if match:
-                last_three = match.group(1)
-                print(f"✅ Найдено 'удален из Без аренды' с номером 7703{last_three}")
-                try:
-                    bot.send_message(OWNER_USER_ID, f"{last_three} кто-то арендовал спустя 48 часов или более.")
-                    print(f"✅ Уведомление об аренде отправлено тебе (ID: {OWNER_USER_ID})")
-                except Exception as e:
-                    print(f"❌ Ошибка уведомления об аренде: {e}")
+                bot.send_message(OWNER_USER_ID, f"{match.group(1)} кто-то арендовал спустя 48 часов или более.")
         return
 
     # ✅ ЛИЧНЫЕ СООБЩЕНИЯ
-    
-    # ✅ КОМАНДА: ДОБАВИТЬ ССЫЛКУ НА КАРТОЧКУ В ТГ
     tgk_match = re.match(r'^\s*(\d{3})\s+(https?://\S+)\s*$', text)
     if tgk_match:
-        last_three = tgk_match.group(1)
-        tgk_url = tgk_match.group(2)
+        last_three, tgk_url = tgk_match.groups()
         try:
             conn = get_db_connection()
             if conn:
                 c = conn.cursor()
                 c.execute("UPDATE points SET tgk_url = %s WHERE title = %s", (tgk_url, last_three))
-                updated_count = c.rowcount
-                conn.commit()
-                conn.close()
-                
-                if updated_count > 0:
-                    bot.reply_to(message, f"✅ Ссылка на карточку добавлена к {updated_count} самокату(ам) с номером {last_three}.")
-                else:
-                    bot.reply_to(message, f"❌ Самокатов с номером {last_three} не найдено.")
+                count = c.rowcount; conn.commit(); conn.close()
+                bot.reply_to(message, f"✅ Ссылка добавлена к {count} самокату(ам) с номером {last_three}.")
         except Exception as e:
-            bot.reply_to(message, f"❌ Ошибка обновления: {e}")
+            bot.reply_to(message, f"❌ Ошибка: {e}")
         return
 
     if text_lower == 'z':
-        result, error = restore_from_trash()
-        if error:
-            bot.reply_to(message, f"❌ {error}")
-        else:
-            bot.reply_to(message, result)
+        res, err = restore_from_trash()
+        bot.reply_to(message, f"❌ {err}" if err else res)
         return
 
     if text_lower in ('trash', 'корзина'):
@@ -1087,144 +820,100 @@ def handle_message(message):
             conn = get_db_connection()
             c = conn.cursor()
             c.execute("SELECT type, data, deleted_at FROM trash ORDER BY deleted_at DESC")
-            items = c.fetchall()
-            conn.close()
+            items = c.fetchall(); conn.close()
             if not items:
                 bot.reply_to(message, "🗑️ Корзина пуста")
             else:
                 msg = "📦 Корзина (последние удаления):\n\n"
                 for i, (obj_type, data, deleted_at) in enumerate(items, 1):
                     data = json.loads(data) if isinstance(data, str) else data
-                    if obj_type == 'point':
-                        msg += f"{i}. 🛴 Самокат '{data.get('title', '')}'\n"
-                    elif obj_type == 'info':
-                        msg += f"{i}. ℹ️ Доп инфа '{data.get('title', '')}'\n"
-                    elif obj_type == 'zone':
-                        msg += f"{i}. 🔴 Зона\n"
-                    elif obj_type == 'parking':
-                        msg += f"{i}. 🅿️ Парковка '{data.get('title', '')}'\n"
+                    if obj_type == 'point': msg += f"{i}. 🛴 Самокат '{data.get('title', '')}'\n"
+                    elif obj_type == 'info': msg += f"{i}. ℹ️ Доп инфа '{data.get('title', '')}'\n"
+                    elif obj_type == 'zone': msg += f"{i}. 🔴 Зона\n"
+                    elif obj_type == 'parking': msg += f"{i}. 🅿️ Парковка '{data.get('title', '')}'\n"
                 msg += "\nНапиши Z чтобы восстановить последнее"
                 bot.reply_to(message, msg)
         except Exception as e:
             bot.reply_to(message, f"❌ Ошибка: {e}")
         return
 
-    # --- УДАЛЕНИЕ САМОКАТОВ ---
     if text_lower.startswith('off ') and len(text_lower.split()) == 2:
-        parts = text_lower.split()
-        last_three = parts[1]
+        last_three = text_lower.split()[1]
         if last_three.isdigit() and len(last_three) == 3:
             try:
                 conn = get_db_connection()
                 if conn:
-                    c = conn.cursor()
-                    c.execute("DELETE FROM points WHERE title = %s", (last_three,))
-                    deleted_count = c.rowcount
-                    conn.commit()
-                    conn.close()
-                    if deleted_count > 0:
-                        bot.reply_to(message, f"🗑️ Самокат {last_three} удалён.")
-                    else:
-                        bot.reply_to(message, f"❌ Самокат {last_three} не найден.")
+                    c = conn.cursor(); c.execute("DELETE FROM points WHERE title = %s", (last_three,))
+                    count = c.rowcount; conn.commit(); conn.close()
+                    bot.reply_to(message, f"🗑️ Самокат {last_three} удалён." if count > 0 else f"❌ Самокат {last_three} не найден.")
             except Exception as e:
-                bot.reply_to(message, f"❌ Ошибка удаления: {e}")
-            return
+                bot.reply_to(message, f"❌ Ошибка: {e}")
+        return
 
     if text_lower == 'off last sam':
         try:
             conn = get_db_connection()
             if conn:
-                c = conn.cursor()
-                c.execute("DELETE FROM points WHERE id = (SELECT MAX(id) FROM points)")
-                deleted_count = c.rowcount
-                conn.commit()
-                conn.close()
-                if deleted_count > 0:
-                    bot.reply_to(message, "🗑️ Последний самокат удалён.")
-                else:
-                    bot.reply_to(message, "❌ Самокатов нет.")
-        except Exception as e:
-            bot.reply_to(message, f"❌ Ошибка удаления: {e}")
-        return
-
-    if text_lower == 'off all sam':
-        try:
-            conn = get_db_connection()
-            if conn:
-                c = conn.cursor()
-                c.execute("SELECT COUNT(*) FROM points")
-                count = c.fetchone()[0]
-                conn.close()
-                if count > 0:
-                    pending_confirmations[user_id] = 'delete_all_scooters'
-                    bot.reply_to(message, f"⚠️ Точно удалить все самокаты? ({count} шт.)\n\nНапиши 'Да' для подтверждения.")
-                else:
-                    bot.reply_to(message, "❌ Самокатов нет.")
+                c = conn.cursor(); c.execute("DELETE FROM points WHERE id = (SELECT MAX(id) FROM points)")
+                count = c.rowcount; conn.commit(); conn.close()
+                bot.reply_to(message, "🗑️ Последний самокат удалён." if count > 0 else "❌ Самокатов нет.")
         except Exception as e:
             bot.reply_to(message, f"❌ Ошибка: {e}")
         return
 
-    # --- ОСТАЛЬНЫЕ КОМАНДЫ ---
+    if text_lower == 'off all sam':
+        pending_confirmations[user_id] = 'delete_all_scooters'
+        bot.reply_to(message, "⚠️ Точно удалить все самокаты? Напиши 'Да' для подтверждения.")
+        return
+
     if text_lower == 'off все маршруты':
         conn = get_db_connection(); c = conn.cursor()
-        c.execute("DELETE FROM routes")
-        count = c.rowcount
-        conn.commit(); conn.close()
+        c.execute("DELETE FROM routes"); count = c.rowcount; conn.commit(); conn.close()
         bot.reply_to(message, f"🗑️ Удалено всех маршрутов: {count}")
         return
     
     if text_lower == 'off last маршрут':
         conn = get_db_connection(); c = conn.cursor()
         c.execute("DELETE FROM routes WHERE id = (SELECT MAX(id) FROM routes)")
-        if c.rowcount > 0:
-            bot.reply_to(message, "🗑️ Последний маршрут удалён.")
-        else:
-            bot.reply_to(message, "❌ Маршрутов нет.")
         conn.commit(); conn.close()
+        bot.reply_to(message, "🗑️ Последний маршрут удалён." if c.rowcount > 0 else "❌ Маршрутов нет.")
         return
 
     if text_lower == 'off лишнее':
         conn = get_db_connection(); c = conn.cursor()
-        c.execute("UPDATE settings SET value = 'true' WHERE key = 'hide_empty_labels'")
-        conn.commit(); conn.close()
+        c.execute("UPDATE settings SET value = 'true' WHERE key = 'hide_empty_labels'"); conn.commit(); conn.close()
         bot.reply_to(message, "✅ Лишние плашки скрыты.")
         return
     if text_lower == 'вкл всё':
         conn = get_db_connection(); c = conn.cursor()
-        c.execute("UPDATE settings SET value = 'false' WHERE key = 'hide_empty_labels'")
-        conn.commit(); conn.close()
+        c.execute("UPDATE settings SET value = 'false' WHERE key = 'hide_empty_labels'"); conn.commit(); conn.close()
         bot.reply_to(message, "✅ Все плашки видны.")
         return
     if text_lower == 'off видимость парковок':
         conn = get_db_connection(); c = conn.cursor()
-        c.execute("UPDATE settings SET value = 'false' WHERE key = 'show_parkings'")
-        conn.commit(); conn.close()
+        c.execute("UPDATE settings SET value = 'false' WHERE key = 'show_parkings'"); conn.commit(); conn.close()
         bot.reply_to(message, "✅ Парковки скрыты.")
         return
     if text_lower == 'вкл видимость парковок':
         conn = get_db_connection(); c = conn.cursor()
-        c.execute("UPDATE settings SET value = 'true' WHERE key = 'show_parkings'")
-        conn.commit(); conn.close()
+        c.execute("UPDATE settings SET value = 'true' WHERE key = 'show_parkings'"); conn.commit(); conn.close()
         bot.reply_to(message, "✅ Парковки видны.")
         return
     if text_lower == 'off плашки':
         conn = get_db_connection(); c = conn.cursor()
-        c.execute("UPDATE settings SET value = 'false' WHERE key = 'show_labels'")
-        conn.commit(); conn.close()
+        c.execute("UPDATE settings SET value = 'false' WHERE key = 'show_labels'"); conn.commit(); conn.close()
         bot.reply_to(message, "✅ Плашки скрыты.")
         return
     if text_lower == 'вкл плашки':
         conn = get_db_connection(); c = conn.cursor()
-        c.execute("UPDATE settings SET value = 'true' WHERE key = 'show_labels'")
-        conn.commit(); conn.close()
+        c.execute("UPDATE settings SET value = 'true' WHERE key = 'show_labels'"); conn.commit(); conn.close()
         bot.reply_to(message, "✅ Плашки видны.")
         return
     if text_lower == 'сброс парковок':
         try:
             conn = get_db_connection(); c = conn.cursor()
             c.execute("UPDATE parkings SET available_count = '?', dead_count = '?', broken_count = '?'")
-            count = c.rowcount
-            conn.commit(); conn.close()
+            count = c.rowcount; conn.commit(); conn.close()
             bot.reply_to(message, f"✅ Статистика сброшена ({count} шт.)")
         except Exception as e:
             bot.reply_to(message, f"❌ Ошибка: {e}")
@@ -1233,126 +922,89 @@ def handle_message(message):
     if text_lower.endswith(' off ссылку'):
         name = text[:-11].strip()
         conn = get_db_connection(); c = conn.cursor()
-        c.execute("UPDATE parkings SET photo_url = NULL WHERE title = %s", (name,))
-        conn.commit(); conn.close()
-        bot.reply_to(message, f"🗑️ Ссылка удалена.")
+        c.execute("UPDATE parkings SET photo_url = NULL WHERE title = %s", (name,)); conn.commit(); conn.close()
+        bot.reply_to(message, "🗑️ Ссылка удалена.")
         return
-    
-    # ✅ ССЫЛКА НА ФОТО ПАРКОВКИ
-    if ' http' in text or ' https' in text or text.startswith('http') or text.startswith('https'):
+
+    if ' http' in text or text.startswith('http'):
         parts = text.split(' ', 1)
-        if len(parts) == 2 and (parts[1].startswith('http') or parts[1].startswith('https')):
+        if len(parts) == 2 and parts[1].startswith('http'):
             name = parts[0].strip()
             if not re.match(r'^\d{3}$', name):
-                photo_url = parts[1].strip()
                 conn = get_db_connection(); c = conn.cursor()
-                c.execute("UPDATE parkings SET photo_url = %s WHERE title = %s", (photo_url, name))
+                c.execute("UPDATE parkings SET photo_url = %s WHERE title = %s", (parts[1].strip(), name))
                 conn.commit(); conn.close()
                 bot.reply_to(message, f"✅ Ссылка на фото парковки '{name}' сохранена.")
                 return
 
     if text_lower.endswith(' - p'):
-        clean_text = text[:-4].strip()
-        if '-' in clean_text:
-            parts = clean_text.rsplit('-', 1)
-            location_part, title = parts[0].strip(), parts[1].strip()
-            coord_match = re.match(r'^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$', location_part)
-            if coord_match:
-                lat, lon = float(coord_match.group(1)), float(coord_match.group(2))
-            else:
-                bot.reply_to(message, f"⏳ Ищу '{location_part}'...")
-                lat, lon = get_coordinates(location_part)
+        clean = text[:-4].strip()
+        if '-' in clean:
+            loc, title = clean.rsplit('-', 1)
+            loc, title = loc.strip(), title.strip()
+            cm = re.match(r'^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$', loc)
+            lat, lon = (float(cm.group(1)), float(cm.group(2))) if cm else get_coordinates(loc)
             if lat and lon:
                 conn = get_db_connection(); c = conn.cursor()
-                c.execute("INSERT INTO parkings (title, address, lat, lon) VALUES (%s, %s, %s, %s)", (title, location_part, lat, lon))
+                c.execute("INSERT INTO parkings (title, address, lat, lon) VALUES (%s, %s, %s, %s)", (title, loc, lat, lon))
                 conn.commit(); conn.close()
                 bot.reply_to(message, f"✅ Парковка '{title}' добавлена!")
             else:
-                bot.reply_to(message, f"❌ Не найдено: '{location_part}'")
+                bot.reply_to(message, f"❌ Не найдено: '{loc}'")
         return
 
     # ✅ УНИВЕРСАЛЬНЫЙ ПАРСЕР КОМАНДЫ СОЗДАНИЯ САМОКАТА
     scooter_cmd = parse_scooter_command(text)
     if scooter_cmd:
         location_part, last_three, rest = scooter_cmd
-        print(f"🛴 Команда самоката: адрес='{location_part}', номер={last_three}, остаток='{rest}'")
-
-        tgk_url = ""
-        fz_url = ""
-
-        # 1. Вытаскиваем tgk-ссылку
-        tgk_match = re.search(r'\btgk\s+(https?://\S+)', rest, re.IGNORECASE)
-        if tgk_match:
-            tgk_url = tgk_match.group(1)
-            rest = re.sub(r'\btgk\s+https?://\S+', '', rest, flags=re.IGNORECASE).strip()
-
-        # 2. Вытаскиваем обычную ссылку (ФЗ)
-        url_match = re.search(r'https?://\S+', rest)
-        if url_match:
-            fz_url = url_match.group(0)
-            rest = rest.replace(fz_url, "").strip()
-
-        # 3. Статус (sev проверяем первым)
+        tgk_url, fz_url, comment = "", "", ""
+        
+        tgk_m = re.search(r'\btgk\s+(https?://\S+)', rest, re.IGNORECASE)
+        if tgk_m:
+            tgk_url = tgk_m.group(1); rest = re.sub(r'\btgk\s+https?://\S+', '', rest, flags=re.IGNORECASE).strip()
+        
+        url_m = re.search(r'https?://\S+', rest)
+        if url_m:
+            fz_url = url_m.group(0); rest = rest.replace(fz_url, "").strip()
+        
         status = 'active'
         if re.search(r'\bsev\b', rest, re.IGNORECASE):
-            status = 'sev'
-            rest = re.sub(r'\bsev\b', '', rest, flags=re.IGNORECASE).strip()
+            status = 'sev'; rest = re.sub(r'\bsev\b', '', rest, flags=re.IGNORECASE).strip()
         elif re.search(r'\bred\b', rest, re.IGNORECASE):
-            status = 'red'
-            rest = re.sub(r'\bred\b', '', rest, flags=re.IGNORECASE).strip()
-
+            status = 'red'; rest = re.sub(r'\bred\b', '', rest, flags=re.IGNORECASE).strip()
+        
         comment = rest.strip()
-
-        # 4. Координаты: либо переданы явно, либо ищем по адресу
         coord_match = re.match(r'^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$', location_part)
+        
         if coord_match:
-            lat = float(coord_match.group(1))
-            lon = float(coord_match.group(2))
+            lat, lon = float(coord_match.group(1)), float(coord_match.group(2))
         else:
             lat, lon = get_coordinates(location_part)
-
+            
         if lat is None or lon is None:
-            bot.reply_to(message,
-                f"⚠️ Не нашёл адрес '{location_part}' в Смоленске.\n\n"
-                f"Попробуй:\n"
-                f"улица Ленина, 11 - {last_three}\n"
-                f"или координатами:\n"
-                f"54.776443, 32.050324 - {last_three}")
+            bot.reply_to(message, f"⚠️ Не нашёл адрес '{location_part}'.\nПопробуй: улица Ленина, 11 - {last_three}")
             return
-
-        # 5. Создаём самокат
+            
         try:
             conn = get_db_connection()
-            if not conn:
-                bot.reply_to(message, "❌ Нет подключения к БД")
-                return
-            c = conn.cursor()
-            c.execute("""INSERT INTO points 
-                        (title, address, lat, lon, status, comment, url, tgk_url) 
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
-                     (last_three, location_part, lat, lon, status, comment, fz_url, tgk_url))
-            conn.commit()
-            conn.close()
-
-            answer = f"✅ Самокат {last_three} добавлен!\n📍 {location_part}\n🎨 {status}"
-            if comment:
-                answer += f"\n💬 {comment}"
-            if tgk_url:
-                answer += "\n🔗 Карточка ТГ привязана"
-            bot.reply_to(message, answer)
-            print(f"✅ Создан самокат {last_three} ({lat}, {lon}), статус={status}")
+            if conn:
+                c = conn.cursor()
+                c.execute("""INSERT INTO points (title, address, lat, lon, status, comment, url, tgk_url) 
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
+                         (last_three, location_part, lat, lon, status, comment, fz_url, tgk_url))
+                conn.commit(); conn.close()
+                ans = f"✅ Самокат {last_three} добавлен!\n📍 {location_part}\n🎨 {status}"
+                if comment: ans += f"\n💬 {comment}"
+                if tgk_url: ans += "\n🔗 Карточка ТГ привязана"
+                bot.reply_to(message, ans)
         except Exception as e:
-            print(f"❌ Ошибка создания самоката: {e}")
-            traceback.print_exc()
-            bot.reply_to(message, f"❌ Ошибка создания: {e}")
+            bot.reply_to(message, f"❌ Ошибка: {e}")
         return
 
     # ✅ ОБРАБОТКА " - " (Парковки)
     if ' - ' in text:
         parts = text.split(' - ', 1)
-        title = parts[0].strip()
-        action = parts[1].strip()
-        
+        title, action = parts[0].strip(), parts[1].strip()
         if action.lower() == 'удалить':
             conn = get_db_connection(); c = conn.cursor()
             c.execute("SELECT id, title, address, lat, lon, available_count, dead_count, broken_count, photo_url FROM parkings WHERE title = %s", (title,))
@@ -1362,98 +1014,67 @@ def handle_message(message):
                     'available_count': row[5], 'dead_count': row[6], 'broken_count': row[7], 'photo_url': row[8]}
                 save_to_trash('parking', parking_data)
             c.execute("DELETE FROM parkings WHERE title = %s", (title,))
-            if c.rowcount > 0:
-                bot.reply_to(message, f"🗑️ Парковка '{title}' удалена.")
+            conn.commit(); conn.close()
+            bot.reply_to(message, f"🗑️ Парковка '{title}' удалена." if c.rowcount > 0 else f"❌ Парковка '{title}' не найдена.")
+            return
+        
+        params = re.findall(r'([СсДдПп])(\d+|\?)', action)
+        if params:
+            avail = dead = broken = None
+            for pt, pv in params:
+                if pt.lower() == 'с': dead = pv
+                elif pt.lower() == 'д': avail = pv
+                elif pt.lower() == 'п': broken = pv
+            conn = get_db_connection(); c = conn.cursor()
+            c.execute("SELECT available_count, dead_count, broken_count FROM parkings WHERE title = %s", (title,))
+            row = c.fetchone()
+            if row:
+                c.execute("UPDATE parkings SET available_count = %s, dead_count = %s, broken_count = %s WHERE title = %s", 
+                         (avail or row[0], dead or row[1], broken or row[2], title))
+                conn.commit(); conn.close()
+                bot.reply_to(message, f"✅ '{title}' обновлена.")
             else:
                 bot.reply_to(message, f"❌ Парковка '{title}' не найдена.")
-            conn.commit(); conn.close()
             return
-        else:
-            params_match = re.findall(r'([СсДдПп])(\d+|\?)', action)
-            if params_match:
-                avail = dead = broken = None
-                for param_type, param_value in params_match:
-                    p_type = param_type.lower()
-                    if p_type == 'с': dead = param_value
-                    elif p_type == 'д': avail = param_value
-                    elif p_type == 'п': broken = param_value
-                conn = get_db_connection(); c = conn.cursor()
-                c.execute("SELECT available_count, dead_count, broken_count FROM parkings WHERE title = %s", (title,))
-                row = c.fetchone()
-                if row:
-                    new_avail = avail if avail is not None else row[0]
-                    new_dead = dead if dead is not None else row[1]
-                    new_broken = broken if broken is not None else row[2]
-                    c.execute("UPDATE parkings SET available_count = %s, dead_count = %s, broken_count = %s WHERE title = %s", 
-                             (new_avail, new_dead, new_broken, title))
-                    conn.commit(); conn.close()
-                    response_parts = []
-                    if avail is not None: response_parts.append(f"Д:{new_avail}")
-                    if dead is not None: response_parts.append(f"С:{new_dead}")
-                    if broken is not None: response_parts.append(f"П:{new_broken}")
-                    bot.reply_to(message, f"✅ '{title}' обновлена: {', '.join(response_parts)}")
-                else:
-                    bot.reply_to(message, f"❌ Парковка '{title}' не найдена.")
-                return
 
     if text_lower.endswith(' - доп инфа'):
-        clean_text = text[:-10].strip()
-        if ' - ' in clean_text:
-            parts = clean_text.split(' - ', 1)
-            location_part = parts[0].strip()
-            comment = parts[1].strip()
-        else:
-            location_part = clean_text
-            comment = ""
-        coord_match = re.match(r'^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$', location_part)
-        if coord_match:
-            lat, lon = float(coord_match.group(1)), float(coord_match.group(2))
-        else:
-            bot.reply_to(message, f"⏳ Ищу '{location_part}'...")
-            lat, lon = get_coordinates(location_part)
+        clean = text[:-10].strip()
+        loc = clean.split(' - ')[0].strip() if ' - ' in clean else clean
+        comment = clean.split(' - ')[1].strip() if ' - ' in clean else ""
+        cm = re.match(r'^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$', loc)
+        lat, lon = (float(cm.group(1)), float(cm.group(2))) if cm else get_coordinates(loc)
         if lat and lon:
             conn = get_db_connection(); c = conn.cursor()
-            c.execute("INSERT INTO points (title, address, lat, lon, status, comment, url, tgk_url) VALUES (%s, %s, %s, %s, 'info', %s, '', '')", 
-                     ("ДОП ИНФА", location_part, lat, lon, comment))
+            c.execute("INSERT INTO points (title, address, lat, lon, status, comment, url, tgk_url) VALUES (%s, %s, %s, %s, 'info', %s, '', '')", ("ДОП ИНФА", loc, lat, lon, comment))
             conn.commit(); conn.close()
-            bot.reply_to(message, f"✅ Доп инфа добавлена!")
+            bot.reply_to(message, "✅ Доп инфа добавлена!")
         else:
-            bot.reply_to(message, f"❌ Не найдено: '{location_part}'")
+            bot.reply_to(message, f"❌ Не найдено: '{loc}'")
         return
 
     if text_lower == 'все p off':
         conn = get_db_connection(); c = conn.cursor()
-        c.execute("DELETE FROM parkings")
-        count = c.rowcount
-        conn.commit(); conn.close()
+        c.execute("DELETE FROM parkings"); count = c.rowcount; conn.commit(); conn.close()
         bot.reply_to(message, f"🗑️ Удалено парковок: {count}")
         return
     if text_lower == 'все с off':
         conn = get_db_connection(); c = conn.cursor()
-        c.execute("DELETE FROM points")
-        count = c.rowcount
-        c.execute("DELETE FROM departures")
-        conn.commit(); conn.close()
+        c.execute("DELETE FROM points"); count = c.rowcount
+        c.execute("DELETE FROM departures"); conn.commit(); conn.close()
         bot.reply_to(message, f"🗑️ Удалено точек: {count}")
         return
     if text_lower == 'last p off':
         conn = get_db_connection(); c = conn.cursor()
         c.execute("DELETE FROM parkings WHERE id = (SELECT MAX(id) FROM parkings)")
-        if c.rowcount > 0:
-            bot.reply_to(message, "🗑️ Последняя парковка удалена.")
-        else:
-            bot.reply_to(message, "❌ Парковок нет.")
         conn.commit(); conn.close()
+        bot.reply_to(message, "🗑️ Последняя парковка удалена." if c.rowcount > 0 else "❌ Парковок нет.")
         return
     if text_lower == 'last с off' or text_lower == 'last s off':
         conn = get_db_connection(); c = conn.cursor()
         c.execute("DELETE FROM departures WHERE point_id = (SELECT MAX(id) FROM points)")
         c.execute("DELETE FROM points WHERE id = (SELECT MAX(id) FROM points)")
-        if c.rowcount > 0:
-            bot.reply_to(message, "🗑️ Последний самокат удалён.")
-        else:
-            bot.reply_to(message, "❌ Самокатов нет.")
         conn.commit(); conn.close()
+        bot.reply_to(message, "🗑️ Последний самокат удалён." if c.rowcount > 0 else "❌ Самокатов нет.")
         return
 
 # --- API ЭНДПОИНТЫ ---
@@ -1462,10 +1083,8 @@ def get_settings():
     try:
         conn = get_db_connection()
         if not conn: return jsonify({"error": "DB connection failed"}), 500
-        c = conn.cursor()
-        c.execute("SELECT key, value FROM settings")
-        settings = {row[0]: row[1] == 'true' for row in c.fetchall()}
-        conn.close()
+        c = conn.cursor(); c.execute("SELECT key, value FROM settings")
+        settings = {row[0]: row[1] == 'true' for row in c.fetchall()}; conn.close()
         return jsonify(settings)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -1473,8 +1092,7 @@ def get_settings():
 @app.route('/update_setting', methods=['POST'])
 def update_setting():
     try:
-        data = request.json
-        conn = get_db_connection()
+        data = request.json; conn = get_db_connection()
         if not conn: return jsonify({"error": "DB connection failed"}), 500
         c = conn.cursor()
         c.execute("UPDATE settings SET value = %s WHERE key = %s", (str(data.get('value')).lower(), data.get('key')))
@@ -1486,54 +1104,44 @@ def update_setting():
 @app.route('/get_points')
 def get_points():
     try:
-        user = request.args.get('user', '')
-        conn = get_db_connection()
+        user = request.args.get('user', ''); conn = get_db_connection()
         if not conn: return jsonify([]), 200
         c = conn.cursor()
-        if user:
-            c.execute("SELECT id, title, address, lat, lon, status, comment, url, assigned_to, tgk_url FROM points WHERE status != 'found' AND assigned_to = %s", (user,))
-        else:
-            c.execute("SELECT id, title, address, lat, lon, status, comment, url, assigned_to, tgk_url FROM points WHERE status != 'found'")
+        if user: c.execute("SELECT id, title, address, lat, lon, status, comment, url, assigned_to, tgk_url FROM points WHERE status != 'found' AND assigned_to = %s", (user,))
+        else: c.execute("SELECT id, title, address, lat, lon, status, comment, url, assigned_to, tgk_url FROM points WHERE status != 'found'")
         points = [{"id": r[0], "title": r[1], "address": r[2], "lat": float(r[3]) if r[3] else 0, "lon": float(r[4]) if r[4] else 0, "status": r[5], "comment": r[6] or "", "url": r[7] or "", "assigned_to": r[8], "tgk_url": r[9] or ""} for r in c.fetchall()]
-        conn.close()
-        return jsonify(points)
+        conn.close(); return jsonify(points)
     except Exception as e:
-        print(f"❌ /get_points: {e}")
         return jsonify([]), 200
 
 @app.route('/create_scooter', methods=['POST'])
 def create_scooter():
     try:
-        data = request.json
-        conn = get_db_connection()
+        data = request.json; conn = get_db_connection()
         if not conn: return jsonify({"error": "DB connection failed"}), 500
         c = conn.cursor()
         c.execute("INSERT INTO points (title, address, lat, lon, status, comment, url, tgk_url) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)", 
                  (data.get('number', ''), data.get('address', ''), data.get('lat'), data.get('lon'), data.get('status', 'active'), data.get('comment', ''), data.get('url', ''), data.get('tgk_url', '')))
-        conn.commit(); conn.close()
-        return jsonify({"success": True})
+        conn.commit(); conn.close(); return jsonify({"success": True})
     except Exception as e:
         return jsonify({"error": str(e), "success": False}), 500
 
 @app.route('/create_parking', methods=['POST'])
 def create_parking():
     try:
-        data = request.json
-        conn = get_db_connection()
+        data = request.json; conn = get_db_connection()
         if not conn: return jsonify({"error": "DB connection failed"}), 500
         c = conn.cursor()
         c.execute("INSERT INTO parkings (title, address, lat, lon) VALUES (%s, %s, %s, %s)", 
                  (data.get('title', ''), data.get('address', ''), data.get('lat'), data.get('lon')))
-        conn.commit(); conn.close()
-        return jsonify({"success": True})
+        conn.commit(); conn.close(); return jsonify({"success": True})
     except Exception as e:
         return jsonify({"error": str(e), "success": False}), 500
 
 @app.route('/update_status', methods=['POST'])
 def update_status():
     try:
-        data = request.json
-        conn = get_db_connection()
+        data = request.json; conn = get_db_connection()
         if not conn: return jsonify({"error": "DB connection failed"}), 500
         c = conn.cursor()
         if data.get('status') == 'found':
@@ -1545,60 +1153,50 @@ def update_status():
                 obj_type = 'info' if row[5] == 'info' else 'point'
                 save_to_trash(obj_type, point_data)
                 scooter_title = row[1]
-                
                 if obj_type == 'point':
                     try:
                         bot.send_message(OWNER_USER_ID, f"🎯 Кто-то нашёл самокат {scooter_title}!")
-                        print(f"✅ Уведомление о находке самоката {scooter_title} отправлено")
-                    except Exception as e:
-                        print(f"❌ Ошибка уведомления о находке: {e}")
-                
+                    except Exception:
+                        pass
             c.execute("DELETE FROM points WHERE id = %s", (data.get('id'),))
         else:
             c.execute("UPDATE points SET status = %s WHERE id = %s", (data.get('status'), data.get('id')))
-        conn.commit(); conn.close()
-        return jsonify({"success": True})
+        conn.commit(); conn.close(); return jsonify({"success": True})
     except Exception as e:
         return jsonify({"error": str(e), "success": False}), 500
 
 @app.route('/update_comment', methods=['POST'])
 def update_comment():
     try:
-        data = request.json
-        conn = get_db_connection()
+        data = request.json; conn = get_db_connection()
         if not conn: return jsonify({"error": "DB connection failed"}), 500
         c = conn.cursor()
         c.execute("UPDATE points SET comment = %s WHERE id = %s", (data.get('comment', ''), data.get('point_id')))
-        conn.commit(); conn.close()
-        return jsonify({"success": True})
+        conn.commit(); conn.close(); return jsonify({"success": True})
     except Exception as e:
         return jsonify({"error": str(e), "success": False}), 500
 
 @app.route('/update_point_location', methods=['POST'])
 def update_point_location():
     try:
-        data = request.json
-        conn = get_db_connection()
+        data = request.json; conn = get_db_connection()
         if not conn: return jsonify({"error": "DB connection failed"}), 500
         c = conn.cursor()
         c.execute("UPDATE points SET lat = %s, lon = %s, address = %s WHERE id = %s", 
                  (data.get('lat'), data.get('lon'), data.get('address', ''), data.get('id')))
-        conn.commit(); conn.close()
-        return jsonify({"success": True})
+        conn.commit(); conn.close(); return jsonify({"success": True})
     except Exception as e:
         return jsonify({"error": str(e), "success": False}), 500
 
 @app.route('/update_parking_location', methods=['POST'])
 def update_parking_location():
     try:
-        data = request.json
-        conn = get_db_connection()
+        data = request.json; conn = get_db_connection()
         if not conn: return jsonify({"error": "DB connection failed"}), 500
         c = conn.cursor()
         c.execute("UPDATE parkings SET lat = %s, lon = %s, address = %s WHERE id = %s", 
                  (data.get('lat'), data.get('lon'), data.get('address', ''), data.get('id')))
-        conn.commit(); conn.close()
-        return jsonify({"success": True})
+        conn.commit(); conn.close(); return jsonify({"success": True})
     except Exception as e:
         return jsonify({"error": str(e), "success": False}), 500
 
@@ -1609,39 +1207,27 @@ def get_parkings():
         if not conn: return jsonify([]), 200
         c = conn.cursor()
         c.execute("SELECT id, title, address, lat, lon, available_count, dead_count, broken_count, photo_url FROM parkings")
-        parkings = []
-        for r in c.fetchall():
-            if r[3] and r[4]:
-                parkings.append({
-                    "id": r[0], "title": r[1] or "?", "address": r[2] or "?", 
-                    "lat": float(r[3]), "lon": float(r[4]), 
-                    "available": r[5] or '?', "dead": r[6] or '?', 
-                    "broken": r[7] or '?', "photo_url": r[8] or ""
-                })
-        conn.close()
-        return jsonify(parkings)
+        parkings = [{"id": r[0], "title": r[1] or "?", "address": r[2] or "?", "lat": float(r[3]), "lon": float(r[4]), "available": r[5] or '?', "dead": r[6] or '?', "broken": r[7] or '?', "photo_url": r[8] or ""} for r in c.fetchall() if r[3] and r[4]]
+        conn.close(); return jsonify(parkings)
     except Exception as e:
         return jsonify([]), 200
 
 @app.route('/update_parking', methods=['POST'])
 def update_parking():
     try:
-        data = request.json
-        conn = get_db_connection()
+        data = request.json; conn = get_db_connection()
         if not conn: return jsonify({"error": "DB connection failed"}), 500
         c = conn.cursor()
         c.execute("UPDATE parkings SET available_count = %s, dead_count = %s, broken_count = %s WHERE id = %s", 
                   (data.get('available', '?'), data.get('dead', '?'), data.get('broken', '?'), data.get('id')))
-        conn.commit(); conn.close()
-        return jsonify({"success": True})
+        conn.commit(); conn.close(); return jsonify({"success": True})
     except Exception as e:
         return jsonify({"error": str(e), "success": False}), 500
 
 @app.route('/delete_parking', methods=['POST'])
 def delete_parking():
     try:
-        data = request.json
-        conn = get_db_connection()
+        data = request.json; conn = get_db_connection()
         if not conn: return jsonify({"error": "DB connection failed"}), 500
         c = conn.cursor()
         c.execute("SELECT id, title, address, lat, lon, available_count, dead_count, broken_count, photo_url FROM parkings WHERE id = %s", (data.get('id'),))
@@ -1651,52 +1237,38 @@ def delete_parking():
                 'available_count': row[5], 'dead_count': row[6], 'broken_count': row[7], 'photo_url': row[8]}
             save_to_trash('parking', parking_data)
         c.execute("DELETE FROM parkings WHERE id = %s", (data.get('id'),))
-        conn.commit(); conn.close()
-        return jsonify({"success": True})
+        conn.commit(); conn.close(); return jsonify({"success": True})
     except Exception as e:
         return jsonify({"error": str(e), "success": False}), 500
 
 @app.route('/get_zones')
 def get_zones():
     try:
-        user = request.args.get('user', '')
-        conn = get_db_connection()
+        user = request.args.get('user', ''); conn = get_db_connection()
         if not conn: return jsonify([]), 200
         c = conn.cursor()
-        if user:
-            c.execute("SELECT id, coords, comment, assigned_to FROM zones WHERE assigned_to = %s", (user,))
-        else:
-            c.execute("SELECT id, coords, comment, assigned_to FROM zones")
-        zones = []
-        for r in c.fetchall():
-            try:
-                coords_list = json.loads(r[1]) if r[1] else []
-                zones.append({"id": r[0], "coords": coords_list, "comment": r[2] or "", "assigned_to": r[3]})
-            except:
-                continue
-        conn.close()
-        return jsonify(zones)
+        if user: c.execute("SELECT id, coords, comment, assigned_to FROM zones WHERE assigned_to = %s", (user,))
+        else: c.execute("SELECT id, coords, comment, assigned_to FROM zones")
+        zones = [{"id": r[0], "coords": json.loads(r[1]) if r[1] else [], "comment": r[2] or "", "assigned_to": r[3]} for r in c.fetchall()]
+        conn.close(); return jsonify(zones)
     except Exception as e:
         return jsonify([]), 200
 
 @app.route('/add_zone', methods=['POST'])
 def add_zone():
     try:
-        data = request.json
-        conn = get_db_connection()
+        data = request.json; conn = get_db_connection()
         if not conn: return jsonify({"error": "DB connection failed"}), 500
         c = conn.cursor()
         c.execute("INSERT INTO zones (coords, comment) VALUES (%s, %s)", (json.dumps(data.get('coords')), data.get('comment', '')))
-        conn.commit(); conn.close()
-        return jsonify({"success": True})
+        conn.commit(); conn.close(); return jsonify({"success": True})
     except Exception as e:
         return jsonify({"error": str(e), "success": False}), 500
 
 @app.route('/delete_zone', methods=['POST'])
 def delete_zone():
     try:
-        data = request.json
-        conn = get_db_connection()
+        data = request.json; conn = get_db_connection()
         if not conn: return jsonify({"error": "DB connection failed"}), 500
         c = conn.cursor()
         c.execute("SELECT id, coords, comment, assigned_to FROM zones WHERE id = %s", (data.get('id'),))
@@ -1705,44 +1277,31 @@ def delete_zone():
             zone_data = {'id': row[0], 'coords': row[1], 'comment': row[2], 'assigned_to': row[3]}
             save_to_trash('zone', zone_data)
         c.execute("DELETE FROM zones WHERE id = %s", (data.get('id'),))
-        conn.commit(); conn.close()
-        return jsonify({"success": True})
+        conn.commit(); conn.close(); return jsonify({"success": True})
     except Exception as e:
         return jsonify({"error": str(e), "success": False}), 500
 
 @app.route('/update_zone_location', methods=['POST'])
 def update_zone_location():
     try:
-        data = request.json
-        conn = get_db_connection()
+        data = request.json; conn = get_db_connection()
         if not conn: return jsonify({"error": "DB connection failed"}), 500
         c = conn.cursor()
         c.execute("UPDATE zones SET coords = %s WHERE id = %s", (json.dumps(data.get('coords')), data.get('id')))
-        conn.commit(); conn.close()
-        return jsonify({"success": True})
+        conn.commit(); conn.close(); return jsonify({"success": True})
     except Exception as e:
         return jsonify({"error": str(e), "success": False}), 500
 
 @app.route('/get_routes')
 def get_routes():
     try:
-        user = request.args.get('user', '')
-        conn = get_db_connection()
+        user = request.args.get('user', ''); conn = get_db_connection()
         if not conn: return jsonify([]), 200
         c = conn.cursor()
-        if user:
-            c.execute("SELECT id, coords, comment, temporary, assigned_to FROM routes WHERE temporary = FALSE AND (assigned_to = %s OR assigned_to IS NULL)", (user,))
-        else:
-            c.execute("SELECT id, coords, comment, temporary, assigned_to FROM routes WHERE temporary = FALSE")
-        routes = []
-        for r in c.fetchall():
-            try:
-                coords_list = json.loads(r[1]) if r[1] else []
-                routes.append({"id": r[0], "coords": coords_list, "comment": r[2] or "", "assigned_to": r[4] if len(r) > 4 else None})
-            except:
-                continue
-        conn.close()
-        return jsonify(routes)
+        if user: c.execute("SELECT id, coords, comment, temporary, assigned_to FROM routes WHERE temporary = FALSE AND (assigned_to = %s OR assigned_to IS NULL)", (user,))
+        else: c.execute("SELECT id, coords, comment, temporary, assigned_to FROM routes WHERE temporary = FALSE")
+        routes = [{"id": r[0], "coords": json.loads(r[1]) if r[1] else [], "comment": r[2] or "", "assigned_to": r[4] if len(r) > 4 else None} for r in c.fetchall()]
+        conn.close(); return jsonify(routes)
     except Exception as e:
         return jsonify([]), 200
 
@@ -1751,17 +1310,9 @@ def get_temp_routes():
     try:
         conn = get_db_connection()
         if not conn: return jsonify([]), 200
-        c = conn.cursor()
-        c.execute("SELECT id, coords, comment FROM routes WHERE temporary = TRUE")
-        routes = []
-        for r in c.fetchall():
-            try:
-                coords_list = json.loads(r[1]) if r[1] else []
-                routes.append({"id": r[0], "coords": coords_list, "comment": r[2] or ""})
-            except:
-                continue
-        conn.close()
-        return jsonify(routes)
+        c = conn.cursor(); c.execute("SELECT id, coords, comment FROM routes WHERE temporary = TRUE")
+        routes = [{"id": r[0], "coords": json.loads(r[1]) if r[1] else [], "comment": r[2] or ""} for r in c.fetchall()]
+        conn.close(); return jsonify(routes)
     except Exception as e:
         return jsonify([]), 200
 
@@ -1770,10 +1321,7 @@ def clear_temp_routes():
     try:
         conn = get_db_connection()
         if not conn: return jsonify({"error": "DB connection failed"}), 500
-        c = conn.cursor()
-        c.execute("DELETE FROM routes WHERE temporary = TRUE")
-        count = c.rowcount
-        conn.commit(); conn.close()
+        c = conn.cursor(); c.execute("DELETE FROM routes WHERE temporary = TRUE"); count = c.rowcount; conn.commit(); conn.close()
         return jsonify({"success": True, "count": count})
     except Exception as e:
         return jsonify({"error": str(e), "success": False}), 500
@@ -1781,31 +1329,24 @@ def clear_temp_routes():
 @app.route('/add_route', methods=['POST'])
 def add_route():
     try:
-        data = request.json
-        conn = get_db_connection()
+        data = request.json; conn = get_db_connection()
         if not conn: return jsonify({"error": "DB connection failed"}), 500
         c = conn.cursor()
         temp_value = data.get('temporary', False)
-        if isinstance(temp_value, str):
-            temp_value = temp_value.lower() == 'true'
-        else:
-            temp_value = bool(temp_value)
+        if isinstance(temp_value, str): temp_value = temp_value.lower() == 'true'
+        else: temp_value = bool(temp_value)
         c.execute("INSERT INTO routes (coords, comment, temporary) VALUES (%s, %s, %s)", 
                  (json.dumps(data.get('coords')), data.get('comment', ''), temp_value))
-        conn.commit(); conn.close()
-        return jsonify({"success": True})
+        conn.commit(); conn.close(); return jsonify({"success": True})
     except Exception as e:
         return jsonify({"error": str(e), "success": False}), 500
 
 @app.route('/delete_route', methods=['POST'])
 def delete_route():
     try:
-        data = request.json
-        conn = get_db_connection()
+        data = request.json; conn = get_db_connection()
         if not conn: return jsonify({"error": "DB connection failed"}), 500
-        c = conn.cursor()
-        c.execute("DELETE FROM routes WHERE id = %s", (data.get('id'),))
-        conn.commit(); conn.close()
+        c = conn.cursor(); c.execute("DELETE FROM routes WHERE id = %s", (data.get('id'),)); conn.commit(); conn.close()
         return jsonify({"success": True})
     except Exception as e:
         return jsonify({"error": str(e), "success": False}), 500
@@ -1813,12 +1354,9 @@ def delete_route():
 @app.route('/update_route', methods=['POST'])
 def update_route():
     try:
-        data = request.json
-        conn = get_db_connection()
+        data = request.json; conn = get_db_connection()
         if not conn: return jsonify({"error": "DB connection failed"}), 500
-        c = conn.cursor()
-        c.execute("UPDATE routes SET coords = %s WHERE id = %s", (json.dumps(data.get('coords')), data.get('id')))
-        conn.commit(); conn.close()
+        c = conn.cursor(); c.execute("UPDATE routes SET coords = %s WHERE id = %s", (json.dumps(data.get('coords')), data.get('id'))); conn.commit(); conn.close()
         return jsonify({"success": True})
     except Exception as e:
         return jsonify({"error": str(e), "success": False}), 500
@@ -1826,31 +1364,21 @@ def update_route():
 @app.route('/assign_task', methods=['POST'])
 def assign_task():
     try:
-        data = request.json
-        conn = get_db_connection()
+        data = request.json; conn = get_db_connection()
         if not conn: return jsonify({"error": "DB connection failed"}), 500
         c = conn.cursor()
-        task_type = data.get('type')
-        task_id = data.get('id')
-        user = data.get('user')
-        if task_type == 'point':
-            c.execute("UPDATE points SET assigned_to = %s WHERE id = %s", (user, task_id))
-        elif task_type == 'zone':
-            c.execute("UPDATE zones SET assigned_to = %s WHERE id = %s", (user, task_id))
-        conn.commit(); conn.close()
-        return jsonify({"success": True})
+        if data.get('type') == 'point': c.execute("UPDATE points SET assigned_to = %s WHERE id = %s", (data.get('user'), data.get('id')))
+        elif data.get('type') == 'zone': c.execute("UPDATE zones SET assigned_to = %s WHERE id = %s", (data.get('user'), data.get('id')))
+        conn.commit(); conn.close(); return jsonify({"success": True})
     except Exception as e:
         return jsonify({"error": str(e), "success": False}), 500
 
 @app.route('/assign_route', methods=['POST'])
 def assign_route():
     try:
-        data = request.json
-        conn = get_db_connection()
+        data = request.json; conn = get_db_connection()
         if not conn: return jsonify({"error": "DB connection failed"}), 500
-        c = conn.cursor()
-        c.execute("UPDATE routes SET assigned_to = %s WHERE id = %s", (data.get('user'), data.get('id')))
-        conn.commit(); conn.close()
+        c = conn.cursor(); c.execute("UPDATE routes SET assigned_to = %s WHERE id = %s", (data.get('user'), data.get('id'))); conn.commit(); conn.close()
         return jsonify({"success": True})
     except Exception as e:
         return jsonify({"error": str(e), "success": False}), 500
@@ -1858,16 +1386,13 @@ def assign_route():
 @app.route('/clear_assignments', methods=['POST'])
 def clear_assignments():
     try:
-        data = request.json
-        user = data.get('user')
-        conn = get_db_connection()
+        data = request.json; user = data.get('user'); conn = get_db_connection()
         if not conn: return jsonify({"error": "DB connection failed"}), 500
         c = conn.cursor()
         c.execute("UPDATE points SET assigned_to = NULL WHERE assigned_to = %s", (user,))
         c.execute("UPDATE zones SET assigned_to = NULL WHERE assigned_to = %s", (user,))
         c.execute("UPDATE routes SET assigned_to = NULL WHERE assigned_to = %s", (user,))
-        conn.commit(); conn.close()
-        return jsonify({"success": True})
+        conn.commit(); conn.close(); return jsonify({"success": True})
     except Exception as e:
         return jsonify({"error": str(e), "success": False}), 500
 
@@ -1876,10 +1401,8 @@ def get_departures():
     try:
         conn = get_db_connection()
         if not conn: return jsonify([]), 200
-        c = conn.cursor()
-        c.execute("SELECT point_id, point_title, person_name FROM departures")
-        departures = [{"point_id": r[0], "point_title": r[1], "person_name": r[2]} for r in c.fetchall()]
-        conn.close()
+        c = conn.cursor(); c.execute("SELECT point_id, point_title, person_name FROM departures")
+        departures = [{"point_id": r[0], "point_title": r[1], "person_name": r[2]} for r in c.fetchall()]; conn.close()
         return jsonify(departures)
     except Exception as e:
         return jsonify([]), 200
@@ -1887,83 +1410,66 @@ def get_departures():
 @app.route('/add_departure', methods=['POST'])
 def add_departure():
     try:
-        data = request.json
-        conn = get_db_connection()
+        data = request.json; conn = get_db_connection()
         if not conn: return jsonify({"error": "DB connection failed"}), 500
         c = conn.cursor()
         c.execute("""INSERT INTO departures (point_id, point_title, person_name) VALUES (%s, %s, %s)
                      ON CONFLICT (point_id) DO UPDATE SET point_title = EXCLUDED.point_title, person_name = EXCLUDED.person_name""", 
                   (data.get('point_id'), data.get('point_title'), data.get('person_name')))
-        conn.commit(); conn.close()
-        return jsonify({"success": True})
+        conn.commit(); conn.close(); return jsonify({"success": True})
     except Exception as e:
         return jsonify({"error": str(e), "success": False}), 500
 
 @app.route('/remove_departure', methods=['POST'])
 def remove_departure():
     try:
-        data = request.json
-        conn = get_db_connection()
+        data = request.json; conn = get_db_connection()
         if not conn: return jsonify({"error": "DB connection failed"}), 500
-        c = conn.cursor()
-        c.execute("DELETE FROM departures WHERE point_id = %s", (data.get('point_id'),))
-        conn.commit(); conn.close()
+        c = conn.cursor(); c.execute("DELETE FROM departures WHERE point_id = %s", (data.get('point_id'),)); conn.commit(); conn.close()
         return jsonify({"success": True})
     except Exception as e:
         return jsonify({"error": str(e), "success": False}), 500
 
 def stop_bot_safely():
     global bot_running
-    print("🛑 Останавливаю бота...")
     bot_running = False
-    try:
-        bot.stop_polling()
-        print("✅ Polling остановлен")
-    except Exception as e:
-        print(f"⚠️ Ошибка при остановке polling: {e}")
+    try: bot.stop_polling()
+    except: pass
 
 def run_bot():
     global bot_running, startup_notification_sent
-    if bot_running:
-        print("⚠️ Бот уже запущен, пропускаем")
-        return
+    if bot_running: return
     
     print("🔄 Инициализация БД и загрузка мониторингов...")
     init_db()
     startup_notification_sent = False
     load_monitors_from_db()
     
+    # ✅ ОТПРАВЛЯЕМ СООБЩЕНИЕ О НАЧАЛЕ МОНИТОРИНГА
+    log_to_owner("✅ Я начал мониторить новые самокаты из Поиска (топик 8694).")
+    
     bot_running = True
     print("🤖 Запускаю бота...")
-    try:
-        bot.remove_webhook()
-        print("✅ Webhook очищен")
-    except Exception as e:
-        print(f"⚠️ Не удалось очистить webhook: {e}")
-    print("⏳ Ожидаю 15 секунд...")
+    try: bot.remove_webhook()
+    except: pass
+    
     time.sleep(15)
     while bot_running:
         try:
-            print("🔄 Запускаю polling...")
             bot.polling(none_stop=True, timeout=120, long_polling_timeout=120, allowed_updates=["message"])
         except telebot.apihelper.ApiTelegramException as e:
             if e.error_code == 409:
-                print("⚠️ Конфликт 409, жду 90 секунд...")
                 try: bot.stop_polling()
                 except: pass
                 time.sleep(90)
             else:
-                print(f"❌ Ошибка Telegram API {e.error_code}: {e}")
                 time.sleep(30)
-        except Exception as e:
-            print(f"❌ Ошибка polling: {e}")
-            traceback.print_exc()
+        except Exception:
             try: bot.stop_polling()
             except: pass
             time.sleep(30)
 
 def handle_signal(signum, frame):
-    print(f"🛑 Получен сигнал {signum}, завершаю работу...")
     stop_bot_safely()
     sys.exit(0)
 
@@ -1972,7 +1478,6 @@ signal.signal(signal.SIGINT, handle_signal)
 
 if __name__ == '__main__':
     print("🚀 Запуск сервера...")
-    print(f"PID процесса: {os.getpid()}")
     bot_thread = threading.Thread(target=run_bot, daemon=True)
     bot_thread.start()
     app.run(host='0.0.0.0', port=8080, threaded=True)
