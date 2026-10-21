@@ -56,7 +56,8 @@ def add_cors_headers(response):
     return response
 
 def get_db_connection():
-    try: return psycopg.connect(DATABASE_URL)
+    try:
+        return psycopg.connect(DATABASE_URL)
     except Exception as e:
         print(f"❌ Ошибка подключения к БД: {e}")
         return None
@@ -65,7 +66,8 @@ def column_exists(c, table, column):
     try:
         c.execute(f"SELECT column_name FROM information_schema.columns WHERE table_name='{table}' AND column_name='{column}'")
         return c.fetchone() is not None
-    except: return False
+    except:
+        return False
 
 def save_monitors_to_db():
     try:
@@ -157,7 +159,10 @@ def init_db():
         conn.commit()
         
         for col, tbl in [('comment', 'points'), ('url', 'points'), ('assigned_to', 'points'), ('tgk_url', 'points'), ('photo_url', 'parkings'), ('assigned_to', 'zones'), ('temporary', 'routes'), ('assigned_to', 'routes')]:
-            if not column_exists(c, tbl, col): c.execute(f"ALTER TABLE {tbl} ADD COLUMN {col} TEXT" if col != 'temporary' else f"ALTER TABLE {tbl} ADD COLUMN {col} BOOLEAN DEFAULT FALSE"); conn.commit()
+            if not column_exists(c, tbl, col): 
+                if col != 'temporary': c.execute(f"ALTER TABLE {tbl} ADD COLUMN {col} TEXT")
+                else: c.execute(f"ALTER TABLE {tbl} ADD COLUMN {col} BOOLEAN DEFAULT FALSE")
+                conn.commit()
         
         for key, value in [('hide_empty_labels', 'false'), ('show_parkings', 'true'), ('show_labels', 'true')]:
             c.execute("INSERT INTO settings (key, value) VALUES (%s, %s) ON CONFLICT (key) DO NOTHING", (key, value))
@@ -233,18 +238,6 @@ def parse_scooter_command(text):
     if rest.lower().endswith('p') or rest.lower() == 'удалить': return None
     return location, last_three, rest
 
-def normalize_address(raw_address):
-    if re.match(r'^-?\d+\.\d+\s*,\s*-?\d+\.\d+$', raw_address.strip()): return raw_address.strip()
-    a = re.sub(r'^г\.?\s*Смоленск\s*,?\s*', '', raw_address.strip(), flags=re.IGNORECASE).strip()
-    a = re.sub(r',?\s*(?:д\.?|дом\.?)\s*', ' ', a, flags=re.IGNORECASE).strip()
-    a = re.sub(r',\s*', ' ', a).strip()
-    a = re.sub(r'\s+', ' ', a).strip()
-    m = re.match(r'^(.+?)\s+(ул\.?|улица|пр-кт|проспект|переулок|пер\.?|бульвар|б-р)\.?\s+(\d+[А-Яа-яЁё]?)$', a, re.IGNORECASE)
-    if m: return f"{m.group(1).strip()} {m.group(3).strip()}"
-    m = re.match(r'^([а-яА-ЯёЁ\w\-]+(?:\s+[а-яА-ЯёЁ\w\-]+)*)\s+(\d+[А-Яа-яЁё]?)$', a)
-    if m: return f"{m.group(1).strip()} {m.group(2).strip()}"
-    return a if len(a) > 3 else None
-
 def parse_scooter_message_8694(text):
     scooter_match = re.search(r'(?:🛴\s*)?7703(\d{3})\b', text)
     if not scooter_match: return None
@@ -255,8 +248,20 @@ def parse_scooter_message_8694(text):
         if match: address = match.group(1).strip(); break
     if not address and re.search(r'Нет координат в пределах города', text, re.IGNORECASE): address = "54.776443, 32.050324"
     if not address: return None
-    address = normalize_address(address)
-    return (address, last_three, 'sev') if address else None
+    
+    # Нормализация для 8694
+    a = re.sub(r'^г\.?\s*Смоленск\s*,?\s*', '', address.strip(), flags=re.IGNORECASE).strip()
+    a = re.sub(r',?\s*(?:д\.?|дом\.?)\s*', ' ', a, flags=re.IGNORECASE).strip()
+    a = re.sub(r',\s*', ' ', a).strip()
+    a = re.sub(r'\s+', ' ', a).strip()
+    
+    m = re.match(r'^(.+?)\s+(ул\.?|улица|пр-кт|проспект|переулок|пер\.?|бульвар|б-р)\.?\s+(\d+[А-Яа-яЁё]?)$', a, re.IGNORECASE)
+    if m: address = f"{m.group(1).strip()} {m.group(3).strip()}"
+    else:
+        m = re.match(r'^([а-яА-ЯёЁ\w\-]+(?:\s+[а-яА-ЯёЁ\w\-]+)*)\s+(\d+[А-Яа-яЁё]?)$', a)
+        if m: address = f"{m.group(1).strip()} {m.group(2).strip()}"
+        
+    return (address, last_three, 'sev') if len(address) > 3 else None
 
 def create_scooter_only(address, last_three, status, tgk_url):
     try:
@@ -444,9 +449,6 @@ def handle_message(message):
                     try: bot.forward_message(monitor['user_id'], monitored_group_id, message.message_id)
                     except Exception: pass
 
-        # ==============================================================================
-        # ⚠️⚠️⚠️ НЕЗАБУДЬКОД: АВТО-УДАЛЕНИЕ САМОКАТОВ ИЗ ПОИСКОВ ⚠️⚠️⚠️
-        # ==============================================================================
         if msg_thread_id == call_thread_id and ('из поис' in text_lower) and ('удален' in text_lower or 'удалён' in text_lower):
             match = re.search(r'7703(\d{3})', message.text)
             if match:
@@ -461,15 +463,11 @@ def handle_message(message):
                         conn.commit(); conn.close()
                 except Exception: pass
 
-        # ==============================================================================
-        # ⚠️⚠️⚠️ НЕЗАБУДЬКОД: АВТО-УВЕДОМЛЕНИЕ ОБ АРЕНДЕ (БЕЗ АРЕНДЫ) ⚠️⚠️⚠️
-        # ==============================================================================
         if msg_thread_id == call_thread_id and 'удален из без аренды' in text_lower:
             match = re.search(r'7703(\d{3})', message.text)
             if match:
                 bot.send_message(OWNER_USER_ID, f"{match.group(1)} кто-то арендовал спустя 48 часов или более.")
 
-        # 3. Авто-создание самокатов из Топика 8694
         if msg_thread_id == TGK_THREAD_ID:
             log_to_owner(f"📥 Получено сообщение в топике {TGK_THREAD_ID}:\n'{message.text}'")
             parsed = parse_scooter_message_8694(message.text)
@@ -491,18 +489,63 @@ def handle_message(message):
                 log_to_owner(f"⚠️ Сообщение в топике {TGK_THREAD_ID} не распознано как самокат.")
         return
 
-    # ЛИЧНЫЕ СООБЩЕНИЯ
-    # ✅ ДОБАВИТЬ КАРТОЧКУ В ТГ к существующему самокату
-    tgk_match = re.match(r'^\s*(\d{3})\s+(https?://\S+)\s*$', text)
-    if tgk_match:
-        last_three, tgk_url = tgk_match.groups()
+    # ==============================================================================
+    # ✅ ЛИЧНЫЕ СООБЩЕНИЯ: СОЗДАНИЕ САМОКАТА (С ПОДРОБНЫМИ ЛОГАМИ)
+    # ==============================================================================
+    scooter_cmd = parse_scooter_command(text)
+    if scooter_cmd:
+        print(f"🔍 РАСПОЗНАНА КОМАНДА СОЗДАНИЯ: {scooter_cmd}")
+        location_part, last_three, rest = scooter_cmd
+        tgk_url, comment = "", ""
+        
+        url_match = re.search(r'(https?://\S+)', rest, re.IGNORECASE)
+        if url_match:
+            tgk_url = url_match.group(1)
+            rest = rest.replace(tgk_url, "").strip()
+        
+        status = 'active'
+        if re.search(r'\bsev\b', rest, re.IGNORECASE):
+            status = 'sev'
+            rest = re.sub(r'\bsev\b', '', rest, flags=re.IGNORECASE).strip()
+        elif re.search(r'\bred\b', rest, re.IGNORECASE):
+            status = 'red'
+            rest = re.sub(r'\bred\b', '', rest, flags=re.IGNORECASE).strip()
+        
+        comment = rest.strip()
+        coord_match = re.match(r'^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$', location_part)
+        
+        if coord_match:
+            lat, lon = float(coord_match.group(1)), float(coord_match.group(2))
+            print(f"📍 Использованы прямые координаты: {lat}, {lon}")
+        else:
+            print(f"🔍 Ищем координаты для адреса: '{location_part}'")
+            lat, lon = get_coordinates(location_part)
+            
+        if lat is None or lon is None:
+            print(f"❌ Не удалось найти координаты для: {location_part}")
+            bot.reply_to(message, f"⚠️ Не нашёл адрес '{location_part}'.\nПопробуй написать полнее, например: улица Ленина, 11 - {last_three}")
+            return
+            
+        print(f"✅ Координаты найдены: {lat}, {lon}. Записываем в БД...")
         try:
             conn = get_db_connection()
             if conn:
-                c = conn.cursor(); c.execute("UPDATE points SET tgk_url = %s WHERE title = %s", (tgk_url, last_three))
-                count = c.rowcount; conn.commit(); conn.close()
-                bot.reply_to(message, f"✅ Ссылка на КАРТОЧКУ В ТГ добавлена к {count} самокату(ам) с номером {last_three}.")
-        except Exception as e: bot.reply_to(message, f"❌ Ошибка: {e}")
+                c = conn.cursor()
+                c.execute("""INSERT INTO points (title, address, lat, lon, status, comment, url, tgk_url) 
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
+                         (last_three, location_part, lat, lon, status, comment, '', tgk_url))
+                conn.commit()
+                conn.close()
+                print(f"✅ Самокат {last_three} успешно создан в БД!")
+                
+                answer = f"✅ Самокат {last_three} добавлен!\n📍 {location_part}\n🎨 {status}"
+                if comment: answer += f"\n💬 {comment}"
+                if tgk_url: answer += "\n🔗 КАРТОЧКА В ТГ привязана"
+                bot.reply_to(message, answer)
+        except Exception as e:
+            print(f"❌ ОШИБКА ЗАПИСИ В БД: {e}")
+            traceback.print_exc()
+            bot.reply_to(message, f"❌ Ошибка при создании: {e}")
         return
 
     if text_lower == 'z':
@@ -605,53 +648,6 @@ def handle_message(message):
                 conn.commit(); conn.close()
                 bot.reply_to(message, f"✅ Парковка '{title}' добавлена!")
             else: bot.reply_to(message, f"❌ Не найдено: '{loc}'")
-        return
-
-    # ✅ УНИВЕРСАЛЬНЫЙ ПАРСЕР СОЗДАНИЯ САМОКАТА (ТОЛЬКО КАРТОЧКА В ТГ)
-    scooter_cmd = parse_scooter_command(text)
-    if scooter_cmd:
-        location_part, last_three, rest = scooter_cmd
-        tgk_url, comment = "", ""
-        
-        # Ищем любую ссылку и сразу назначаем её как КАРТОЧКУ В ТГ
-        url_match = re.search(r'(https?://\S+)', rest, re.IGNORECASE)
-        if url_match:
-            tgk_url = url_match.group(1)
-            rest = rest.replace(tgk_url, "").strip()
-        
-        status = 'active'
-        if re.search(r'\bsev\b', rest, re.IGNORECASE):
-            status = 'sev'; rest = re.sub(r'\bsev\b', '', rest, flags=re.IGNORECASE).strip()
-        elif re.search(r'\bred\b', rest, re.IGNORECASE):
-            status = 'red'; rest = re.sub(r'\bred\b', '', rest, flags=re.IGNORECASE).strip()
-        
-        comment = rest.strip()
-        coord_match = re.match(r'^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$', location_part)
-        
-        if coord_match:
-            lat, lon = float(coord_match.group(1)), float(coord_match.group(2))
-        else:
-            lat, lon = get_coordinates(location_part)
-            
-        if lat is None or lon is None:
-            bot.reply_to(message, f"⚠️ Не нашёл адрес '{location_part}'.\nПопробуй: улица Ленина, 11 - {last_three}")
-            return
-            
-        try:
-            conn = get_db_connection()
-            if conn:
-                c = conn.cursor()
-                # url оставляем пустым (''), вся ссылка идет в tgk_url
-                c.execute("""INSERT INTO points (title, address, lat, lon, status, comment, url, tgk_url) 
-                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
-                         (last_three, location_part, lat, lon, status, comment, '', tgk_url))
-                conn.commit(); conn.close()
-                ans = f"✅ Самокат {last_three} добавлен!\n📍 {location_part}\n🎨 {status}"
-                if comment: ans += f"\n💬 {comment}"
-                if tgk_url: ans += "\n🔗 КАРТОЧКА В ТГ привязана"
-                bot.reply_to(message, ans)
-        except Exception as e:
-            bot.reply_to(message, f"❌ Ошибка: {e}")
         return
 
     if ' - ' in text:
