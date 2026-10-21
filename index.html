@@ -13,64 +13,14 @@
         body, html { margin: 0; padding: 0; height: 100%; font-family: Arial, sans-serif; }
         #map { width: 100%; height: 100vh; }
         #osmMap { width: 100%; height: 100vh; display: none; }
-        
-        .controls { 
-            position: absolute; 
-            top: 15px; 
-            left: 50%; 
-            transform: translateX(-50%); 
-            z-index: 1000; 
-            background: white; 
-            padding: 12px 20px; 
-            border-radius: 8px; 
-            box-shadow: 0 2px 8px rgba(0,0,0,0.2); 
-            min-width: 250px; 
-            max-width: 350px; 
-            text-align: center; 
-        }
+        .controls { position: absolute; top: 15px; left: 50%; transform: translateX(-50%); z-index: 1000; background: white; padding: 12px 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); min-width: 250px; max-width: 350px; text-align: center; }
         .controls h3 { margin: 0 0 5px 0; font-size: 15px; cursor: pointer; user-select: none; display: inline-block; }
         .info { font-size: 13px; color: #666; margin-bottom: 0; cursor: pointer; user-select: none; display: inline-block; }
-        
-        /* ✅ КНОПКА ПЕРЕЗАГРУЗКИ (на переднем плане) */
-        .restart-btn {
-            position: absolute;
-            top: 15px;
-            right: 15px;
-            z-index: 1100;
-            width: 56px;
-            height: 56px;
-            background: transparent;
-            border: none;
-            cursor: pointer;
-            transition: transform 0.2s ease, opacity 0.2s ease;
-            padding: 0;
-        }
-        .restart-btn:hover {
-            transform: scale(1.1);
-            opacity: 0.8;
-        }
-        .restart-btn img {
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
-            display: block;
-        }
-
+        .restart-btn { position: absolute; top: 15px; right: 15px; z-index: 1100; width: 56px; height: 56px; background: transparent; border: none; cursor: pointer; transition: transform 0.2s ease, opacity 0.2s ease; padding: 0; }
+        .restart-btn:hover { transform: scale(1.1); opacity: 0.8; }
+        .restart-btn img { width: 100%; height: 100%; object-fit: contain; display: block; }
         .bottom-panel { position: fixed; bottom: 0; left: 0; right: 0; background: white; padding: 15px 45px 15px 15px; box-shadow: 0 -2px 10px rgba(0,0,0,0.2); z-index: 1000; max-height: 180px; overflow-y: auto; text-align: center; }
-        .bottom-panel .close-btn { 
-            position: absolute; 
-            top: 8px; 
-            right: 10px; 
-            background: none; 
-            border: none; 
-            font-size: 20px; 
-            cursor: pointer; 
-            color: #333; 
-            padding: 0; 
-            width: auto; 
-            margin: 0; 
-            line-height: 1; 
-        }
+        .bottom-panel .close-btn { position: absolute; top: 8px; right: 10px; background: none; border: none; font-size: 20px; cursor: pointer; color: #333; padding: 0; width: auto; margin: 0; line-height: 1; }
         .departure-item { font-size: 15px; color: #333; text-align: center; margin: 4px 0; }
         .dead-info { font-size: 15px; color: #333; margin: 4px 0; font-weight: bold; cursor: pointer; display: inline-block; }
         .user-filter-text { font-size: 13px; color: #999; text-align: center; margin: 4px 0; font-weight: bold; }
@@ -88,27 +38,7 @@
         .modal-box .btn-secondary { background: #9E9E9E; color: white; }
         .modal-box .btn-secondary:active { background: #757575; }
         .modal-box .btn-delete { background: #f44336; color: white; width: 100%; padding: 10px; border: none; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; margin-top: 10px; }
-        .drawing-indicator { 
-            display: none; 
-            position: fixed; 
-            top: 80px; 
-            left: 50%; 
-            transform: translateX(-50%); 
-            background: #f44336; 
-            color: white; 
-            padding: 16px 24px;
-            border-radius: 8px; 
-            font-size: 16px;
-            font-weight: bold; 
-            z-index: 1500; 
-            box-shadow: 0 2px 8px rgba(0,0,0,0.3); 
-            min-width: 250px; 
-            max-width: 350px; 
-            align-items: center; 
-            gap: 4px; 
-            box-sizing: border-box; 
-            flex-direction: column; 
-        }
+        .drawing-indicator { display: none; position: fixed; top: 80px; left: 50%; transform: translateX(-50%); background: #f44336; color: white; padding: 16px 24px; border-radius: 8px; font-size: 16px; font-weight: bold; z-index: 1500; box-shadow: 0 2px 8px rgba(0,0,0,0.3); min-width: 250px; max-width: 350px; align-items: center; gap: 4px; box-sizing: border-box; flex-direction: column; }
         .drawing-indicator .mode-buttons { display: flex; flex-direction: column; gap: 8px; width: 100%; }
         .drawing-indicator button { background: #4CAF50; color: white; border: none; padding: 10px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px; width: 100%; }
         .drawing-indicator button:active { background: #45a049; }
@@ -131,81 +61,20 @@
         .orange-modal .modal-box h4 { color: white; }
         .orange-modal .modal-box p { color: white; }
         .orange-modal .modal-box .btn-row button { background: white; color: #ff9800; }
-        .confirm-assign-modal {
-            position: fixed;
-            top: 80px;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 1500;
-            background: transparent !important;
-            pointer-events: none;
-            align-items: flex-start;
-        }
-        .confirm-assign-modal .modal-box {
-            background: #f44336;
-            pointer-events: auto;
-            max-width: 300px;
-            padding: 16px;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
-        }
+        .confirm-assign-modal { position: fixed; top: 80px; left: 50%; transform: translateX(-50%); z-index: 1500; background: transparent !important; pointer-events: none; align-items: flex-start; }
+        .confirm-assign-modal .modal-box { background: #f44336; pointer-events: auto; max-width: 300px; padding: 16px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.3); }
         .confirm-assign-modal .modal-box h4 { color: white; font-size: 16px; margin: 0 0 10px 0; }
-        .confirm-assign-modal .modal-box .btn-comment-route {
-            background: white;
-            color: #333;
-            border: 2px solid #333;
-            padding: 12px;
-            border-radius: 6px;
-            font-size: 14px;
-            font-weight: bold;
-            cursor: pointer;
-            width: 100%;
-            margin-bottom: 10px;
-            display: none;
-            box-sizing: border-box;
-        }
+        .confirm-assign-modal .modal-box .btn-comment-route { background: white; color: #333; border: 2px solid #333; padding: 12px; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; width: 100%; margin-bottom: 10px; display: none; box-sizing: border-box; }
         .confirm-assign-modal .modal-box .btn-comment-route:active { background: #f0f0f0; }
-        .confirm-assign-modal .modal-box .route-comment-input {
-            display: none;
-            width: 100%;
-            padding: 12px;
-            border: 2px solid #333;
-            border-radius: 6px;
-            font-size: 14px;
-            box-sizing: border-box;
-            text-align: center;
-            margin-bottom: 10px;
-            background: white;
-            color: #333;
-        }
+        .confirm-assign-modal .modal-box .route-comment-input { display: none; width: 100%; padding: 12px; border: 2px solid #333; border-radius: 6px; font-size: 14px; box-sizing: border-box; text-align: center; margin-bottom: 10px; background: white; color: #333; }
         .confirm-assign-modal .modal-box .selected-list { color: white; font-size: 12px; margin: 6px 0; max-height: 120px; overflow-y: auto; text-align: left; padding: 0 5px; }
         .confirm-assign-modal .modal-box .selected-list .item { background: rgba(255,255,255,0.25); padding: 4px 8px; border-radius: 3px; margin: 3px 0; font-size: 11px; }
         .confirm-assign-modal .modal-box .btn-row { margin-top: 8px; }
         .confirm-assign-modal .modal-box .btn-row button { background: white; color: #f44336; padding: 10px; font-size: 14px; }
-        .parking-move-preview { 
-            width: 18px; height: 18px; 
-            background: rgba(255, 182, 193, 0.6); 
-            border: 3px solid #ff3b30; 
-            border-radius: 50%; 
-            pointer-events: none; 
-            z-index: 3000 !important;
-        }
-        .parking-move-preview.inside-zone {
-            background: rgba(128, 128, 128, 0.6);
-            border-color: #000;
-        }
-        .scooter-move-preview { 
-            width: 18px; height: 18px; 
-            background: rgba(255, 182, 193, 0.6); 
-            border: 3px solid #ff3b30; 
-            border-radius: 50%; 
-            pointer-events: none; 
-            z-index: 3000 !important;
-        }
-        .scooter-move-preview.inside-zone {
-            background: rgba(128, 128, 128, 0.6);
-            border-color: #000;
-        }
+        .parking-move-preview { width: 18px; height: 18px; background: rgba(255, 182, 193, 0.6); border: 3px solid #ff3b30; border-radius: 50%; pointer-events: none; z-index: 3000 !important; }
+        .parking-move-preview.inside-zone { background: rgba(128, 128, 128, 0.6); border-color: #000; }
+        .scooter-move-preview { width: 18px; height: 18px; background: rgba(255, 182, 193, 0.6); border: 3px solid #ff3b30; border-radius: 50%; pointer-events: none; z-index: 3000 !important; }
+        .scooter-move-preview.inside-zone { background: rgba(128, 128, 128, 0.6); border-color: #000; }
         .custom-div-icon { background: transparent; border: none; }
         .leaflet-popup-content-wrapper { border-radius: 8px; }
         .leaflet-popup-content { margin: 12px; }
@@ -221,7 +90,6 @@
 <body>
     <div id="map"></div>
     <div id="osmMap"></div>
-    
     <div class="restart-btn" onclick="location.reload();" title="Обновить карту">
         <img src="https://yandex67.github.io/my-map-site/restart.png" alt="Обновить">
     </div>
@@ -264,7 +132,7 @@
             <input type="text" id="scooterNumber" placeholder="Номер самоката" autocomplete="off">
             <input type="text" id="scooterComment" placeholder="Комментарий" autocomplete="off">
             <input type="text" id="scooterRed" placeholder="red или sev?" autocomplete="off">
-            <input type="text" id="scooterTgk" placeholder="Ссылка на карточку (tgk)" autocomplete="off">
+            <input type="text" id="scooterTgk" placeholder="Ссылка на КАРТОЧКУ В ТГ" autocomplete="off">
             <div class="btn-row"><button class="btn-secondary" onclick="closeCreateScooterModal()">Отмена</button><button class="btn-ok" onclick="confirmCreateScooter()">Ок</button></div>
         </div>
     </div>
@@ -1599,13 +1467,13 @@
 
         function buildBalloonContent(point, isBooked) {
             var esc = point.title.replace(/'/g, "\\'").replace(/"/g, '&quot;');
-            var fzLink = point.url ? '<a href="' + point.url + '" target="_blank" style="color: #1976D2; text-decoration: underline; font-weight: bold; display: block; margin: 5px 0;">ПОСМОТРЕТЬ ФЗ</a>' : '';
+            // УДАЛЕНО: var fzLink = point.url ? ...
             var tgkLink = point.tgk_url ? '<a href="' + point.tgk_url + '" target="_blank" style="color: #1976D2; text-decoration: underline; font-weight: bold; display: block; margin: 5px 0; font-size: 14px;">КАРТОЧКА В ТГ</a>' : '';
             var commentHtml = point.comment ? '<div style="color: #000; font-size: 14px; display: block; margin: 5px 0;">' + point.comment + '</div>' : '';
             var h = '<div style="min-width: 200px; padding: 12px; box-sizing: border-box; text-align: center;" onclick="event.stopPropagation()">';
             h += '<b style="font-size: 16px; display: block;">' + point.title + '</b>';
             h += '<div style="color: #555; font-size: 14px; margin: 8px 0;">' + point.address + '</div>';
-            h += fzLink + tgkLink + commentHtml;
+            h += tgkLink + commentHtml; // ТОЛЬКО КАРТОЧКА В ТГ
             h += '<div style="display: flex; flex-direction: column; align-items: center; gap: 4px; margin-top: 10px;">';
             h += '<button onclick="event.stopPropagation(); updateStatus(' + point.id + ', \'found\')" style="background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Нашёл</button>';
             h += '<button onclick="event.stopPropagation(); updateStatus(' + point.id + ', \'not_found\')" style="background: #212121; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Не нашёл</button>';
