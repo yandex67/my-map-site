@@ -869,11 +869,11 @@ def handle_message(message):
             parsed = parse_scooter_message_8694(message.text)
             if parsed:
                 address, last_three, status = parsed
-                log_to_owner(f"👁️ Я увидел новый Поиск самокат номер {last_three}")
+                log_to_owner(f"Я увидел новый Поиск самокат номер {last_three}")
                 raw_chat_id = str(monitored_group_id)
                 chat_id_for_link = raw_chat_id[4:] if raw_chat_id.startswith('-100') else raw_chat_id.lstrip('-')
                 message_link = f"https://t.me/c/{chat_id_for_link}/{message.message_id}"
-                log_to_owner(f"⚙️ Создаю его на карте и добавляю ссылку на пост для {last_three}")
+                log_to_owner(f"Создаю его на карте и добавляю ссылку на пост для {last_three}")
                 success, reason = create_scooter_only(address, last_three, status, message_link)
                 if success:
                     command_text = f"{address} - {last_three} {status} {message_link}"
