@@ -1598,28 +1598,27 @@
         }
 
         function buildBalloonContent(point, isBooked) {
-            var esc = point.title.replace(/'/g, "\\'").replace(/"/g, '&quot;');
-            var fzLink = point.url ? '<a href="' + point.url + '" target="_blank" style="color: #1976D2; text-decoration: underline; font-weight: bold; display: block; margin: 5px 0;">ПОСМОТРЕТЬ ФЗ</a>' : '';
-            var tgkLink = point.tgk_url ? '<a href="' + point.tgk_url + '" target="_blank" style="color: #1976D2; text-decoration: underline; font-weight: bold; display: block; margin: 5px 0; font-size: 14px;">КАРТОЧКА В ТГ</a>' : '';
-            var commentHtml = point.comment ? '<div style="color: #000; font-size: 14px; display: block; margin: 5px 0;">' + point.comment + '</div>' : '';
-            var h = '<div style="min-width: 200px; padding: 12px; box-sizing: border-box; text-align: center;" onclick="event.stopPropagation()">';
-            h += '<b style="font-size: 16px; display: block;">' + point.title + '</b>';
-            h += '<div style="color: #555; font-size: 14px; margin: 8px 0;">' + point.address + '</div>';
-            h += fzLink + tgkLink + commentHtml;
-            h += '<div style="display: flex; flex-direction: column; align-items: center; gap: 4px; margin-top: 10px;">';
-            h += '<button onclick="event.stopPropagation(); updateStatus(' + point.id + ', \'found\')" style="background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Нашёл</button>';
-            h += '<button onclick="event.stopPropagation(); updateStatus(' + point.id + ', \'not_found\')" style="background: #212121; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Не нашёл</button>';
-            h += '<button onclick="event.stopPropagation(); updateStatus(' + point.id + ', \'rented\')" style="background: #9E9E9E; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Уехал в аренду</button>';
-            h += '<button onclick="event.stopPropagation(); openCommentModal(' + point.id + ')" style="background: #707070; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px; margin-top: 4px;">Комментарий</button>';
-            h += '<button onclick="event.stopPropagation(); openScooterMoveModal(' + point.id + ', ' + JSON.stringify(point).replace(/"/g, '&quot;') + ')" style="background: #9E9E9E; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Переместить</button>';
-            if (isBooked) {
-                h += '<button onclick="event.stopPropagation(); resetDeparture(' + point.id + ')" style="background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Выехал ' + departures[point.id].name + '</button>';
-            } else {
-                h += '<button onclick="event.stopPropagation(); showChoiceMenu(' + point.id + ', \'' + esc + '\')" style="background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Забронировать</button>';
-            }
-            h += '</div></div>';
-            return h;
-        }
+    var esc = point.title.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+    var tgkLink = point.tgk_url ? '<a href="' + point.tgk_url + '" target="_blank" style="color: #1976D2; text-decoration: underline; font-weight: bold; display: block; margin: 5px 0; font-size: 14px;">КАРТОЧКА В ТГ</a>' : '';
+    var commentHtml = point.comment ? '<div style="color: #000; font-size: 14px; display: block; margin: 5px 0;">' + point.comment + '</div>' : '';
+    var h = '<div style="min-width: 200px; padding: 12px; box-sizing: border-box; text-align: center;" onclick="event.stopPropagation()">';
+    h += '<b style="font-size: 16px; display: block;">' + point.title + '</b>';
+    h += '<div style="color: #555; font-size: 14px; margin: 8px 0;">' + point.address + '</div>';
+    h += tgkLink + commentHtml; // ТОЛЬКО КАРТОЧКА В ТГ, БЕЗ ФЗ
+    h += '<div style="display: flex; flex-direction: column; align-items: center; gap: 4px; margin-top: 10px;">';
+    h += '<button onclick="event.stopPropagation(); updateStatus(' + point.id + ', \'found\')" style="background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Нашёл</button>';
+    h += '<button onclick="event.stopPropagation(); updateStatus(' + point.id + ', \'not_found\')" style="background: #212121; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Не нашёл</button>';
+    h += '<button onclick="event.stopPropagation(); updateStatus(' + point.id + ', \'rented\')" style="background: #9E9E9E; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Уехал в аренду</button>';
+    h += '<button onclick="event.stopPropagation(); openCommentModal(' + point.id + ')" style="background: #707070; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px; margin-top: 4px;">Комментарий</button>';
+    h += '<button onclick="event.stopPropagation(); openScooterMoveModal(' + point.id + ', ' + JSON.stringify(point).replace(/"/g, '&quot;') + ')" style="background: #9E9E9E; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Переместить</button>';
+    if (isBooked) {
+        h += '<button onclick="event.stopPropagation(); resetDeparture(' + point.id + ')" style="background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Выехал ' + departures[point.id].name + '</button>';
+    } else {
+        h += '<button onclick="event.stopPropagation(); showChoiceMenu(' + point.id + ', \'' + esc + '\')" style="background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Забронировать</button>';
+    }
+    h += '</div></div>';
+    return h;
+}
 
         function updateStatus(pointId, status) {
             fetch(API_URL + '/update_status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: pointId, status: status }) })
