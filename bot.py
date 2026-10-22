@@ -1098,7 +1098,7 @@ def handle_message(message):
     scooter_cmd = parse_scooter_command(text)
     if scooter_cmd:
         location_part, last_three, rest = scooter_cmd
-        tgk_url, fz_url, comment = "", "", ""
+                tgk_url, comment = "", ""
         
         tgk_m = re.search(r'\btgk\s+(https?://\S+)', rest, re.IGNORECASE)
         if tgk_m:
@@ -1136,9 +1136,9 @@ def handle_message(message):
                 bot.reply_to(message, "❌ Нет подключения к БД")
                 return
             c = conn.cursor()
-            c.execute("""INSERT INTO points (title, address, lat, lon, status, comment, url, tgk_url) 
+                        c.execute("""INSERT INTO points (title, address, lat, lon, status, comment, url, tgk_url) 
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
-                     (last_three, location_part, lat, lon, status, comment, fz_url, tgk_url))
+                     (last_three, location_part, lat, lon, status, comment, '', tgk_url))
             conn.commit()
             conn.close()
             answer = f"✅ Самокат {last_three} добавлен!\n📍 {location_part}\n🎨 {status}"
