@@ -667,17 +667,17 @@ def list_monitors(message):
     else:
         text += "  (нет активных)\n"
     
-    text += "\n📞 Обзвоны:\n"
-    text += f"  ✅ {'ПОСТОЯННО АКТИВЕН' if call_monitor_active else 'НЕ АКТИВЕН'} (топик {call_thread_id})\n"
+    text += "\n Обзвоны:\n"
+    text += f"  ✅ {'Активен' if call_monitor_active else 'НЕ АКТИВЕН'} (топик {call_thread_id})\n"
     
-    text += "\n🔗 Авто-создание самокатов + карточки ТГ:\n"
-    text += f"  ✅ Всегда активен (топик {TGK_THREAD_ID})\n"
+    text += "\n Авто-создание самокатов + карточки ТГ:\n"
+    text += f"  ✅ Активен (топик {TGK_THREAD_ID})\n"
     
-    text += "\n🗑️ Авто-удаление самокатов:\n"
-    text += f"  ✅ Всегда активен (топик {call_thread_id})\n"
+    text += "\n Авто-удаление самокатов:\n"
+    text += f"  ✅ Активен (топик {call_thread_id})\n"
     
-    text += "\n📋 Авто-уведомление об аренде:\n"
-    text += f"  ✅ Всегда активен (топик {call_thread_id})\n"
+    text += "\n Авто-уведомление об аренде:\n"
+    text += f"  ✅ Активен (топик {call_thread_id})\n"
     
     bot.reply_to(message, text)
 
