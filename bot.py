@@ -284,6 +284,7 @@ def init_db():
         conn.commit()
         print("✅ Таблицы созданы")
         print("🔧 Проверяю колонки...")
+        if not column_exists(c, 'zones', 'mode'): c.execute("ALTER TABLE zones ADD COLUMN mode INTEGER DEFAULT 1"); conn.commit()
         if not column_exists(c, 'points', 'comment'): c.execute("ALTER TABLE points ADD COLUMN comment TEXT"); conn.commit()
         if not column_exists(c, 'points', 'url'): c.execute("ALTER TABLE points ADD COLUMN url TEXT"); conn.commit()
         if not column_exists(c, 'points', 'assigned_to'): c.execute("ALTER TABLE points ADD COLUMN assigned_to TEXT"); conn.commit()
@@ -1457,18 +1458,34 @@ def delete_parking():
 def get_zones():
     try:
         user = request.args.get('user', '')
+        # ✅ Принимаем параметр mode из запроса (по умолчанию 1)
+        mode = request.args.get('mode', '1')
+        try:
+            mode = int(mode)
+        except:
+            mode = 1
+        
         conn = get_db_connection()
         if not conn: return jsonify([]), 200
         c = conn.cursor()
+        
+        # ✅ Фильтруем зоны по режиму
         if user:
-            c.execute("SELECT id, coords, comment, assigned_to FROM zones WHERE assigned_to = %s", (user,))
+            c.execute("SELECT id, coords, comment, assigned_to, mode FROM zones WHERE assigned_to = %s AND mode = %s", (user, mode))
         else:
-            c.execute("SELECT id, coords, comment, assigned_to FROM zones")
+            c.execute("SELECT id, coords, comment, assigned_to, mode FROM zones WHERE mode = %s", (mode,))
+        
         zones = []
         for r in c.fetchall():
             try:
                 coords_list = json.loads(r[1]) if r[1] else []
-                zones.append({"id": r[0], "coords": coords_list, "comment": r[2] or "", "assigned_to": r[3]})
+                zones.append({
+                    "id": r[0], 
+                    "coords": coords_list, 
+                    "comment": r[2] or "", 
+                    "assigned_to": r[3],
+                    "mode": r[4] if len(r) > 4 else 1
+                })
             except:
                 continue
         conn.close()
@@ -1483,8 +1500,14 @@ def add_zone():
         conn = get_db_connection()
         if not conn: return jsonify({"error": "DB connection failed"}), 500
         c = conn.cursor()
-        c.execute("INSERT INTO zones (coords, comment) VALUES (%s, %s)", (json.dumps(data.get('coords')), data.get('comment', '')))
-        conn.commit(); conn.close()
+        # ✅ Принимаем параметр mode из запроса (по умолчанию 1)
+        mode = data.get('mode', 1)
+        if not isinstance(mode, int):
+            mode = 1
+        c.execute("INSERT INTO zones (coords, comment, mode) VALUES (%s, %s, %s)", 
+                 (json.dumps(data.get('coords')), data.get('comment', ''), mode))
+        conn.commit()
+        conn.close()
         return jsonify({"success": True})
     except Exception as e:
         return jsonify({"error": str(e), "success": False}), 500
