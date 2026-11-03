@@ -293,6 +293,7 @@ def init_db():
         if not column_exists(c, 'zones', 'assigned_to'): c.execute("ALTER TABLE zones ADD COLUMN assigned_to TEXT"); conn.commit()
         if not column_exists(c, 'routes', 'temporary'): c.execute("ALTER TABLE routes ADD COLUMN temporary BOOLEAN DEFAULT FALSE"); conn.commit()
         if not column_exists(c, 'routes', 'assigned_to'): c.execute("ALTER TABLE routes ADD COLUMN assigned_to TEXT"); conn.commit()
+        if not column_exists(c, 'zones', 'mode'): c.execute("ALTER TABLE zones ADD COLUMN mode INTEGER DEFAULT 1"); conn.commit()
         for key, value in [('hide_empty_labels', 'false'), ('show_parkings', 'true'), ('show_labels', 'true')]:
             c.execute("INSERT INTO settings (key, value) VALUES (%s, %s) ON CONFLICT (key) DO NOTHING", (key, value))
         conn.commit()
@@ -970,6 +971,42 @@ def handle_message(message):
                     bot.reply_to(message, "🗑️ Последний самокат удалён.")
                 else:
                     bot.reply_to(message, "❌ Самокатов нет.")
+        except Exception as e:
+            bot.reply_to(message, f"❌ Ошибка: {e}")
+        return
+
+        # ✅ НОВОЕ: Удаление последней зоны режима 2
+    if text_lower == 'off last zona2':
+        try:
+            conn = get_db_connection()
+            if conn:
+                c = conn.cursor()
+                c.execute("DELETE FROM zones WHERE id = (SELECT MAX(id) FROM zones WHERE mode = 2)")
+                deleted_count = c.rowcount
+                conn.commit()
+                conn.close()
+                if deleted_count > 0:
+                    bot.reply_to(message, "🗑️ Последняя зона режима 2 удалена.")
+                else:
+                    bot.reply_to(message, "❌ Зон режима 2 нет.")
+        except Exception as e:
+            bot.reply_to(message, f"❌ Ошибка: {e}")
+        return
+
+    # ✅ НОВОЕ: Удаление всех зон режима 2
+    if text_lower == 'off all zona2':
+        try:
+            conn = get_db_connection()
+            if conn:
+                c = conn.cursor()
+                c.execute("DELETE FROM zones WHERE mode = 2")
+                deleted_count = c.rowcount
+                conn.commit()
+                conn.close()
+                if deleted_count > 0:
+                    bot.reply_to(message, f"🗑️ Удалено всех зон режима 2: {deleted_count}")
+                else:
+                    bot.reply_to(message, "❌ Зон режима 2 нет.")
         except Exception as e:
             bot.reply_to(message, f"❌ Ошибка: {e}")
         return
