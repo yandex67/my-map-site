@@ -1274,14 +1274,13 @@ function saveZoneToServer() {
     var finalCoords = zonePolygon ? zonePolygon.geometry.getCoordinates()[0] : zonePoints;
     // ✅ Передаём mode в зависимости от текущего режима карты
     var currentMode = (mapMode === 2) ? 2 : 1;
-    
     fetch(API_URL + '/add_zone', { 
         method: 'POST', 
         headers: { 'Content-Type': 'application/json' }, 
         body: JSON.stringify({ 
             coords: finalCoords, 
             comment: zoneComment,
-            mode: currentMode  // ✅ НОВОЕ: передаём номер режима
+            mode: currentMode  // ✅ НОВОЕ
         }) 
     })
     .then(function(r) { return r.json(); })
