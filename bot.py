@@ -343,9 +343,11 @@ def restore_from_trash():
                       data.get('status', 'active'), data.get('comment', ''), data.get('url', ''),
                       data.get('assigned_to'), data.get('tgk_url', '')))
         elif obj_type == 'zone':
-            c.execute("""INSERT INTO zones (coords, comment, assigned_to)
-                        VALUES (%s, %s, %s) RETURNING id""",
-                     (data.get('coords'), data.get('comment', ''), data.get('assigned_to')))
+            # Берем mode из сохраненных данных, если его нет — ставим 1 по умолчанию
+            mode = data.get('mode', 1)
+            c.execute("""INSERT INTO zones (coords, comment, assigned_to, mode)
+                        VALUES (%s, %s, %s, %s) RETURNING id""",
+                     (data.get('coords'), data.get('comment', ''), data.get('assigned_to'), mode))
         elif obj_type == 'parking':
             c.execute("""INSERT INTO parkings (title, address, lat, lon, available_count, dead_count, broken_count, photo_url)
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING id""",
