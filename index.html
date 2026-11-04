@@ -328,59 +328,40 @@ function setMapMode(mode) {
     mapMode = mode;
     var headerText = document.getElementById('modeHeaderText');
     
-    // ✅ ВАЖНО: всегда используем Yandex карту (myMap), чтобы рисование работало
+    // ВСЕГДА используем Яндекс Карту. OSM в режиме 2 не нужен.
     document.getElementById('map').style.display = 'block';
     document.getElementById('osmMap').style.display = 'none';
-    
-    if (mode === 2) {
-        // Режим 2: чистая карта для зон
+
+    if (mapMode === 2) {
+        // Режим 2: чистая Яндекс карта только для рисования зон
         if (headerText) headerText.innerText = "Зоны которые были прочёсаны";
         document.getElementById('bottomPanel').style.display = 'none';
         var infoEl = document.querySelector('.controls .info');
         if (infoEl) infoEl.style.display = 'none';
         
-        // Скрываем все маркеры, парковки, маршруты
-        markers.forEach(function(m) { myMap.geoObjects.remove(m); }); markers = [];
-        labelMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); labelMarkers = [];
-        parkingMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); parkingMarkers = [];
-        parkingLabelMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); parkingLabelMarkers = [];
-        infoMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); infoMarkers = [];
-        routes.forEach(function(r) { myMap.geoObjects.remove(r.polyline); if(r.arrow) myMap.geoObjects.remove(r.arrow); if(r.textMarker) myMap.geoObjects.remove(r.textMarker); }); routes = [];
-        tempRoutes.forEach(function(r) { myMap.geoObjects.remove(r.polyline); if(r.arrow) myMap.geoObjects.remove(r.arrow); if(r.textMarker) myMap.geoObjects.remove(r.textMarker); }); tempRoutes = [];
+        // Скрываем все маркеры, парковки и маршруты на Яндекс карте
+        markers.forEach(function(m) { myMap.geoObjects.remove(m); });
+        labelMarkers.forEach(function(m) { myMap.geoObjects.remove(m); });
+        parkingMarkers.forEach(function(m) { myMap.geoObjects.remove(m); });
+        parkingLabelMarkers.forEach(function(m) { myMap.geoObjects.remove(m); });
+        infoMarkers.forEach(function(m) { myMap.geoObjects.remove(m); });
+        routes.forEach(function(r) { myMap.geoObjects.remove(r.polyline); if(r.arrow) myMap.geoObjects.remove(r.arrow); if(r.textMarker) myMap.geoObjects.remove(r.textMarker); });
+        tempRoutes.forEach(function(r) { myMap.geoObjects.remove(r.polyline); if(r.arrow) myMap.geoObjects.remove(r.arrow); if(r.textMarker) myMap.geoObjects.remove(r.textMarker); });
         
-        // Скрываем зоны режима 1
+        // Скрываем зоны режима 1, чтобы не мешали рисовать
         zones1.forEach(function(z) { myMap.geoObjects.remove(z.polygon); if(z.text) myMap.geoObjects.remove(z.text); });
         
         // Показываем только зоны режима 2
-        updateZoneVisibility();
+        zones2.forEach(function(z) { myMap.geoObjects.add(z.polygon); if(z.text) myMap.geoObjects.add(z.text); });
+        
     } else {
-        // Режим 0: обычная карта
+        // Режим 0: обычная карта со всеми объектами
         if (headerText) headerText.innerText = "Задачи на сегодня";
         document.getElementById('bottomPanel').style.display = 'block';
         var infoEl = document.querySelector('.controls .info');
         if (infoEl) infoEl.style.display = 'inline-block';
         
-        // Скрываем зоны режима 2
-        zones2.forEach(function(z) { myMap.geoObjects.remove(z.polygon); if(z.text) myMap.geoObjects.remove(z.text); });
-        
-        // Перезагружаем всё
-        loadPoints();
-        loadParkings();
-        loadZones();
-        loadRoutes();
-    }
-} else {
-        // Режим 0/1: обычная карта
-        if (headerText) headerText.innerText = "Задачи на сегодня";
-        document.getElementById('bottomPanel').style.display = 'block';
-        var infoEl = document.querySelector('.controls .info');
-        if (infoEl) infoEl.style.display = 'inline-block';
-        
-        // Скрываем зоны режима 2
-        zones2.forEach(function(z) { myMap.geoObjects.remove(z.polygon); if(z.text) myMap.geoObjects.remove(z.text); });
-        osmZones2.forEach(function(z) { osmMap.removeLayer(z.layer); if(z.text) osmMap.removeLayer(z.text); });
-        
-        // Перезагружаем всё
+        // Перезагружаем все объекты обратно на Яндекс карту
         loadPoints();
         loadParkings();
         loadZones();
