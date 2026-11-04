@@ -293,7 +293,6 @@ def init_db():
         if not column_exists(c, 'zones', 'assigned_to'): c.execute("ALTER TABLE zones ADD COLUMN assigned_to TEXT"); conn.commit()
         if not column_exists(c, 'routes', 'temporary'): c.execute("ALTER TABLE routes ADD COLUMN temporary BOOLEAN DEFAULT FALSE"); conn.commit()
         if not column_exists(c, 'routes', 'assigned_to'): c.execute("ALTER TABLE routes ADD COLUMN assigned_to TEXT"); conn.commit()
-        if not column_exists(c, 'zones', 'mode'): c.execute("ALTER TABLE zones ADD COLUMN mode INTEGER DEFAULT 1"); conn.commit()
         for key, value in [('hide_empty_labels', 'false'), ('show_parkings', 'true'), ('show_labels', 'true')]:
             c.execute("INSERT INTO settings (key, value) VALUES (%s, %s) ON CONFLICT (key) DO NOTHING", (key, value))
         conn.commit()
