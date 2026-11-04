@@ -16,19 +16,9 @@ body, html { margin: 0; padding: 0; height: 100%; font-family: Arial, sans-serif
 .controls { position: absolute; top: 15px; left: 50%; transform: translateX(-50%); z-index: 1000; background: white; padding: 12px 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); min-width: 250px; max-width: 350px; text-align: center; }
 .controls h3 { margin: 0 0 5px 0; font-size: 15px; cursor: pointer; user-select: none; display: inline-block; }
 .info { font-size: 13px; color: #666; margin-bottom: 0; cursor: pointer; user-select: none; display: inline-block; }
-
-/* ✅ КНОПКА ПЕРЕЗАГРУЗКИ */
-.restart-btn { position: absolute; top: 15px; right: 23px; z-index: 1100; width: 56px; height: 56px; background: transparent; border: none; cursor: pointer; transition: transform 0.2s ease, opacity 0.2s ease; padding: 0; }
+.restart-btn { position: absolute; top: 15px; right: 15px; z-index: 1100; width: 56px; height: 56px; background: transparent; border: none; cursor: pointer; transition: transform 0.2s ease, opacity 0.2s ease; padding: 0; }
 .restart-btn:hover { transform: scale(1.1); opacity: 0.8; }
 .restart-btn img { width: 100%; height: 100%; object-fit: contain; display: block; }
-
-/* ✅ НОВЫЕ КНОПКИ ПЕРЕКЛЮЧЕНИЯ РЕЖИМОВ (по центру по вертикали, по краям, уменьшенные в 2 раза) */
-.mode-switch-btn { position: fixed; top: 50%; transform: translateY(-50%); width: 28px; height: 28px; background: transparent; border: none; cursor: pointer; z-index: 1100; transition: transform 0.2s ease, opacity 0.2s ease; padding: 0; }
-.mode-switch-btn:hover { transform: translateY(-50%) scale(1.1); opacity: 0.8; }
-.mode-switch-btn img { width: 100%; height: 100%; object-fit: contain; display: block; }
-.levo-btn { left: 10px; }
-.pravo-btn { right: 10px; }
-
 .bottom-panel { position: fixed; bottom: 0; left: 0; right: 0; background: white; padding: 15px 45px 15px 15px; box-shadow: 0 -2px 10px rgba(0,0,0,0.2); z-index: 1000; max-height: 180px; overflow-y: auto; text-align: center; }
 .bottom-panel .close-btn { position: absolute; top: 8px; right: 10px; background: none; border: none; font-size: 20px; cursor: pointer; color: #333; padding: 0; width: auto; margin: 0; line-height: 1; }
 .departure-item { font-size: 15px; color: #333; text-align: center; margin: 4px 0; }
@@ -101,17 +91,10 @@ body, html { margin: 0; padding: 0; height: 100%; font-family: Arial, sans-serif
 <div id="map"></div>
 <div id="osmMap"></div>
 
-<!-- ✅ НОВЫЕ КНОПКИ ПЕРЕКЛЮЧЕНИЯ РЕЖИМОВ -->
-<button class="mode-switch-btn levo-btn" onclick="setMapMode(0)" title="Обычный режим">
-    <img src="https://yandex67.github.io/my-map-site/levo.png" alt="Обычный">
-</button>
-<button class="mode-switch-btn pravo-btn" onclick="setMapMode(2)" title="Режим зон">
-    <img src="https://yandex67.github.io/my-map-site/pravo.png" alt="Зоны">
-</button>
-
 <div class="restart-btn" onclick="location.reload();" title="Обновить карту">
     <img src="https://yandex67.github.io/my-map-site/restart.png" alt="Обновить">
 </div>
+
 <div class="move-hint" id="moveHint">
     <span id="moveHintText">Кликните по карте, куда переместить</span>
     <div id="mobileMoveButtons" style="display: none; margin-top: 10px; gap: 8px;">
@@ -119,10 +102,12 @@ body, html { margin: 0; padding: 0; height: 100%; font-family: Arial, sans-serif
         <button onclick="confirmMobileMove()" style="background: white; color: #ff9800; border: none; padding: 8px 16px; border-radius: 4px; font-size: 13px; font-weight: bold; cursor: pointer;">Ок</button>
     </div>
 </div>
+
 <div class="controls" id="controlsPanel">
     <h3 id="modeHeaderText" onclick="onTasksHeaderClick()">Задачи на сегодня</h3><br>
     <div class="info" onclick="onInfoClick()">Всего: <span id="pointCount">0</span></div>
 </div>
+
 <div class="bottom-panel" id="bottomPanel">
     <button class="close-btn" onclick="closeBottomPanel()">&times;</button>
     <div id="userFilterText" class="user-filter-text" style="display:none;"></div>
@@ -130,7 +115,7 @@ body, html { margin: 0; padding: 0; height: 100%; font-family: Arial, sans-serif
     <div class="dead-info" id="deadInfo" onclick="onDeadInfoClick()">Севшие на парковке: <span id="deadCount">0</span></div>
 </div>
 
-<!-- Все модальные окна (без изменений) -->
+<!-- Все модальные окна остаются без изменений -->
 <div class="modal-overlay" id="modalOverlay">
     <div class="modal-box">
         <h4>Введите имя</h4>
@@ -284,10 +269,9 @@ var markers = [], labelMarkers = [], parkingMarkers = [], parkingLabelMarkers = 
 var osmMarkers = [], osmLabelMarkers = [], osmParkingMarkers = [], osmParkingLabelMarkers = [];
 var infoMarkers = [], osmInfoMarkers = [];
 
-// ✅ РАЗДЕЛЕНИЕ ЗОН: zones1 (режим 1) и zones2 (режим 2)
-var zones = [], zoneTextMarkers = [];
-var osmZones = [];
-// Для обратной совместимости
+// ✅ ГАРАНТИРОВАННОЕ ОБЪЯВЛЕНИЕ ПЕРЕМЕННЫХ ДЛЯ ЗОН
+var zones1 = [], zoneTextMarkers1 = [], osmZones1 = [];
+var zones2 = [], zoneTextMarkers2 = [], osmZones2 = [];
 var zones = zones1;
 var zoneTextMarkers = zoneTextMarkers1;
 var osmZones = osmZones1;
@@ -323,91 +307,6 @@ var ALL_NAMES = ['Андрей', 'Антон', 'Миша', 'Илья', 'Саша
 var isMobile = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (window.innerWidth <= 768);
 var lastMoveCoords = null;
 var isRouteConfirmMode = false;
-
-function setMapMode(mode) {
-    mapMode = mode;
-    var headerText = document.getElementById('modeHeaderText');
-    
-    // ✅ ВАЖНО: всегда используем Yandex карту (myMap)
-    document.getElementById('map').style.display = 'block';
-    document.getElementById('osmMap').style.display = 'none';
-
-    if (mode === 2) {
-        // Режим 2: чистая карта для зон
-        if (headerText) headerText.innerHTML = "Зоны которые<br>были прочёсаны";
-        document.getElementById('bottomPanel').style.display = 'none';
-        var infoEl = document.querySelector('.controls .info');
-        if (infoEl) infoEl.style.display = 'none';
-        
-        // Скрываем все маркеры, парковки, маршруты
-        markers.forEach(function(m) { myMap.geoObjects.remove(m); }); markers = [];
-        labelMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); labelMarkers = [];
-        parkingMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); parkingMarkers = [];
-        parkingLabelMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); parkingLabelMarkers = [];
-        infoMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); infoMarkers = [];
-        routes.forEach(function(r) { myMap.geoObjects.remove(r.polyline); if(r.arrow) myMap.geoObjects.remove(r.arrow); if(r.textMarker) myMap.geoObjects.remove(r.textMarker); }); routes = [];
-        tempRoutes.forEach(function(r) { myMap.geoObjects.remove(r.polyline); if(r.arrow) myMap.geoObjects.remove(r.arrow); if(r.textMarker) myMap.geoObjects.remove(r.textMarker); }); tempRoutes = [];
-        
-        // Скрываем зоны режима 1
-        zones1.forEach(function(z) { myMap.geoObjects.remove(z.polygon); if(z.text) myMap.geoObjects.remove(z.text); });
-        
-        // ✅ НОВОЕ: Загружаем зоны режима 2 из БД!
-        loadZones();
-    } else {
-        // Режим 0: обычная карта
-        if (headerText) headerText.innerText = "Задачи на сегодня";
-        document.getElementById('bottomPanel').style.display = 'block';
-        var infoEl = document.querySelector('.controls .info');
-        if (infoEl) infoEl.style.display = 'inline-block';
-        
-        // Скрываем зоны режима 2
-        zones2.forEach(function(z) { myMap.geoObjects.remove(z.polygon); if(z.text) myMap.geoObjects.remove(z.text); });
-        
-        // Перезагружаем всё
-        loadPoints();
-        loadParkings();
-        loadZones();
-        loadRoutes();
-    }
-}
-
-function updateMapVisibility() {
-    if (mapMode === 2) {
-        // Режим 2: Скрываем всё, кроме зон (зоны остаются на карте)
-        markers.forEach(m => myMap.geoObjects.remove(m));
-        labelMarkers.forEach(m => myMap.geoObjects.remove(m));
-        parkingMarkers.forEach(m => myMap.geoObjects.remove(m));
-        parkingLabelMarkers.forEach(m => myMap.geoObjects.remove(m));
-        infoMarkers.forEach(m => myMap.geoObjects.remove(m));
-        routes.forEach(r => { myMap.geoObjects.remove(r.polyline); if(r.arrow) myMap.geoObjects.remove(r.arrow); if(r.textMarker) myMap.geoObjects.remove(r.textMarker); });
-        tempRoutes.forEach(r => { myMap.geoObjects.remove(r.polyline); if(r.arrow) myMap.geoObjects.remove(r.arrow); if(r.textMarker) myMap.geoObjects.remove(r.textMarker); });
-
-        osmMarkers.forEach(m => osmMap.removeLayer(m));
-        osmLabelMarkers.forEach(m => osmMap.removeLayer(m));
-        osmParkingMarkers.forEach(m => osmMap.removeLayer(m));
-        osmParkingLabelMarkers.forEach(m => osmMap.removeLayer(m));
-        osmInfoMarkers.forEach(m => osmMap.removeLayer(m));
-        osmRoutes.forEach(r => osmMap.removeLayer(r.layer));
-        osmTempRoutes.forEach(r => osmMap.removeLayer(r.layer));
-    } else {
-        // Режим 0 или 1: Показываем все слои обратно
-        markers.forEach(m => myMap.geoObjects.add(m));
-        labelMarkers.forEach(m => myMap.geoObjects.add(m));
-        parkingMarkers.forEach(m => myMap.geoObjects.add(m));
-        parkingLabelMarkers.forEach(m => myMap.geoObjects.add(m));
-        infoMarkers.forEach(m => myMap.geoObjects.add(m));
-        routes.forEach(r => { myMap.geoObjects.add(r.polyline); if(r.arrow) myMap.geoObjects.add(r.arrow); if(r.textMarker) myMap.geoObjects.add(r.textMarker); });
-        tempRoutes.forEach(r => { myMap.geoObjects.add(r.polyline); if(r.arrow) myMap.geoObjects.add(r.arrow); if(r.textMarker) myMap.geoObjects.add(r.textMarker); });
-
-        osmMarkers.forEach(m => osmMap.addLayer(m));
-        osmLabelMarkers.forEach(m => osmMap.addLayer(m));
-        osmParkingMarkers.forEach(m => osmMap.addLayer(m));
-        osmParkingLabelMarkers.forEach(m => osmMap.addLayer(m));
-        osmInfoMarkers.forEach(m => osmMap.addLayer(m));
-        osmRoutes.forEach(r => osmMap.addLayer(r.layer));
-        osmTempRoutes.forEach(r => osmMap.addLayer(r.layer));
-    }
-}
 
 function isPointInPolygon(point, polygon) {
     var x = point[0], y = point[1];
@@ -457,12 +356,19 @@ function init() {
     osmMap = L.map('osmMap', { center: [54.7818, 32.0401], zoom: 12, zoomControl: false });
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap', maxZoom: 19 }).addTo(osmMap);
     L.control.zoom({ position: 'topright' }).addTo(osmMap);
-    loadDeparturesFromServer(); loadPoints(); loadParkings(); loadZones(); loadSettings();
+    
+    loadDeparturesFromServer(); 
+    loadPoints(); 
+    loadParkings(); 
+    loadZones(); 
+    loadSettings();
+    
     fetch(API_URL + '/clear_temp_routes', { method: 'POST' })
         .then(function() { loadRoutes(); })
         .catch(function() { loadRoutes(); });
+        
     setTimeout(function() { myMap.setCenter([54.7818, 32.0401], 12); }, 800);
-
+    
     myMap.events.add('contextmenu', function(e) {
         if (movingPointId || parkingMoveMode || scooterMoveMode) return;
         if (contextMenuHandled) { contextMenuHandled = false; return; }
@@ -520,11 +426,7 @@ function init() {
 function showParkingMovePreview(coords) {
     lastMoveCoords = coords;
     if (!parkingMovePreview) {
-        parkingMovePreview = new ymaps.Placemark(coords, {}, {
-            iconLayout: ymaps.templateLayoutFactory.createClass('<div class="parking-move-preview"></div>'),
-            iconShape: { type: 'Circle', coordinates: [9, 9], radius: 9 },
-            zIndex: 3000
-        });
+        parkingMovePreview = new ymaps.Placemark(coords, {}, { iconLayout: ymaps.templateLayoutFactory.createClass('<div class="parking-move-preview"></div>'), iconShape: { type: 'Circle', coordinates: [9, 9], radius: 9 }, zIndex: 3000 });
         myMap.geoObjects.add(parkingMovePreview);
     } else { parkingMovePreview.geometry.setCoordinates(coords); }
     var previewEl = parkingMovePreview.options.get('iconLayout').getElement();
@@ -536,10 +438,7 @@ function showParkingMovePreview(coords) {
 function showOsmParkingMovePreview(coords) {
     lastMoveCoords = coords;
     if (!parkingMovePreview) {
-        parkingMovePreview = L.marker(coords, {
-            icon: L.divIcon({ className: 'custom-div-icon', html: '<div class="parking-move-preview"></div>', iconSize: [18, 18], iconAnchor: [9, 9] }),
-            interactive: false, zIndexOffset: 3000
-        }).addTo(osmMap);
+        parkingMovePreview = L.marker(coords, { icon: L.divIcon({ className: 'custom-div-icon', html: '<div class="parking-move-preview"></div>', iconSize: [18, 18], iconAnchor: [9, 9] }), interactive: false, zIndexOffset: 3000 }).addTo(osmMap);
     } else { parkingMovePreview.setLatLng(coords); }
     var previewEl = parkingMovePreview.getElement();
     if (previewEl) {
@@ -557,11 +456,7 @@ function removeParkingMovePreview() {
 function showScooterMovePreview(coords) {
     lastMoveCoords = coords;
     if (!scooterMovePreview) {
-        scooterMovePreview = new ymaps.Placemark(coords, {}, {
-            iconLayout: ymaps.templateLayoutFactory.createClass('<div class="scooter-move-preview"></div>'),
-            iconShape: { type: 'Circle', coordinates: [9, 9], radius: 9 },
-            zIndex: 3000
-        });
+        scooterMovePreview = new ymaps.Placemark(coords, {}, { iconLayout: ymaps.templateLayoutFactory.createClass('<div class="scooter-move-preview"></div>'), iconShape: { type: 'Circle', coordinates: [9, 9], radius: 9 }, zIndex: 3000 });
         myMap.geoObjects.add(scooterMovePreview);
     } else { scooterMovePreview.geometry.setCoordinates(coords); }
     var previewEl = scooterMovePreview.options.get('iconLayout').getElement();
@@ -573,10 +468,7 @@ function showScooterMovePreview(coords) {
 function showOsmScooterMovePreview(coords) {
     lastMoveCoords = coords;
     if (!scooterMovePreview) {
-        scooterMovePreview = L.marker(coords, {
-            icon: L.divIcon({ className: 'custom-div-icon', html: '<div class="scooter-move-preview"></div>', iconSize: [18, 18], iconAnchor: [9, 9] }),
-            interactive: false, zIndexOffset: 3000
-        }).addTo(osmMap);
+        scooterMovePreview = L.marker(coords, { icon: L.divIcon({ className: 'custom-div-icon', html: '<div class="scooter-move-preview"></div>', iconSize: [18, 18], iconAnchor: [9, 9] }), interactive: false, zIndexOffset: 3000 }).addTo(osmMap);
     } else { scooterMovePreview.setLatLng(coords); }
     var previewEl = scooterMovePreview.getElement();
     if (previewEl) {
@@ -610,13 +502,13 @@ function performMove(newCoords) {
     var address = lat.toFixed(6) + ', ' + lon.toFixed(6);
     var url = movingType === 'parking' ? '/update_parking_location' : '/update_point_location';
     fetch(API_URL + url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: movingPointId, lat: lat, lon: lon, address: address }) })
-        .then(function(r) { return r.json(); }).then(function(data) {
-            if (data.success) {
-                movingPointId = null; movingPointData = null; movingType = null;
-                document.getElementById('moveHint').style.display = 'none';
-                loadPoints();
-            }
-        });
+    .then(function(r) { return r.json(); }).then(function(data) {
+        if (data.success) {
+            movingPointId = null; movingPointData = null; movingType = null;
+            document.getElementById('moveHint').style.display = 'none';
+            loadPoints();
+        }
+    });
 }
 function openMovePointModal(pointId, pointData, type) {
     movingPointId = pointId; movingPointData = pointData; movingType = type;
@@ -643,19 +535,19 @@ function deleteMovingPoint() {
     if (movingZoneId) {
         if (!confirm('Удалить зону?')) return;
         fetch(API_URL + '/delete_zone', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: movingZoneId }) })
-            .then(function(r) { return r.json(); }).then(function(data) { if (data.success) { closeMovePointModal(); loadZones(); } });
+        .then(function(r) { return r.json(); }).then(function(data) { if (data.success) { closeMovePointModal(); loadZones(); } });
         return;
     }
     if (!movingPointId) return;
     if (!confirm('Удалить?')) return;
     if (movingType === 'parking') { alert('Для удаления парковки используйте Telegram: Название - Удалить'); closeMovePointModal(); return; }
     fetch(API_URL + '/update_status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: movingPointId, status: 'found' }) })
-        .then(function(r) { return r.json(); }).then(function(data) { if (data.success) { closeMovePointModal(); loadPoints(); } });
+    .then(function(r) { return r.json(); }).then(function(data) { if (data.success) { closeMovePointModal(); loadPoints(); } });
 }
 function enableZoneDrag(zoneId) {
     var currentZones = (mapMode === 2) ? zones2 : zones1;
     var zone = currentZones.find(function(z) { return z.id === zoneId; });
-    if (!zone || !zone.polygon) return;
+    if (!zone) return;
     myMap.behaviors.disable('drag'); myMap.behaviors.disable('multiTouch');
     myMap.behaviors.disable('scrollZoom'); myMap.behaviors.disable('dblClickZoom');
     myMap.container.getElement().style.cursor = 'move';
@@ -664,16 +556,16 @@ function enableZoneDrag(zoneId) {
     zone.polygon.events.add('dragend', function(e) {
         var newCoords = zone.polygon.geometry.getCoordinates()[0];
         fetch(API_URL + '/update_zone_location', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: zoneId, coords: newCoords }) })
-            .then(function(r) { return r.json(); }).then(function(data) {
-                if (data.success) {
-                    zone.polygon.options.set('draggable', false);
-                    zone.polygon.options.set('zIndex', 100);
-                    myMap.behaviors.enable('drag'); myMap.behaviors.enable('multiTouch');
-                    myMap.behaviors.enable('scrollZoom'); myMap.behaviors.enable('dblClickZoom');
-                    myMap.container.getElement().style.cursor = '';
-                    loadZones();
-                }
-            });
+        .then(function(r) { return r.json(); }).then(function(data) {
+            if (data.success) {
+                zone.polygon.options.set('draggable', false);
+                zone.polygon.options.set('zIndex', 100);
+                myMap.behaviors.enable('drag'); myMap.behaviors.enable('multiTouch');
+                myMap.behaviors.enable('scrollZoom'); myMap.behaviors.enable('dblClickZoom');
+                myMap.container.getElement().style.cursor = '';
+                loadZones();
+            }
+        });
     });
 }
 function openParkingMoveModal(parkingId, parkingData) {
@@ -713,25 +605,25 @@ function performParkingMove(newCoords) {
     var address = lat.toFixed(6) + ', ' + lon.toFixed(6);
     removeParkingMovePreview();
     fetch(API_URL + '/update_parking_location', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: movingParkingId, lat: lat, lon: lon, address: address }) })
-        .then(function(r) { return r.json(); }).then(function(data) {
-            if (data.success) {
-                movingParkingId = null; parkingMoveMode = false;
-                document.getElementById('moveHint').style.display = 'none';
-                document.getElementById('moveHintText').textContent = 'Кликните по карте, куда переместить';
-                document.getElementById('mobileMoveButtons').style.display = 'none';
-                enableZoneInteraction();
-                if (myMap) {
-                    myMap.behaviors.enable('drag'); myMap.behaviors.enable('multiTouch');
-                    myMap.behaviors.enable('scrollZoom'); myMap.behaviors.enable('dblClickZoom');
-                    myMap.container.getElement().classList.remove('hide-cursor');
-                }
-                if (osmMap) {
-                    osmMap.dragging.enable(); osmMap.scrollWheelZoom.enable(); osmMap.doubleClickZoom.enable();
-                    osmMap.getContainer().classList.remove('hide-cursor');
-                }
-                loadParkings();
+    .then(function(r) { return r.json(); }).then(function(data) {
+        if (data.success) {
+            movingParkingId = null; parkingMoveMode = false;
+            document.getElementById('moveHint').style.display = 'none';
+            document.getElementById('moveHintText').textContent = 'Кликните по карте, куда переместить';
+            document.getElementById('mobileMoveButtons').style.display = 'none';
+            enableZoneInteraction();
+            if (myMap) {
+                myMap.behaviors.enable('drag'); myMap.behaviors.enable('multiTouch');
+                myMap.behaviors.enable('scrollZoom'); myMap.behaviors.enable('dblClickZoom');
+                myMap.container.getElement().classList.remove('hide-cursor');
             }
-        });
+            if (osmMap) {
+                osmMap.dragging.enable(); osmMap.scrollWheelZoom.enable(); osmMap.doubleClickZoom.enable();
+                osmMap.getContainer().classList.remove('hide-cursor');
+            }
+            loadParkings();
+        }
+    });
 }
 function openScooterMoveModal(scooterId, scooterData) {
     movingScooterId = scooterId;
@@ -772,26 +664,26 @@ function performScooterMove(newCoords) {
     var address = lat.toFixed(6) + ', ' + lon.toFixed(6);
     removeScooterMovePreview();
     fetch(API_URL + '/update_point_location', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: movingScooterId, lat: lat, lon: lon, address: address }) })
-        .then(function(r) { return r.json(); }).then(function(data) {
-            if (data.success) {
-                movingScooterId = null;
-                scooterMoveMode = false;
-                document.getElementById('moveHint').style.display = 'none';
-                document.getElementById('moveHintText').textContent = 'Кликните по карте, куда переместить';
-                document.getElementById('mobileMoveButtons').style.display = 'none';
-                enableZoneInteraction();
-                if (myMap) {
-                    myMap.behaviors.enable('drag'); myMap.behaviors.enable('multiTouch');
-                    myMap.behaviors.enable('scrollZoom'); myMap.behaviors.enable('dblClickZoom');
-                    myMap.container.getElement().classList.remove('hide-cursor');
-                }
-                if (osmMap) {
-                    osmMap.dragging.enable(); osmMap.scrollWheelZoom.enable(); osmMap.doubleClickZoom.enable();
-                    osmMap.getContainer().classList.remove('hide-cursor');
-                }
-                loadPoints();
+    .then(function(r) { return r.json(); }).then(function(data) {
+        if (data.success) {
+            movingScooterId = null;
+            scooterMoveMode = false;
+            document.getElementById('moveHint').style.display = 'none';
+            document.getElementById('moveHintText').textContent = 'Кликните по карте, куда переместить';
+            document.getElementById('mobileMoveButtons').style.display = 'none';
+            enableZoneInteraction();
+            if (myMap) {
+                myMap.behaviors.enable('drag'); myMap.behaviors.enable('multiTouch');
+                myMap.behaviors.enable('scrollZoom'); myMap.behaviors.enable('dblClickZoom');
+                myMap.container.getElement().classList.remove('hide-cursor');
             }
-        });
+            if (osmMap) {
+                osmMap.dragging.enable(); osmMap.scrollWheelZoom.enable(); osmMap.doubleClickZoom.enable();
+                osmMap.getContainer().classList.remove('hide-cursor');
+            }
+            loadPoints();
+        }
+    });
 }
 function attachScooterContextMenu(pm, point) {
     pm.events.add('contextmenu', function(e) {
@@ -814,7 +706,6 @@ function attachOsmScooterContextMenu(osmPm, point) {
     osmPm.on('touchmove', function(e) { clearTimeout(touchTimer); });
 }
 
-// ✅ ОБНОВЛЕННАЯ ФУНКЦИЯ: учитывает mapMode
 function showContextMenu() {
     var menu = document.createElement('div');
     menu.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); z-index: 3000; min-width: 250px;';
@@ -835,12 +726,14 @@ function showContextMenu() {
     document.body.appendChild(menu); menu.id = 'contextMenu';
 }
 function closeContextMenu() { var menu = document.getElementById('contextMenu'); if (menu) menu.remove(); }
+
 function safeFetch(url) {
     return fetch(url).then(function(r) {
         if (!r.ok) return [];
         return r.json().catch(function() { return []; });
     }).catch(function() { return []; });
 }
+
 function loadSettings() {
     safeFetch(API_URL + '/get_settings').then(function(data) {
         if (data && typeof data === 'object' && !Array.isArray(data)) {
@@ -851,36 +744,40 @@ function loadSettings() {
         loadParkings();
     });
 }
+
 function updateZoneTextVisibility() {
     var currentZoom = myMap.getZoom();
     var currentZones = (mapMode === 2) ? zones2 : zones1;
     currentZones.forEach(function(z) { if (z.text) z.text.options.set('visible', currentZoom >= ZOOM_THRESHOLD); });
 }
 
-// ✅ ОБНОВЛЕННАЯ ФУНКЦИЯ: загружает зоны в зависимости от режима
+// ✅ ИСПРАВЛЕННАЯ ФУНКЦИЯ ЗАГРУЗКИ ЗОН
 function loadZones() {
-    // Очищаем карту и общие массивы
-    zones.forEach(function(z) { myMap.geoObjects.remove(z.polygon); if(z.text) myMap.geoObjects.remove(z.text); });
-    zones = []; zoneTextMarkers = [];
-    osmZones.forEach(function(z) { osmMap.removeLayer(z.layer); if(z.text) osmMap.removeLayer(z.text); });
-    osmZones = [];
-
+    // Очищаем всё с карты перед перезагрузкой
+    zones1.forEach(function(z) { myMap.geoObjects.remove(z.polygon); if(z.text) myMap.geoObjects.remove(z.text); });
+    zones2.forEach(function(z) { myMap.geoObjects.remove(z.polygon); if(z.text) myMap.geoObjects.remove(z.text); });
+    zones1 = []; zoneTextMarkers1 = [];
+    zones2 = []; zoneTextMarkers2 = [];
+    
     var url = currentUserFilter ? API_URL + '/get_zones?user=' + encodeURIComponent(currentUserFilter) : API_URL + '/get_zones';
     safeFetch(url).then(function(data) {
         if (!Array.isArray(data)) return;
         data.forEach(function(z) {
-            if (!z.coords || !Array.isArray(z.coords) || z.coords.length === 0) return;
+            var isMode2 = (z.mode === 2);
+            var targetZones = isMode2 ? zones2 : zones1;
+            var targetTextMarkers = isMode2 ? zoneTextMarkers2 : zoneTextMarkers1;
             
-            // Yandex карта
             var polygon = new ymaps.Polygon([z.coords], {}, {
                 fillColor: '#FFB6C1', fillOpacity: 0.5,
                 strokeColor: '#ff3b30', strokeWidth: 3,
                 strokeStyle: 'solid', draggable: false, zIndex: 100
             });
-            var zoneObj = { id: z.id, polygon: polygon, text: null, assigned_to: z.assigned_to, comment: z.comment };
+            var zoneObj = { id: z.id, polygon: polygon, text: null, assigned_to: z.assigned_to, comment: z.comment, mode: z.mode };
+            
             polygon.events.add('contextmenu', function(e) {
                 e.get('domEvent').preventDefault(); e.get('domEvent').stopPropagation();
-                contextMenuHandled = true; deleteZoneId = z.id;
+                contextMenuHandled = true;
+                deleteZoneId = z.id;
                 document.getElementById('deleteZoneModal').style.display = 'flex';
             });
             polygon.events.add('click', function(e) {
@@ -889,6 +786,7 @@ function loadZones() {
                 else { openZoneMoveModal(z.id, z); }
             });
             myMap.geoObjects.add(polygon);
+            
             if (z.comment && z.comment.trim() !== '') {
                 var bounds = polygon.geometry.getBounds();
                 var center = [(bounds[0][0] + bounds[1][0]) / 2, (bounds[0][1] + bounds[1][1]) / 2];
@@ -897,96 +795,22 @@ function loadZones() {
                     iconOffset: [-100, -10], iconShape: { type: 'Rectangle', coordinates: [[0, 0], [200, 20]] },
                     visible: myMap.getZoom() >= ZOOM_THRESHOLD
                 });
-                myMap.geoObjects.add(textPlacemark); zoneObj.text = textPlacemark;
+                myMap.geoObjects.add(textPlacemark); 
+                zoneObj.text = textPlacemark;
             }
-            zones.push(zoneObj); // <-- ВАЖНО: пушим в общий массив zones
+            targetZones.push(zoneObj);
+        });
+        // Применяем видимость в зависимости от текущего режима
+        updateZoneVisibility();
+    });
+}
 
-            // OSM карта
-            var osmPolygon = L.polygon(z.coords, { color: '#ff3b30', weight: 3, fillColor: '#FFB6C1', fillOpacity: 0.5 }).addTo(osmMap);
-            var osmZoneObj = { id: z.id, layer: osmPolygon, text: null, assigned_to: z.assigned_to, comment: z.comment };
-            osmPolygon.on('contextmenu', function(e) { L.DomEvent.preventDefault(e); L.DomEvent.stopPropagation(e); contextMenuHandled = true; deleteZoneId = z.id; document.getElementById('deleteZoneModal').style.display = 'flex'; });
-            osmPolygon.on('click', function(e) {
-                L.DomEvent.stopPropagation(e);
-                if (assigningUser) { toggleAssignZone(z); }
-                else { openZoneMoveModal(z.id, z); }
-            });
-            if (z.comment && z.comment.trim() !== '') {
-                var osmBounds = osmPolygon.getBounds();
-                var osmCenter = osmBounds.getCenter();
-                var osmText = L.marker(osmCenter, {
-                    icon: L.divIcon({ className: 'custom-div-icon', html: '<div style="color: #640000; font-weight: bold; font-size: 12px; text-align: center; white-space: nowrap; pointer-events: none; padding-left: 30px;">' + z.comment + '</div>', iconSize: [200, 20], iconAnchor: [100, 10] }),
-                    interactive: false
-                }).addTo(osmMap);
-                osmZoneObj.text = osmText;
-            }
-            osmZones.push(osmZoneObj); // <-- ВАЖНО: пушим в общий массив osmZones
-        });
-    });
-}
-// ✅ НОВАЯ вспомогательная функция: создаёт объекты зоны для обеих карт
-function createZoneObjects(z) {
-    // Yandex карта
-    var polygon = new ymaps.Polygon([z.coords], {}, {
-        fillColor: '#FFB6C1', fillOpacity: 0.5,
-        strokeColor: '#ff3b30', strokeWidth: 3,
-        strokeStyle: 'solid', draggable: false,
-        zIndex: 100
-    });
-    var yandexZone = { id: z.id, polygon: polygon, text: null, assigned_to: z.assigned_to, comment: z.comment };
-    
-    polygon.events.add('contextmenu', function(e) {
-        e.get('domEvent').preventDefault(); e.get('domEvent').stopPropagation();
-        contextMenuHandled = true;
-        deleteZoneId = z.id;
-        document.getElementById('deleteZoneModal').style.display = 'flex';
-    });
-    polygon.events.add('click', function(e) {
-        e.stopImmediatePropagation();
-        if (assigningUser) { toggleAssignZone(z); myMap.balloon.close(); }
-        else { openZoneMoveModal(z.id, z); }
-    });
-    
-    if (z.comment && z.comment.trim() !== '') {
-        var bounds = polygon.geometry.getBounds();
-        var center = [(bounds[0][0] + bounds[1][0]) / 2, (bounds[0][1] + bounds[1][1]) / 2];
-        var textPlacemark = new ymaps.Placemark(center, {}, {
-            iconLayout: ymaps.templateLayoutFactory.createClass('<div style="color: #640000; font-weight: bold; font-size: 12px; text-align: center; white-space: nowrap; pointer-events: none; padding-left: 30px;">' + z.comment + '</div>'),
-            iconOffset: [-100, -10], iconShape: { type: 'Rectangle', coordinates: [[0, 0], [200, 20]] },
-            visible: myMap.getZoom() >= ZOOM_THRESHOLD
-        });
-        // ✅ УБРАНО: myMap.geoObjects.add(textPlacemark); — добавим позже в updateZoneVisibility
-        yandexZone.text = textPlacemark;
-    }
-    
-    // OSM карта
-    var osmPolygon = L.polygon(z.coords, { color: '#ff3b30', weight: 3, fillColor: '#FFB6C1', fillOpacity: 0.5 });
-    var osmZone = { id: z.id, layer: osmPolygon, text: null, assigned_to: z.assigned_to, comment: z.comment };
-    
-    osmPolygon.on('contextmenu', function(e) { L.DomEvent.preventDefault(e); L.DomEvent.stopPropagation(e); contextMenuHandled = true; deleteZoneId = z.id; document.getElementById('deleteZoneModal').style.display = 'flex'; });
-    osmPolygon.on('click', function(e) {
-        L.DomEvent.stopPropagation(e);
-        if (assigningUser) { toggleAssignZone(z); }
-        else { openZoneMoveModal(z.id, z); }
-    });
-    
-    if (z.comment && z.comment.trim() !== '') {
-        var osmBounds = osmPolygon.getBounds();
-        var osmCenter = osmBounds.getCenter();
-        var osmText = L.marker(osmCenter, {
-            icon: L.divIcon({ className: 'custom-div-icon', html: '<div style="color: #640000; font-weight: bold; font-size: 12px; text-align: center; white-space: nowrap; pointer-events: none; padding-left: 30px;">' + z.comment + '</div>', iconSize: [200, 20], iconAnchor: [100, 10] }),
-            interactive: false
-        });
-        // ✅ УБРАНО: osmZone.text.addTo(osmMap); — добавим позже в updateZoneVisibility
-        osmZone.text = osmText;
-    }
-    
-    return { yandex: yandexZone, osm: osmZone };
-}
 function openZoneMoveModal(zoneId, zoneData) {
     movingZoneId = zoneId; movingPointData = zoneData;
     document.getElementById('movePointTitle').textContent = 'Изменить расположение?';
     document.getElementById('movePointModal').style.display = 'flex';
 }
+
 function startZoneDrawing(mode) {
     closeZoneModal();
     isDrawingZone = true; drawMode = mode; willSaveZone = (mode === 3);
@@ -1260,24 +1084,18 @@ function saveRouteToServer() {
     fetch(API_URL + '/add_route', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            coords: routePoints,
-            comment: comment,
-            temporary: isTempRoute
-        })
+        body: JSON.stringify({ coords: routePoints, comment: comment, temporary: isTempRoute })
     })
-        .then(function(r) { return r.json(); })
-        .then(function(data) {
-            if (data.success) {
-                resetDrawingState();
-                document.getElementById('drawingIndicator').style.display = 'none';
-                document.getElementById('confirmAssignModal').style.display = 'none';
-                loadRoutes();
-            }
-        })
-        .catch(function(error) {
-            console.error('❌ Ошибка запроса:', error);
-        });
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) {
+            resetDrawingState();
+            document.getElementById('drawingIndicator').style.display = 'none';
+            document.getElementById('confirmAssignModal').style.display = 'none';
+            loadRoutes();
+        }
+    })
+    .catch(function(error) { console.error('❌ Ошибка запроса:', error); });
 }
 function exitDrawingModeKeepPolygon() {
     isDrawingZone = false; drawMode = 1; willSaveZone = false; isZoneConfirmed = false;
@@ -1304,26 +1122,23 @@ function resetDrawingState() {
 }
 function cancelZoneDrawing() { resetDrawingState(); }
 
-// ✅ ОБНОВЛЕННАЯ ФУНКЦИЯ: сохраняет зону в нужный массив в зависимости от режима
+// ✅ ИСПРАВЛЕННАЯ ФУНКЦИЯ СОХРАНЕНИЯ ЗОНЫ
 function saveZoneToServer() {
     var finalCoords = zonePolygon ? zonePolygon.geometry.getCoordinates()[0] : zonePoints;
-    var currentMode = (mapMode === 2) ? 2 : 1;
-    
-    fetch(API_URL + '/add_zone', { 
-        method: 'POST', 
-        headers: { 'Content-Type': 'application/json' }, 
+    fetch(API_URL + '/add_zone', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
             coords: finalCoords, 
             comment: zoneComment,
-            mode: currentMode
-        }) 
+            mode: (mapMode === 2) ? 2 : 1 // Сохраняем, в каком режиме была нарисована зона
+        })
     })
     .then(function(r) { return r.json(); })
     .then(function(data) { 
         if (data.success) { 
             resetDrawingState(); 
-            // ✅ Просто перезагружаем зоны — теперь они отобразятся корректно
-            loadZones();
+            loadZones(); // Перезагружаем, чтобы зоны разделились по режимам
         } 
     });
 }
@@ -1332,25 +1147,25 @@ function cancelDeleteZone() { deleteZoneId = null; document.getElementById('dele
 function confirmDeleteZone() {
     if (!deleteZoneId) return;
     fetch(API_URL + '/delete_zone', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: deleteZoneId }) })
-        .then(function(r) { return r.json(); }).then(function(data) { if (data.success) { cancelDeleteZone(); loadZones(); } });
+    .then(function(r) { return r.json(); }).then(function(data) { if (data.success) { cancelDeleteZone(); loadZones(); } });
 }
 function cancelDeleteScooter() { deleteScooterId = null; document.getElementById('deleteScooterModal').style.display = 'none'; }
 function confirmDeleteScooter() {
     if (!deleteScooterId) return;
     fetch(API_URL + '/update_status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: deleteScooterId, status: 'found' }) })
-        .then(function(r) { return r.json(); }).then(function(data) { if (data.success) { cancelDeleteScooter(); loadPoints(); } });
+    .then(function(r) { return r.json(); }).then(function(data) { if (data.success) { cancelDeleteScooter(); loadPoints(); } });
 }
 function cancelDeleteParking() { deleteParkingId = null; document.getElementById('deleteParkingModal').style.display = 'none'; }
 function confirmDeleteParking() {
     if (!deleteParkingId) return;
     fetch(API_URL + '/delete_parking', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: deleteParkingId }) })
-        .then(function(r) { return r.json(); }).then(function(data) { if (data.success) { cancelDeleteParking(); loadParkings(); } });
+    .then(function(r) { return r.json(); }).then(function(data) { if (data.success) { cancelDeleteParking(); loadParkings(); } });
 }
 function cancelDeleteInfo() { deleteInfoId = null; document.getElementById('deleteInfoModal').style.display = 'none'; }
 function confirmDeleteInfo() {
     if (!deleteInfoId) return;
     fetch(API_URL + '/update_status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: deleteInfoId, status: 'found' }) })
-        .then(function(r) { return r.json(); }).then(function(data) { if (data.success) { cancelDeleteInfo(); loadPoints(); } });
+    .then(function(r) { return r.json(); }).then(function(data) { if (data.success) { cancelDeleteInfo(); loadPoints(); } });
 }
 function cancelDeleteRoute() { deleteRouteId = null; document.getElementById('deleteRouteModal').style.display = 'none'; }
 function confirmDeleteRoute() {
@@ -1368,9 +1183,10 @@ function confirmDeleteRoute() {
         if (tempRoute.textMarker) myMap.geoObjects.remove(tempRoute.textMarker);
     }
     fetch(API_URL + '/delete_route', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: deleteRouteId }) })
-        .then(function(r) { return r.json(); }).then(function(data) { if (data.success) { cancelDeleteRoute(); loadRoutes(); } });
+    .then(function(r) { return r.json(); }).then(function(data) { if (data.success) { cancelDeleteRoute(); loadRoutes(); } });
 }
 function closeMaxDeadModal() { document.getElementById('maxDeadModal').style.display = 'none'; }
+
 function getScooterImage(status) {
     if (status === 'red') return BASE_URL + 'red.png';
     if (status === 'sev') return BASE_URL + 'sev.png';
@@ -1471,10 +1287,8 @@ function confirmFromModal() {
         confirmOrangeModal();
     }
 }
+
 function loadPoints() {
-    // В режиме 2 не загружаем самокаты
-    if (mapMode === 2) return;
-    
     labelMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); labelMarkers = [];
     osmLabelMarkers.forEach(function(m) { osmMap.removeLayer(m); }); osmLabelMarkers = [];
     infoMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); infoMarkers = [];
@@ -1490,28 +1304,15 @@ function loadPoints() {
                 var infoIcon = { iconLayout: ymaps.templateLayoutFactory.createClass('<div style="width: 18px; height: 18px; text-align: center; line-height: 18px;"><img src="' + BASE_URL + 'info.png" style="width: 18px; height: 18px; display: block;"></div>'), iconShape: { type: 'Circle', coordinates: [9, 9], radius: 9 } };
                 var pm = new ymaps.Placemark([point.lat, point.lon], { balloonContent: buildInfoBalloonContent(point) }, infoIcon);
                 pm.properties.set('infoData', point);
-                pm.events.add('click', function(e) {
-                    if (assigningUser) { e.get('domEvent').stopPropagation(); toggleAssignInfo(point); myMap.balloon.close(); }
-                });
-                pm.events.add('dblclick', function(e) {
-                    if (assigningUser) { e.get('domEvent').stopPropagation(); toggleAssignInfo(point); myMap.balloon.close(); }
-                    else { e.get('domEvent').stopPropagation(); pm.balloon.open(); }
-                });
-                pm.events.add('contextmenu', function(e) {
-                    e.get('domEvent').preventDefault(); e.get('domEvent').stopPropagation();
-                    contextMenuHandled = true;
-                    deleteInfoId = point.id;
-                    document.getElementById('deleteInfoModal').style.display = 'flex';
-                });
+                pm.events.add('click', function(e) { if (assigningUser) { e.get('domEvent').stopPropagation(); toggleAssignInfo(point); myMap.balloon.close(); } });
+                pm.events.add('dblclick', function(e) { if (assigningUser) { e.get('domEvent').stopPropagation(); toggleAssignInfo(point); myMap.balloon.close(); } else { e.get('domEvent').stopPropagation(); pm.balloon.open(); } });
+                pm.events.add('contextmenu', function(e) { e.get('domEvent').preventDefault(); e.get('domEvent').stopPropagation(); contextMenuHandled = true; deleteInfoId = point.id; document.getElementById('deleteInfoModal').style.display = 'flex'; });
                 myMap.geoObjects.add(pm); infoMarkers.push(pm);
                 var osmInfoIcon = L.divIcon({ className: 'custom-div-icon', html: '<img src="' + BASE_URL + 'info.png" style="width: 18px; height: 18px; display: block;">', iconSize: [18, 18], iconAnchor: [9, 9] });
                 var osmPm = L.marker([point.lat, point.lon], { icon: osmInfoIcon }).addTo(osmMap);
                 var popup = L.popup({ closeOnClick: false, autoClose: false }).setContent(buildInfoBalloonContent(point));
                 osmPm.bindPopup(popup); osmPm.infoData = point;
-                osmPm.on('click', function(e) {
-                    if (assigningUser) { L.DomEvent.stopPropagation(e); toggleAssignInfo(point); }
-                    else { osmPm.openPopup(); }
-                });
+                osmPm.on('click', function(e) { if (assigningUser) { L.DomEvent.stopPropagation(e); toggleAssignInfo(point); } else { osmPm.openPopup(); } });
                 osmPm.on('contextmenu', function(e) { L.DomEvent.preventDefault(e); L.DomEvent.stopPropagation(e); contextMenuHandled = true; deleteInfoId = point.id; document.getElementById('deleteInfoModal').style.display = 'flex'; });
                 osmInfoMarkers.push(osmPm);
             } else {
@@ -1525,13 +1326,8 @@ function loadPoints() {
                 }
                 var pm = new ymaps.Placemark([point.lat, point.lon], { balloonContent: buildBalloonContent(point, isBooked) }, iconOptions);
                 pm.properties.set('pointData', point);
-                pm.events.add('click', function(e) {
-                    if (assigningUser) { e.get('domEvent').stopPropagation(); toggleAssignPoint(point); myMap.balloon.close(); }
-                });
-                pm.events.add('dblclick', function(e) {
-                    if (assigningUser) { e.get('domEvent').stopPropagation(); toggleAssignPoint(point); myMap.balloon.close(); }
-                    else { e.get('domEvent').stopPropagation(); pm.balloon.open(); }
-                });
+                pm.events.add('click', function(e) { if (assigningUser) { e.get('domEvent').stopPropagation(); toggleAssignPoint(point); myMap.balloon.close(); } });
+                pm.events.add('dblclick', function(e) { if (assigningUser) { e.get('domEvent').stopPropagation(); toggleAssignPoint(point); myMap.balloon.close(); } else { e.get('domEvent').stopPropagation(); pm.balloon.open(); } });
                 myMap.geoObjects.add(pm); markers.push(pm);
                 attachScooterContextMenu(pm, point);
                 var osmIcon = createOsmScooterIcon(point.status, point.title.trim());
@@ -1542,14 +1338,8 @@ function loadPoints() {
                 var osmPm = L.marker([point.lat, point.lon], { icon: osmIcon }).addTo(osmMap);
                 var popup = L.popup({ closeOnClick: false, autoClose: false }).setContent(buildBalloonContent(point, isBooked));
                 osmPm.bindPopup(popup); osmPm.pointData = point;
-                osmPm.on('click', function(e) {
-                    if (assigningUser) { L.DomEvent.stopPropagation(e); toggleAssignPoint(point); }
-                    else { osmPm.openPopup(); }
-                });
-                osmPm.on('dblclick', function(e) {
-                    if (assigningUser) { L.DomEvent.stopPropagation(e); toggleAssignPoint(point); }
-                    else { L.DomEvent.stopPropagation(e); openAssignModal(point.id, 'point'); }
-                });
+                osmPm.on('click', function(e) { if (assigningUser) { L.DomEvent.stopPropagation(e); toggleAssignPoint(point); } else { osmPm.openPopup(); } });
+                osmPm.on('dblclick', function(e) { if (assigningUser) { L.DomEvent.stopPropagation(e); toggleAssignPoint(point); } else { L.DomEvent.stopPropagation(e); openAssignModal(point.id, 'point'); } });
                 osmMarkers.push(osmPm);
                 attachOsmScooterContextMenu(osmPm, point);
             }
@@ -1557,26 +1347,14 @@ function loadPoints() {
         document.getElementById('pointCount').textContent = scooterCount;
     });
 }
+
 function loadRoutes() {
-    // В режиме 2 не загружаем маршруты
-    if (mapMode === 2) return;
-    
-    routes.forEach(function(r) {
-        myMap.geoObjects.remove(r.polyline);
-        if (r.arrow) myMap.geoObjects.remove(r.arrow);
-        if (r.textMarker) myMap.geoObjects.remove(r.textMarker);
-    });
+    routes.forEach(function(r) { myMap.geoObjects.remove(r.polyline); if(r.arrow) myMap.geoObjects.remove(r.arrow); if(r.textMarker) myMap.geoObjects.remove(r.textMarker); });
     routes = [];
-    osmRoutes.forEach(function(r) { osmMap.removeLayer(r.layer); });
-    osmRoutes = [];
-    tempRoutes.forEach(function(r) {
-        myMap.geoObjects.remove(r.polyline);
-        if (r.arrow) myMap.geoObjects.remove(r.arrow);
-        if (r.textMarker) myMap.geoObjects.remove(r.textMarker);
-    });
+    osmRoutes.forEach(function(r) { osmMap.removeLayer(r.layer); }); osmRoutes = [];
+    tempRoutes.forEach(function(r) { myMap.geoObjects.remove(r.polyline); if(r.arrow) myMap.geoObjects.remove(r.arrow); if(r.textMarker) myMap.geoObjects.remove(r.textMarker); });
     tempRoutes = [];
-    osmTempRoutes.forEach(function(r) { osmMap.removeLayer(r.layer); });
-    osmTempRoutes = [];
+    osmTempRoutes.forEach(function(r) { osmMap.removeLayer(r.layer); }); osmTempRoutes = [];
     var url = currentUserFilter ? API_URL + '/get_routes?user=' + encodeURIComponent(currentUserFilter) : API_URL + '/get_routes';
     safeFetch(url).then(function(data) {
         if (!Array.isArray(data)) return;
@@ -1588,21 +1366,15 @@ function loadRoutes() {
             var prevPoint = route.coords[route.coords.length - 2];
             var arrowMarker = createArrowMarker(lastPoint, prevPoint);
             myMap.geoObjects.add(arrowMarker);
-            arrowMarker.events.add('click', function(e) {
-                e.get('domEvent').stopPropagation();
-                if (assigningUser) { toggleAssignRoute(route); }
-            });
+            arrowMarker.events.add('click', function(e) { e.get('domEvent').stopPropagation(); if (assigningUser) { toggleAssignRoute(route); } });
             var textMarker = null;
             if (route.comment && route.comment.trim() !== '') {
                 var center = getRouteCenter(route.coords);
                 var isVertical = isRouteVertical(route.coords);
                 var offset = isVertical ? [14, -10] : [-100, -35];
                 textMarker = new ymaps.Placemark(center, {}, {
-                    iconLayout: ymaps.templateLayoutFactory.createClass(
-                        '<div style="color: #640000; font-weight: bold; font-size: 12px; white-space: nowrap; pointer-events: none;">' + route.comment + '</div>'
-                    ),
-                    iconOffset: offset,
-                    zIndex: 500
+                    iconLayout: ymaps.templateLayoutFactory.createClass('<div style="color: #640000; font-weight: bold; font-size: 12px; white-space: nowrap; pointer-events: none;">' + route.comment + '</div>'),
+                    iconOffset: offset, zIndex: 500
                 });
                 myMap.geoObjects.add(textMarker);
             }
@@ -1629,11 +1401,8 @@ function loadRoutes() {
                 var isVertical = isRouteVertical(route.coords);
                 var offset = isVertical ? [14, -10] : [-100, -35];
                 textMarker = new ymaps.Placemark(center, {}, {
-                    iconLayout: ymaps.templateLayoutFactory.createClass(
-                        '<div style="color: #640000; font-weight: bold; font-size: 12px; white-space: nowrap; pointer-events: none;">' + route.comment + '</div>'
-                    ),
-                    iconOffset: offset,
-                    zIndex: 500
+                    iconLayout: ymaps.templateLayoutFactory.createClass('<div style="color: #640000; font-weight: bold; font-size: 12px; white-space: nowrap; pointer-events: none;">' + route.comment + '</div>'),
+                    iconOffset: offset, zIndex: 500
                 });
                 myMap.geoObjects.add(textMarker);
             }
@@ -1643,6 +1412,7 @@ function loadRoutes() {
         });
     });
 }
+
 function buildInfoBalloonContent(info) {
     var h = '<div style="min-width: 200px; padding: 12px; box-sizing: border-box; text-align: center;" onclick="event.stopPropagation()">';
     h += '<b style="font-size: 16px; display: block; font-weight: bold;">ДОП ИНФА</b>';
@@ -1663,15 +1433,15 @@ function openInfoCommentModal(infoId) {
     input.value = ''; modal.style.display = 'flex';
     setTimeout(function() { input.focus(); }, 100);
 }
+
 function buildBalloonContent(point, isBooked) {
     var esc = point.title.replace(/'/g, "\\'").replace(/"/g, '&quot;');
-    // ✅ УДАЛЕНО: var fzLink = ... (больше нет "ПОСМОТРЕТЬ ФЗ")
     var tgkLink = point.tgk_url ? '<a href="' + point.tgk_url + '" target="_blank" style="color: #1976D2; text-decoration: underline; font-weight: bold; display: block; margin: 5px 0; font-size: 14px;">КАРТОЧКА В ТГ</a>' : '';
     var commentHtml = point.comment ? '<div style="color: #000; font-size: 14px; display: block; margin: 5px 0;">' + point.comment + '</div>' : '';
     var h = '<div style="min-width: 200px; padding: 12px; box-sizing: border-box; text-align: center;" onclick="event.stopPropagation()">';
     h += '<b style="font-size: 16px; display: block;">' + point.title + '</b>';
     h += '<div style="color: #555; font-size: 14px; margin: 8px 0;">' + point.address + '</div>';
-    h += tgkLink + commentHtml; // ТОЛЬКО КАРТОЧКА В ТГ
+    h += tgkLink + commentHtml;
     h += '<div style="display: flex; flex-direction: column; align-items: center; gap: 4px; margin-top: 10px;">';
     h += '<button onclick="event.stopPropagation(); updateStatus(' + point.id + ', \'found\')" style="background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Нашёл</button>';
     h += '<button onclick="event.stopPropagation(); updateStatus(' + point.id + ', \'not_found\')" style="background: #212121; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Не нашёл</button>';
@@ -1686,26 +1456,28 @@ function buildBalloonContent(point, isBooked) {
     h += '</div></div>';
     return h;
 }
+
 function updateStatus(pointId, status) {
     fetch(API_URL + '/update_status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: pointId, status: status }) })
-        .then(function(r) { return r.json(); }).then(function(data) {
-            if (data.success) {
-                if (status === 'found') {
-                    var pm = markers.find(function(m) { var d = m.properties.get('pointData'); return d && d.id === pointId; });
-                    if (pm) { myMap.geoObjects.remove(pm); markers = markers.filter(function(m) { return m !== pm; }); }
-                    var osmPm = osmMarkers.find(function(m) { return m.pointData && m.pointData.id === pointId; });
-                    if (osmPm) { osmMap.removeLayer(osmPm); osmMarkers = osmMarkers.filter(function(m) { return m !== osmPm; }); }
-                    if (departures[pointId]) { fetch(API_URL + '/remove_departure', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ point_id: pointId }) }); delete departures[pointId]; renderBottomPanel(); }
-                    var countEl = document.getElementById('pointCount');
-                    var count = parseInt(countEl.textContent, 10);
-                    countEl.textContent = Math.max(0, count - 1);
-                } else {
-                    if (departures[pointId]) { fetch(API_URL + '/remove_departure', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ point_id: pointId }) }).then(function() { delete departures[pointId]; renderBottomPanel(); loadPoints(); }); }
-                    else { loadPoints(); }
-                }
+    .then(function(r) { return r.json(); }).then(function(data) {
+        if (data.success) {
+            if (status === 'found') {
+                var pm = markers.find(function(m) { var d = m.properties.get('pointData'); return d && d.id === pointId; });
+                if (pm) { myMap.geoObjects.remove(pm); markers = markers.filter(function(m) { return m !== pm; }); }
+                var osmPm = osmMarkers.find(function(m) { return m.pointData && m.pointData.id === pointId; });
+                if (osmPm) { osmMap.removeLayer(osmPm); osmMarkers = osmMarkers.filter(function(m) { return m !== osmPm; }); }
+                if (departures[pointId]) { fetch(API_URL + '/remove_departure', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ point_id: pointId }) }); delete departures[pointId]; renderBottomPanel(); }
+                var countEl = document.getElementById('pointCount');
+                var count = parseInt(countEl.textContent, 10);
+                countEl.textContent = Math.max(0, count - 1);
+            } else {
+                if (departures[pointId]) { fetch(API_URL + '/remove_departure', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ point_id: pointId }) }).then(function() { delete departures[pointId]; renderBottomPanel(); loadPoints(); }); }
+                else { loadPoints(); }
             }
-        });
+        }
+    });
 }
+
 function showChoiceMenu(pointId, pointTitle) {
     var pm = markers.find(function(m) { var d = m.properties.get('pointData'); return d && d.id === pointId; });
     if (pm) {
@@ -1738,6 +1510,7 @@ function showChoiceMenu(pointId, pointTitle) {
         osmPm.setPopupContent(h); osmPm.openPopup();
     }
 }
+
 function createParkingIcon(deadCount) {
     var iconFile = (deadCount > 2) ? 'pr.png' : 'p.png';
     return {
@@ -1778,10 +1551,8 @@ function createOsmParkingLabels(available, dead, broken) {
     var totalHeight = visibleCount * 17; var extraOffset = 22;
     return L.divIcon({ className: 'custom-div-icon', html: '<div style="display: flex; flex-direction: column; align-items: center; gap: 2px; width: 100px;">' + html + '</div>', iconSize: [100, totalHeight], iconAnchor: [51, totalHeight + extraOffset] });
 }
+
 function loadParkings() {
-    // В режиме 2 не загружаем парковки
-    if (mapMode === 2) return;
-    
     parkingMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); parkingMarkers = [];
     parkingLabelMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); parkingLabelMarkers = [];
     osmParkingMarkers.forEach(function(m) { osmMap.removeLayer(m); }); osmParkingMarkers = [];
@@ -1821,13 +1592,14 @@ function loadParkings() {
         document.getElementById('deadInfo').data = { maxDead: maxDead, maxDeadParkings: maxDeadParkings };
     });
 }
+
 function toggleExtraVisibility() {
     appSettings.hide_empty_labels = !appSettings.hide_empty_labels;
     fetch(API_URL + '/update_setting', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: 'hide_empty_labels', value: appSettings.hide_empty_labels }) }).then(function() { loadParkings(); });
 }
 function resetParking(id) {
     fetch(API_URL + '/update_parking', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: id, available: '?', dead: '?', broken: '?' }) })
-        .then(function(r) { return r.json(); }).then(function(data) { if (data.success) { loadParkings(); if (myMap) myMap.balloon.close(); if (osmMap) osmMap.closePopup(); } });
+    .then(function(r) { return r.json(); }).then(function(data) { if (data.success) { loadParkings(); if (myMap) myMap.balloon.close(); if (osmMap) osmMap.closePopup(); } });
 }
 function onDeadInfoClick() {
     deadClickCount++;
@@ -1919,7 +1691,7 @@ function saveOsmParking(id) {
     fetch(API_URL + '/update_parking', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: id, available: newAvail, dead: newDead, broken: newBroken }) }).then(function(r) { return r.json(); }).then(function(data) { if (data.success) loadParkings(); });
 }
 
-// ✅ ОБНОВЛЕННАЯ ФУНКЦИЯ: в режиме 2 сразу открывает модалку зон
+// ✅ ИСПРАВЛЕННАЯ ФУНКЦИЯ ПЕРЕКЛЮЧЕНИЯ РЕЖИМОВ
 function onTasksHeaderClick() {
     if (mapMode === 2) {
         openZoneModal();
@@ -1928,7 +1700,10 @@ function onTasksHeaderClick() {
     tasksHeaderClickCount++;
     if (tasksHeaderClickTimer) clearTimeout(tasksHeaderClickTimer);
     tasksHeaderClickTimer = setTimeout(function() { tasksHeaderClickCount = 0; }, 1000);
-    if (tasksHeaderClickCount >= 3) { tasksHeaderClickCount = 0; openZoneModal(); }
+    if (tasksHeaderClickCount >= 3) { 
+        tasksHeaderClickCount = 0; 
+        openZoneModal(); 
+    }
 }
 
 function onInfoClick() {
@@ -1937,11 +1712,32 @@ function onInfoClick() {
     infoClickTimer = setTimeout(function() { infoClickCount = 0; }, 1000);
     if (infoClickCount >= 3) {
         infoClickCount = 0;
-        // Переключаем между 0 (всё) и 2 (только зоны)
-        mapMode = (mapMode === 2) ? 0 : 2;
-        updateMapVisibility(); // <-- Вызываем новую функцию
+        // Переключаем между режимами 0 и 2
+        mapMode = (mapMode === 0) ? 2 : 0;
+        
+        if (mapMode === 2) {
+            // Режим 2: Чистая карта для зон
+            document.getElementById('modeHeaderText').innerText = "Зоны которые были прочёсаны";
+            // Скрываем всё лишнее
+            markers.forEach(function(m) { myMap.geoObjects.remove(m); });
+            parkingMarkers.forEach(function(m) { myMap.geoObjects.remove(m); });
+            routes.forEach(function(r) { myMap.geoObjects.remove(r.polyline); if(r.arrow) myMap.geoObjects.remove(r.arrow); if(r.textMarker) myMap.geoObjects.remove(r.textMarker); });
+            tempRoutes.forEach(function(r) { myMap.geoObjects.remove(r.polyline); if(r.arrow) myMap.geoObjects.remove(r.arrow); if(r.textMarker) myMap.geoObjects.remove(r.textMarker); });
+            
+            // Показываем зоны режима 2
+            updateZoneVisibility();
+        } else {
+            // Режим 0: Обычная карта
+            document.getElementById('modeHeaderText').innerText = "Задачи на сегодня";
+            // Перезагружаем всё
+            loadPoints();
+            loadParkings();
+            loadRoutes();
+            updateZoneVisibility();
+        }
     }
 }
+
 function openZoneModal() { document.getElementById('zoneModalOverlay').style.display = 'flex'; }
 function closeZoneModal() { document.getElementById('zoneModalOverlay').style.display = 'none'; }
 function loadDeparturesFromServer() {
@@ -1971,7 +1767,7 @@ function confirmCommentModal() {
     var commentText = input.value.trim();
     if (!currentCommentPointId) return;
     fetch(API_URL + '/update_comment', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ point_id: currentCommentPointId, comment: commentText }) })
-        .then(function(r) { return r.json(); }).then(function(data) { if (data.success) { loadPoints(); closeCommentModal(); } });
+    .then(function(r) { return r.json(); }).then(function(data) { if (data.success) { loadPoints(); closeCommentModal(); } });
 }
 function openCreateScooterModal() { closeContextMenu(); document.getElementById('createScooterModal').style.display = 'flex'; setTimeout(function() { document.getElementById('scooterNumber').focus(); }, 100); }
 function closeCreateScooterModal() { document.getElementById('createScooterModal').style.display = 'none'; document.getElementById('scooterNumber').value = ''; document.getElementById('scooterComment').value = ''; document.getElementById('scooterRed').value = ''; document.getElementById('scooterTgk').value = ''; }
@@ -1985,7 +1781,7 @@ function confirmCreateScooter() {
     var status = 'active';
     if (redInput === 'red') status = 'red'; else if (redInput === 'sev') status = 'sev';
     fetch(API_URL + '/create_scooter', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ number: number, address: rightClickCoords.join(', '), lat: rightClickCoords[0], lon: rightClickCoords[1], status: status, comment: comment, tgk_url: tgkUrl }) })
-        .then(function(r) { return r.json(); }).then(function(data) { if (data.success) { closeCreateScooterModal(); loadPoints(); } });
+    .then(function(r) { return r.json(); }).then(function(data) { if (data.success) { closeCreateScooterModal(); loadPoints(); } });
 }
 function openCreateParkingModal() { closeContextMenu(); document.getElementById('createParkingModal').style.display = 'flex'; setTimeout(function() { document.getElementById('parkingName').focus(); }, 100); }
 function closeCreateParkingModal() { document.getElementById('createParkingModal').style.display = 'none'; document.getElementById('parkingName').value = ''; }
@@ -1994,7 +1790,7 @@ function confirmCreateParking() {
     if (!name) { alert('Заполните название!'); return; }
     if (!rightClickCoords) { alert('Координаты не захвачены!'); return; }
     fetch(API_URL + '/create_parking', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: name, address: rightClickCoords.join(', '), lat: rightClickCoords[0], lon: rightClickCoords[1] }) })
-        .then(function(r) { return r.json(); }).then(function(data) { if (data.success) { closeCreateParkingModal(); loadParkings(); } });
+    .then(function(r) { return r.json(); }).then(function(data) { if (data.success) { closeCreateParkingModal(); loadParkings(); } });
 }
 function openCreateInfoModal() { closeContextMenu(); document.getElementById('createInfoModal').style.display = 'flex'; setTimeout(function() { document.getElementById('infoComment').focus(); }, 100); }
 function closeCreateInfoModal() { document.getElementById('createInfoModal').style.display = 'none'; document.getElementById('infoComment').value = ''; }
@@ -2003,7 +1799,7 @@ function confirmCreateInfo() {
     if (!comment) { alert('Заполните комментарий!'); return; }
     if (!rightClickCoords) { alert('Координаты не захвачены!'); return; }
     fetch(API_URL + '/create_scooter', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ number: 'ДОП ИНФА', address: rightClickCoords.join(', '), lat: rightClickCoords[0], lon: rightClickCoords[1], status: 'info', comment: comment }) })
-        .then(function(r) { return r.json(); }).then(function(data) { if (data.success) { closeCreateInfoModal(); loadPoints(); } });
+    .then(function(r) { return r.json(); }).then(function(data) { if (data.success) { closeCreateInfoModal(); loadPoints(); } });
 }
 function openNameSelectModal(mode) {
     var container = document.getElementById('nameSelectButtons');
@@ -2049,17 +1845,9 @@ function confirmOrangeModal() {
     fetch(API_URL + '/clear_assignments', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user: assigningUser }) }).then(function() {
         var promises = selectedForAssignment.map(function(task) {
             if (task.type === 'route') {
-                return fetch(API_URL + '/assign_route', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ id: task.id, user: assigningUser })
-                });
+                return fetch(API_URL + '/assign_route', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: task.id, user: assigningUser }) });
             } else {
-                return fetch(API_URL + '/assign_task', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ id: task.id, type: task.type, user: assigningUser })
-                });
+                return fetch(API_URL + '/assign_task', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: task.id, type: task.type, user: assigningUser }) });
             }
         });
         return Promise.all(promises);
@@ -2076,6 +1864,7 @@ function confirmOrangeModal() {
         loadRoutes();
     });
 }
+
 document.addEventListener('DOMContentLoaded', function() {
     var controlsPanel = document.getElementById('controlsPanel');
     var bottomPanel = document.getElementById('bottomPanel');
@@ -2098,6 +1887,7 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('modalInput').addEventListener('keypress', function(e) { if (e.key === 'Enter') { e.preventDefault(); confirmModalInput(); } });
     document.getElementById('commentModalInput').addEventListener('keypress', function(e) { if (e.key === 'Enter') { e.preventDefault(); confirmCommentModal(); } });
 });
+
 document.addEventListener('click', function(e) {
     if (e.target.id === 'modalOverlay') closeCustomInputModal();
     if (e.target.id === 'commentModalOverlay') closeCommentModal();
@@ -2113,6 +1903,7 @@ document.addEventListener('click', function(e) {
     if (e.target.id === 'nameSelectModal') closeNameSelectModal();
     if (e.target.id === 'orangeModal') closeOrangeModal();
 });
+
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
         if (document.getElementById('confirmAssignModal').style.display === 'flex') {
@@ -2126,13 +1917,14 @@ document.addEventListener('keydown', function(e) {
         }
     }
 });
+
 function selectName(pointId, pointTitle, name) {
     fetch(API_URL + '/add_departure', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ point_id: pointId, point_title: pointTitle, person_name: name }) })
-        .then(function(r) { return r.json(); }).then(function(data) { if (data.success) { departures[pointId] = { title: pointTitle, name: name }; renderBottomPanel(); loadPoints(); } });
+    .then(function(r) { return r.json(); }).then(function(data) { if (data.success) { departures[pointId] = { title: pointTitle, name: name }; renderBottomPanel(); loadPoints(); } });
 }
 function resetDeparture(pointId) {
     fetch(API_URL + '/remove_departure', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ point_id: pointId }) })
-        .then(function(r) { return r.json(); }).then(function(data) { if (data.success) { delete departures[pointId]; renderBottomPanel(); loadPoints(); } });
+    .then(function(r) { return r.json(); }).then(function(data) { if (data.success) { delete departures[pointId]; renderBottomPanel(); loadPoints(); } });
 }
 </script>
 </body>
