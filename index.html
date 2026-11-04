@@ -328,40 +328,42 @@ function setMapMode(mode) {
     mapMode = mode;
     var headerText = document.getElementById('modeHeaderText');
     
-    // ВСЕГДА используем Яндекс Карту. OSM в режиме 2 не нужен.
+    // ✅ ВАЖНО: всегда используем Yandex карту (myMap)
     document.getElementById('map').style.display = 'block';
     document.getElementById('osmMap').style.display = 'none';
 
-    if (mapMode === 2) {
-        // Режим 2: чистая Яндекс карта только для рисования зон
+    if (mode === 2) {
+        // Режим 2: чистая карта для зон
         if (headerText) headerText.innerHTML = "Зоны которые<br>были прочёсаны";
         document.getElementById('bottomPanel').style.display = 'none';
         var infoEl = document.querySelector('.controls .info');
         if (infoEl) infoEl.style.display = 'none';
         
-        // Скрываем все маркеры, парковки и маршруты на Яндекс карте
-        markers.forEach(function(m) { myMap.geoObjects.remove(m); });
-        labelMarkers.forEach(function(m) { myMap.geoObjects.remove(m); });
-        parkingMarkers.forEach(function(m) { myMap.geoObjects.remove(m); });
-        parkingLabelMarkers.forEach(function(m) { myMap.geoObjects.remove(m); });
-        infoMarkers.forEach(function(m) { myMap.geoObjects.remove(m); });
-        routes.forEach(function(r) { myMap.geoObjects.remove(r.polyline); if(r.arrow) myMap.geoObjects.remove(r.arrow); if(r.textMarker) myMap.geoObjects.remove(r.textMarker); });
-        tempRoutes.forEach(function(r) { myMap.geoObjects.remove(r.polyline); if(r.arrow) myMap.geoObjects.remove(r.arrow); if(r.textMarker) myMap.geoObjects.remove(r.textMarker); });
+        // Скрываем все маркеры, парковки, маршруты
+        markers.forEach(function(m) { myMap.geoObjects.remove(m); }); markers = [];
+        labelMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); labelMarkers = [];
+        parkingMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); parkingMarkers = [];
+        parkingLabelMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); parkingLabelMarkers = [];
+        infoMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); infoMarkers = [];
+        routes.forEach(function(r) { myMap.geoObjects.remove(r.polyline); if(r.arrow) myMap.geoObjects.remove(r.arrow); if(r.textMarker) myMap.geoObjects.remove(r.textMarker); }); routes = [];
+        tempRoutes.forEach(function(r) { myMap.geoObjects.remove(r.polyline); if(r.arrow) myMap.geoObjects.remove(r.arrow); if(r.textMarker) myMap.geoObjects.remove(r.textMarker); }); tempRoutes = [];
         
-        // Скрываем зоны режима 1, чтобы не мешали рисовать
+        // Скрываем зоны режима 1
         zones1.forEach(function(z) { myMap.geoObjects.remove(z.polygon); if(z.text) myMap.geoObjects.remove(z.text); });
         
-        // Показываем только зоны режима 2
-        zones2.forEach(function(z) { myMap.geoObjects.add(z.polygon); if(z.text) myMap.geoObjects.add(z.text); });
-        
+        // ✅ НОВОЕ: Загружаем зоны режима 2 из БД!
+        loadZones();
     } else {
-        // Режим 0: обычная карта со всеми объектами
+        // Режим 0: обычная карта
         if (headerText) headerText.innerText = "Задачи на сегодня";
         document.getElementById('bottomPanel').style.display = 'block';
         var infoEl = document.querySelector('.controls .info');
         if (infoEl) infoEl.style.display = 'inline-block';
         
-        // Перезагружаем все объекты обратно на Яндекс карту
+        // Скрываем зоны режима 2
+        zones2.forEach(function(z) { myMap.geoObjects.remove(z.polygon); if(z.text) myMap.geoObjects.remove(z.text); });
+        
+        // Перезагружаем всё
         loadPoints();
         loadParkings();
         loadZones();
@@ -386,7 +388,7 @@ function updateZoneVisibility() {
         // Показываем только зоны режима 2 на Yandex карте
         zones2.forEach(function(z) {
             myMap.geoObjects.add(z.polygon);
-            if (z.text) myMap.geoObjects.add(z.text);
+            if (z.text) myMap.geoObjects.add(z.text); // ✅ Теперь текст добавится корректно
         });
     } else {
         // Показываем только зоны режима 1 на Yandex карте
@@ -897,7 +899,7 @@ function loadZones() {
     });
 }
 // ✅ НОВАЯ вспомогательная функция: создаёт объекты зоны для обеих карт
-function createZoneObjects(z, addToMap = false) {
+function createZoneObjects(z) {
     // Yandex карта
     var polygon = new ymaps.Polygon([z.coords], {}, {
         fillColor: '#FFB6C1', fillOpacity: 0.5,
@@ -927,10 +929,7 @@ function createZoneObjects(z, addToMap = false) {
             iconOffset: [-100, -10], iconShape: { type: 'Rectangle', coordinates: [[0, 0], [200, 20]] },
             visible: myMap.getZoom() >= ZOOM_THRESHOLD
         });
-        // ✅ НЕ добавляем текст на карту сразу, только если явно указано
-        if (addToMap) {
-            myMap.geoObjects.add(textPlacemark);
-        }
+        // ✅ УБРАНО: myMap.geoObjects.add(textPlacemark); — добавим позже в updateZoneVisibility
         yandexZone.text = textPlacemark;
     }
     
@@ -952,7 +951,7 @@ function createZoneObjects(z, addToMap = false) {
             icon: L.divIcon({ className: 'custom-div-icon', html: '<div style="color: #640000; font-weight: bold; font-size: 12px; text-align: center; white-space: nowrap; pointer-events: none; padding-left: 30px;">' + z.comment + '</div>', iconSize: [200, 20], iconAnchor: [100, 10] }),
             interactive: false
         });
-        // ✅ НЕ добавляем текст на карту сразу
+        // ✅ УБРАНО: osmZone.text.addTo(osmMap); — добавим позже в updateZoneVisibility
         osmZone.text = osmText;
     }
     
@@ -1298,33 +1297,7 @@ function saveZoneToServer() {
     .then(function(data) { 
         if (data.success) { 
             resetDrawingState(); 
-            
-            // ✅ Вместо loadZones() просто добавляем новую зону в массив
-            var newZoneData = {
-                id: Date.now(), // Временный ID
-                coords: finalCoords,
-                comment: zoneComment,
-                assigned_to: null,
-                mode: currentMode
-            };
-            
-            var zoneObj = createZoneObjects(newZoneData, false);
-            
-            if (currentMode === 2) {
-                zones2.push(zoneObj.yandex);
-                osmZones2.push(zoneObj.osm);
-            } else {
-                zones1.push(zoneObj.yandex);
-                osmZones1.push(zoneObj.osm);
-            }
-            
-            // ✅ Показываем новую зону на карте
-            myMap.geoObjects.add(zoneObj.yandex.polygon);
-            if (zoneObj.yandex.text) {
-                myMap.geoObjects.add(zoneObj.yandex.text);
-            }
-            
-            // ✅ Перезагружаем зоны для получения реальных ID
+            // ✅ Просто перезагружаем зоны — теперь они отобразятся корректно
             loadZones();
         } 
     });
