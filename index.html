@@ -330,27 +330,35 @@ function setMapMode(mode) {
     var headerText = document.getElementById('modeHeaderText');
     
     if (mode === 2) {
-        // Режим 2: чистая карта для зон
-        if (headerText) headerText.innerText = "Зоны которые были прочёсаны";
-        document.getElementById('bottomPanel').style.display = 'none';
-        var infoEl = document.querySelector('.controls .info');
-        if (infoEl) infoEl.style.display = 'none';
-        
-        // Скрываем все маркеры, парковки, маршруты и зоны режима 1
-        markers.forEach(function(m) { myMap.geoObjects.remove(m); }); markers = [];
-        labelMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); labelMarkers = [];
-        parkingMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); parkingMarkers = [];
-        parkingLabelMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); parkingLabelMarkers = [];
-        infoMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); infoMarkers = [];
-        routes.forEach(function(r) { myMap.geoObjects.remove(r.polyline); if(r.arrow) myMap.geoObjects.remove(r.arrow); if(r.textMarker) myMap.geoObjects.remove(r.textMarker); }); routes = [];
-        tempRoutes.forEach(function(r) { myMap.geoObjects.remove(r.polyline); if(r.arrow) myMap.geoObjects.remove(r.arrow); if(r.textMarker) myMap.geoObjects.remove(r.textMarker); }); tempRoutes = [];
-        // Скрываем зоны режима 1
-        zones1.forEach(function(z) { myMap.geoObjects.remove(z.polygon); if(z.text) myMap.geoObjects.remove(z.text); });
-        osmZones1.forEach(function(z) { osmMap.removeLayer(z.layer); if(z.text) osmMap.removeLayer(z.text); });
-        
-        // Показываем только зоны режима 2
-        updateZoneVisibility();
-    } else {
+    // Режим 2: чистая карта для зон
+    if (headerText) headerText.innerText = "Зоны которые были прочёсаны";
+    document.getElementById('bottomPanel').style.display = 'none';
+    var infoEl = document.querySelector('.controls .info');
+    if (infoEl) infoEl.style.display = 'none';
+    
+    // Скрываем все маркеры, парковки, маршруты и зоны режима 1
+    markers.forEach(function(m) { myMap.geoObjects.remove(m); }); markers = [];
+    labelMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); labelMarkers = [];
+    parkingMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); parkingMarkers = [];
+    parkingLabelMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); parkingLabelMarkers = [];
+    infoMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); infoMarkers = [];
+    routes.forEach(function(r) { myMap.geoObjects.remove(r.polyline); if(r.arrow) myMap.geoObjects.remove(r.arrow); if(r.textMarker) myMap.geoObjects.remove(r.textMarker); }); routes = [];
+    tempRoutes.forEach(function(r) { myMap.geoObjects.remove(r.polyline); if(r.arrow) myMap.geoObjects.remove(r.arrow); if(r.textMarker) myMap.geoObjects.remove(r.textMarker); }); tempRoutes = [];
+    
+    // Скрываем зоны режима 1
+    zones1.forEach(function(z) { myMap.geoObjects.remove(z.polygon); if(z.text) myMap.geoObjects.remove(z.text); });
+    osmZones1.forEach(function(z) { osmMap.removeLayer(z.layer); if(z.text) osmMap.removeLayer(z.text); });
+    
+    // ✅ ИСПРАВЛЕНИЕ: показываем OSM карту И ПЕРЕСЧИТЫВАЕМ ЕЁ РАЗМЕРЫ
+    document.getElementById('map').style.display = 'none';
+    document.getElementById('osmMap').style.display = 'block';
+    
+    // ⚠️ КРИТИЧНО: без invalidateSize() полигоны зон режима 2 НЕ отрисуются!
+    setTimeout(function() { 
+        osmMap.invalidateSize(); 
+        updateZoneVisibility();  // Теперь зоны отрисуются корректно
+    }, 100);
+} else {
         // Режим 0/1: обычная карта
         if (headerText) headerText.innerText = "Задачи на сегодня";
         document.getElementById('bottomPanel').style.display = 'block';
