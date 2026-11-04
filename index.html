@@ -891,7 +891,7 @@ function loadZones() {
     });
 }
 // ✅ НОВАЯ вспомогательная функция: создаёт объекты зоны для обеих карт
-function createZoneObjects(z) {
+function createZoneObjects(z, addToMap = false) {
     // Yandex карта
     var polygon = new ymaps.Polygon([z.coords], {}, {
         fillColor: '#FFB6C1', fillOpacity: 0.5,
@@ -921,7 +921,11 @@ function createZoneObjects(z) {
             iconOffset: [-100, -10], iconShape: { type: 'Rectangle', coordinates: [[0, 0], [200, 20]] },
             visible: myMap.getZoom() >= ZOOM_THRESHOLD
         });
-        myMap.geoObjects.add(textPlacemark); yandexZone.text = textPlacemark;
+        // ✅ НЕ добавляем текст на карту сразу, только если явно указано
+        if (addToMap) {
+            myMap.geoObjects.add(textPlacemark);
+        }
+        yandexZone.text = textPlacemark;
     }
     
     // OSM карта
@@ -942,6 +946,7 @@ function createZoneObjects(z) {
             icon: L.divIcon({ className: 'custom-div-icon', html: '<div style="color: #640000; font-weight: bold; font-size: 12px; text-align: center; white-space: nowrap; pointer-events: none; padding-left: 30px;">' + z.comment + '</div>', iconSize: [200, 20], iconAnchor: [100, 10] }),
             interactive: false
         });
+        // ✅ НЕ добавляем текст на карту сразу
         osmZone.text = osmText;
     }
     
