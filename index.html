@@ -334,7 +334,7 @@ function setMapMode(mode) {
 
     if (mapMode === 2) {
         // Режим 2: чистая Яндекс карта только для рисования зон
-        if (headerText) headerText.innerText = "Зоны которые были прочёсаны";
+        if (headerText) headerText.innerHTML = "Зоны которые<br>были прочёсаны";
         document.getElementById('bottomPanel').style.display = 'none';
         var infoEl = document.querySelector('.controls .info');
         if (infoEl) infoEl.style.display = 'none';
