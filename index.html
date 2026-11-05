@@ -362,7 +362,7 @@ function setMapMode(mode) {
     }
 }
 
-function updateMapVisibility() {
+function updateZoneVisibility() {
     if (mapMode === 2) {
         // Режим 2: Скрываем всё, кроме зон (зоны остаются на карте)
         markers.forEach(m => myMap.geoObjects.remove(m));
