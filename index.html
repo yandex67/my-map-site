@@ -285,7 +285,6 @@ var osmMarkers = [], osmLabelMarkers = [], osmParkingMarkers = [], osmParkingLab
 var infoMarkers = [], osmInfoMarkers = [];
 
 // ✅ РАЗДЕЛЕНИЕ ЗОН: zones1 (режим 1) и zones2 (режим 2)
-// ✅ РАЗДЕЛЕНИЕ ЗОН: zones1 (режим 1) и zones2 (режим 2)
 var zones1 = [], zoneTextMarkers1 = [], osmZones1 = [];
 var zones2 = [], zoneTextMarkers2 = [], osmZones2 = [];
 // Для обратной совместимости
@@ -851,68 +850,51 @@ function updateZoneTextVisibility() {
 
 // ✅ ОБНОВЛЕННАЯ ФУНКЦИЯ: загружает зоны в зависимости от режима
 function loadZones() {
-    // Очищаем карту и общие массивы
-    zones.forEach(function(z) { myMap.geoObjects.remove(z.polygon); if(z.text) myMap.geoObjects.remove(z.text); });
-    zones = []; zoneTextMarkers = [];
-    osmZones.forEach(function(z) { osmMap.removeLayer(z.layer); if(z.text) osmMap.removeLayer(z.text); });
-    osmZones = [];
-
-    var url = currentUserFilter ? API_URL + '/get_zones?user=' + encodeURIComponent(currentUserFilter) : API_URL + '/get_zones';
-    safeFetch(url).then(function(data) {
-        if (!Array.isArray(data)) return;
-        data.forEach(function(z) {
-            if (!z.coords || !Array.isArray(z.coords) || z.coords.length === 0) return;
-            
-            // Yandex карта
-            var polygon = new ymaps.Polygon([z.coords], {}, {
-                fillColor: '#FFB6C1', fillOpacity: 0.5,
-                strokeColor: '#ff3b30', strokeWidth: 3,
-                strokeStyle: 'solid', draggable: false, zIndex: 100
+    // Очищаем оба массива
+    zones1.forEach(function(z) { if (z.polygon) myMap.geoObjects.remove(z.polygon); if (z.text) myMap.geoObjects.remove(z.text); });
+    zones1 = [];
+    osmZones1.forEach(function(z) { osmMap.removeLayer(z.layer); if (z.text) osmMap.removeLayer(z.text); });
+    osmZones1 = [];
+    zones2.forEach(function(z) { if (z.polygon) myMap.geoObjects.remove(z.polygon); if (z.text) myMap.geoObjects.remove(z.text); });
+    zones2 = [];
+    osmZones2.forEach(function(z) { osmMap.removeLayer(z.layer); if (z.text) osmMap.removeLayer(z.text); });
+    osmZones2 = [];
+    
+    // Загружаем зоны режима 1
+    var url1 = currentUserFilter 
+        ? API_URL + '/get_zones?user=' + encodeURIComponent(currentUserFilter) + '&mode=1' 
+        : API_URL + '/get_zones?mode=1';
+    
+    // Загружаем зоны режима 2
+    var url2 = currentUserFilter 
+        ? API_URL + '/get_zones?user=' + encodeURIComponent(currentUserFilter) + '&mode=2' 
+        : API_URL + '/get_zones?mode=2';
+    
+    Promise.all([safeFetch(url1), safeFetch(url2)]).then(function(results) {
+        var data1 = results[0];
+        var data2 = results[1];
+        
+        if (Array.isArray(data1)) {
+            data1.forEach(function(z) {
+                if (!z.coords || !Array.isArray(z.coords) || z.coords.length === 0) return;
+                var zoneObj = createZoneObjects(z);
+                zones1.push(zoneObj.yandex);
+                osmZones1.push(zoneObj.osm);
             });
-            var zoneObj = { id: z.id, polygon: polygon, text: null, assigned_to: z.assigned_to, comment: z.comment };
-            polygon.events.add('contextmenu', function(e) {
-                e.get('domEvent').preventDefault(); e.get('domEvent').stopPropagation();
-                contextMenuHandled = true; deleteZoneId = z.id;
-                document.getElementById('deleteZoneModal').style.display = 'flex';
+        }
+        
+        if (Array.isArray(data2)) {
+            data2.forEach(function(z) {
+                if (!z.coords || !Array.isArray(z.coords) || z.coords.length === 0) return;
+                var zoneObj = createZoneObjects(z);
+                zones2.push(zoneObj.yandex);
+                osmZones2.push(zoneObj.osm);
             });
-            polygon.events.add('click', function(e) {
-                e.stopImmediatePropagation();
-                if (assigningUser) { toggleAssignZone(z); myMap.balloon.close(); }
-                else { openZoneMoveModal(z.id, z); }
-            });
-            myMap.geoObjects.add(polygon);
-            if (z.comment && z.comment.trim() !== '') {
-                var bounds = polygon.geometry.getBounds();
-                var center = [(bounds[0][0] + bounds[1][0]) / 2, (bounds[0][1] + bounds[1][1]) / 2];
-                var textPlacemark = new ymaps.Placemark(center, {}, {
-                    iconLayout: ymaps.templateLayoutFactory.createClass('<div style="color: #640000; font-weight: bold; font-size: 12px; text-align: center; white-space: nowrap; pointer-events: none; padding-left: 30px;">' + z.comment + '</div>'),
-                    iconOffset: [-100, -10], iconShape: { type: 'Rectangle', coordinates: [[0, 0], [200, 20]] },
-                    visible: myMap.getZoom() >= ZOOM_THRESHOLD
-                });
-                myMap.geoObjects.add(textPlacemark); zoneObj.text = textPlacemark;
-            }
-            zones.push(zoneObj); // <-- ВАЖНО: пушим в общий массив zones
-
-            // OSM карта
-            var osmPolygon = L.polygon(z.coords, { color: '#ff3b30', weight: 3, fillColor: '#FFB6C1', fillOpacity: 0.5 }).addTo(osmMap);
-            var osmZoneObj = { id: z.id, layer: osmPolygon, text: null, assigned_to: z.assigned_to, comment: z.comment };
-            osmPolygon.on('contextmenu', function(e) { L.DomEvent.preventDefault(e); L.DomEvent.stopPropagation(e); contextMenuHandled = true; deleteZoneId = z.id; document.getElementById('deleteZoneModal').style.display = 'flex'; });
-            osmPolygon.on('click', function(e) {
-                L.DomEvent.stopPropagation(e);
-                if (assigningUser) { toggleAssignZone(z); }
-                else { openZoneMoveModal(z.id, z); }
-            });
-            if (z.comment && z.comment.trim() !== '') {
-                var osmBounds = osmPolygon.getBounds();
-                var osmCenter = osmBounds.getCenter();
-                var osmText = L.marker(osmCenter, {
-                    icon: L.divIcon({ className: 'custom-div-icon', html: '<div style="color: #640000; font-weight: bold; font-size: 12px; text-align: center; white-space: nowrap; pointer-events: none; padding-left: 30px;">' + z.comment + '</div>', iconSize: [200, 20], iconAnchor: [100, 10] }),
-                    interactive: false
-                }).addTo(osmMap);
-                osmZoneObj.text = osmText;
-            }
-            osmZones.push(osmZoneObj); // <-- ВАЖНО: пушим в общий массив osmZones
-        });
+        }
+        
+        zones = (mapMode === 2) ? zones2 : zones1;
+        osmZones = (mapMode === 2) ? osmZones2 : osmZones1;
+        updateZoneVisibility();
     });
 }
 // ✅ НОВАЯ вспомогательная функция: создаёт объекты зоны для обеих карт
