@@ -1422,3 +1422,315 @@ function loadParkings() {
         document.getElementById('deadInfo').data = { maxDead: maxDead, maxDeadParkings: maxDeadParkings };
     });
 }
+function toggleExtraVisibility() {
+appSettings.hide_empty_labels = !appSettings.hide_empty_labels;
+fetch(API_URL + '/update_setting', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: 'hide_empty_labels', value: appSettings.hide_empty_labels }) }).then(function() { loadParkings(); });
+}
+function resetParking(id) {
+fetch(API_URL + '/update_parking', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: id, available: '?', dead: '?', broken: '?' }) })
+.then(function(r) { return r.json(); }).then(function(data) { if (data.success) { loadParkings(); if (myMap) myMap.balloon.close(); if (osmMap) osmMap.closePopup(); } });
+}
+function onDeadInfoClick() {
+deadClickCount++;
+if (deadClickTimer) clearTimeout(deadClickTimer);
+deadClickTimer = setTimeout(function() { deadClickCount = 0; }, 600);
+if (deadClickCount >= 3) {
+deadClickCount = 0;
+var data = document.getElementById('deadInfo').data || { maxDead: 0, maxDeadParkings: [] };
+if (data.maxDead >= 3 && data.maxDeadParkings.length > 0) {
+var bodyText = data.maxDeadParkings.length === 1 ? 'На парковке "' + data.maxDeadParkings[0] + '" — ' + data.maxDead + ' севших' : 'На парковках ' + data.maxDeadParkings.map(function(n) { return '"' + n + '"'; }).join(', ') + ' — по ' + data.maxDead + ' севших';
+document.getElementById('maxDeadTitle').textContent = 'Больше всего севших';
+document.getElementById('maxDeadText').textContent = bodyText;
+} else {
+document.getElementById('maxDeadTitle').textContent = 'Севшие на парковке';
+document.getElementById('maxDeadText').textContent = 'Нет парковок с 3 и более севшими самокатами';
+}
+document.getElementById('maxDeadModal').style.display = 'flex';
+}
+}
+function buildParkingBalloon(p) {
+var photoHtml = p.photo_url ? '<a href="' + p.photo_url + '" target="_blank" style="color: #1976D2; text-decoration: underline; font-weight: bold; display: block; margin-top: 10px;">ФОТО ПАРКОВКИ</a>' : '';
+var btnText = appSettings.hide_empty_labels ? 'Вкл всё' : 'Выкл лишнее';
+var btnColor = appSettings.hide_empty_labels ? '#4CAF50' : '#f44336';
+var h = '<div style="min-width: 220px; padding: 15px; box-sizing: border-box; text-align: center;" onclick="event.stopPropagation()">';
+h += '<b style="font-size: 16px; display: block; margin-bottom: 15px;">' + p.title + '</b>' + photoHtml;
+h += '<div style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px;">';
+h += '<button onclick="event.stopPropagation(); resetParking(' + p.id + ')" style="background: #0080ff; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px;">ЗАРЯДИЛ</button>';
+h += '<div style="background: #4CAF50; color: white; padding: 10px; border-radius: 4px; font-weight: bold; font-size: 14px;">В доступе: ' + p.available + '</div>';
+h += '<div style="background: #7E0000; color: white; padding: 10px; border-radius: 4px; font-weight: bold; font-size: 14px;">Поломки: ' + p.broken + '</div>';
+h += '<div style="background: #f44336; color: white; padding: 10px; border-radius: 4px; font-weight: bold; font-size: 14px;">Севшие: ' + p.dead + '</div>';
+h += '<button onclick="event.stopPropagation(); startEditParking(' + p.id + ')" style="background: #9E9E9E; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px;">Изменить</button>';
+h += '<button onclick="event.stopPropagation(); openParkingMoveModal(' + p.id + ', ' + JSON.stringify(p).replace(/"/g, '&quot;') + ')" style="background: #9E9E9E; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px;">Переместить</button>';
+h += '<button onclick="event.stopPropagation(); toggleExtraVisibility()" style="background: ' + btnColor + '; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px;">' + btnText + '</button>';
+h += '</div></div>';
+return h;
+}
+function startEditParking(id) {
+var pm = parkingMarkers.find(function(m) { var d = m.properties.get('parkingData'); return d && d.id === id; });
+if (pm) {
+var p = pm.properties.get('parkingData');
+var html = '<div style="min-width: 220px; padding: 15px; box-sizing: border-box; text-align: center;" onclick="event.stopPropagation()">';
+html += '<b style="font-size: 16px; display: block; margin-bottom: 15px;">' + p.title + '</b>';
+html += '<div style="display: flex; flex-direction: column; gap: 10px;">';
+html += '<div><button id="btn_avail_' + id + '" onclick="event.stopPropagation(); activateInput(\'avail\', ' + id + ')" style="background: white; color: #333; border: 2px solid #333; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%; font-size: 14px;">В доступе</button>';
+html += '<input id="inp_avail_' + id + '" type="number" onclick="event.stopPropagation()" style="display: none; width: 100%; padding: 10px; border: 2px solid #333; border-radius: 4px; text-align: center; font-size: 16px; box-sizing: border-box;"></div>';
+html += '<div><button id="btn_dead_' + id + '" onclick="event.stopPropagation(); activateInput(\'dead\', ' + id + ')" style="background: white; color: #333; border: 2px solid #333; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%; font-size: 14px;">Севшие</button>';
+html += '<input id="inp_dead_' + id + '" type="number" onclick="event.stopPropagation()" style="display: none; width: 100%; padding: 10px; border: 2px solid #333; border-radius: 4px; text-align: center; font-size: 16px; box-sizing: border-box;"></div>';
+html += '<div><button id="btn_broken_' + id + '" onclick="event.stopPropagation(); activateInput(\'broken\', ' + id + ')" style="background: white; color: #333; border: 2px solid #333; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%; font-size: 14px;">Поломки</button>';
+html += '<input id="inp_broken_' + id + '" type="number" onclick="event.stopPropagation()" style="display: none; width: 100%; padding: 10px; border: 2px solid #333; border-radius: 4px; text-align: center; font-size: 16px; box-sizing: border-box;"></div>';
+html += '<button onclick="event.stopPropagation(); saveParking(' + id + ')" style="background: #4CAF50; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%; font-size: 14px;">ОК</button>';
+html += '</div></div>';
+pm.properties.set('balloonContent', html); pm.balloon.open(); return;
+}
+var osmPm = osmParkingMarkers.find(function(m) { return m.parkingData && m.parkingData.id === id; });
+if (osmPm) {
+var p = osmPm.parkingData;
+var html = '<div style="min-width: 220px; padding: 15px; box-sizing: border-box; text-align: center;" onclick="event.stopPropagation()">';
+html += '<b style="font-size: 16px; display: block; margin-bottom: 15px;">' + p.title + '</b>';
+html += '<div style="display: flex; flex-direction: column; gap: 10px;">';
+html += '<div><button id="osm_btn_avail_' + id + '" onclick="event.stopPropagation(); activateOsmInput(\'avail\', ' + id + ')" style="background: white; color: #333; border: 2px solid #333; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%; font-size: 14px;">В доступе</button>';
+html += '<input id="osm_inp_avail_' + id + '" type="number" onclick="event.stopPropagation()" style="display: none; width: 100%; padding: 10px; border: 2px solid #333; border-radius: 4px; text-align: center; font-size: 16px; box-sizing: border-box;"></div>';
+html += '<div><button id="osm_btn_dead_' + id + '" onclick="event.stopPropagation(); activateOsmInput(\'dead\', ' + id + ')" style="background: white; color: #333; border: 2px solid #333; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%; font-size: 14px;">Севшие</button>';
+html += '<input id="osm_inp_dead_' + id + '" type="number" onclick="event.stopPropagation()" style="display: none; width: 100%; padding: 10px; border: 2px solid #333; border-radius: 4px; text-align: center; font-size: 16px; box-sizing: border-box;"></div>';
+html += '<div><button id="osm_btn_broken_' + id + '" onclick="event.stopPropagation(); activateOsmInput(\'broken\', ' + id + ')" style="background: white; color: #333; border: 2px solid #333; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%; font-size: 14px;">Поломки</button>';
+html += '<input id="osm_inp_broken_' + id + '" type="number" onclick="event.stopPropagation()" style="display: none; width: 100%; padding: 10px; border: 2px solid #333; border-radius: 4px; text-align: center; font-size: 16px; box-sizing: border-box;"></div>';
+html += '<button onclick="event.stopPropagation(); saveOsmParking(' + id + ')" style="background: #4CAF50; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%; font-size: 14px;">ОК</button>';
+html += '</div></div>';
+osmPm.setPopupContent(html); osmPm.openPopup();
+}
+}
+function activateInput(type, id) { document.getElementById('btn_' + type + '_' + id).style.display = 'none'; var inp = document.getElementById('inp_' + type + '_' + id); inp.style.display = 'block'; inp.value = ''; inp.focus(); }
+function activateOsmInput(type, id) { document.getElementById('osm_btn_' + type + '_' + id).style.display = 'none'; var inp = document.getElementById('osm_inp_' + type + '_' + id); inp.style.display = 'block'; inp.value = ''; inp.focus(); }
+function saveParking(id) {
+var inpAvail = document.getElementById('inp_avail_' + id); var inpDead = document.getElementById('inp_dead_' + id); var inpBroken = document.getElementById('inp_broken_' + id);
+var pm = parkingMarkers.find(function(m) { var d = m.properties.get('parkingData'); return d && d.id === id; });
+var oldData = pm ? pm.properties.get('parkingData') : {available: '?', dead: '?', broken: '?'};
+var newAvail = inpAvail.style.display !== 'none' && inpAvail.value.trim() !== '' ? inpAvail.value.trim() : oldData.available;
+var newDead = inpDead.style.display !== 'none' && inpDead.value.trim() !== '' ? inpDead.value.trim() : oldData.dead;
+var newBroken = inpBroken.style.display !== 'none' && inpBroken.value.trim() !== '' ? inpBroken.value.trim() : oldData.broken;
+fetch(API_URL + '/update_parking', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: id, available: newAvail, dead: newDead, broken: newBroken }) }).then(function(r) { return r.json(); }).then(function(data) { if (data.success) loadParkings(); });
+}
+function saveOsmParking(id) {
+var inpAvail = document.getElementById('osm_inp_avail_' + id); var inpDead = document.getElementById('osm_inp_dead_' + id); var inpBroken = document.getElementById('osm_inp_broken_' + id);
+var osmPm = osmParkingMarkers.find(function(m) { return m.parkingData && m.parkingData.id === id; });
+var oldData = osmPm ? osmPm.parkingData : {available: '?', dead: '?', broken: '?'};
+var newAvail = inpAvail.style.display !== 'none' && inpAvail.value.trim() !== '' ? inpAvail.value.trim() : oldData.available;
+var newDead = inpDead.style.display !== 'none' && inpDead.value.trim() !== '' ? inpDead.value.trim() : oldData.dead;
+var newBroken = inpBroken.style.display !== 'none' && inpBroken.value.trim() !== '' ? inpBroken.value.trim() : oldData.broken;
+fetch(API_URL + '/update_parking', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: id, available: newAvail, dead: newDead, broken: newBroken }) }).then(function(r) { return r.json(); }).then(function(data) { if (data.success) loadParkings(); });
+}
+function onTasksHeaderClick() {
+if (mapMode === 2) {
+openZoneModal();
+return;
+}
+tasksHeaderClickCount++;
+if (tasksHeaderClickTimer) clearTimeout(tasksHeaderClickTimer);
+tasksHeaderClickTimer = setTimeout(function() { tasksHeaderClickCount = 0; }, 1000);
+if (tasksHeaderClickCount >= 3) { tasksHeaderClickCount = 0; openZoneModal(); }
+}
+function onInfoClick() {
+infoClickCount++;
+if (infoClickTimer) clearTimeout(infoClickTimer);
+infoClickTimer = setTimeout(function() { infoClickCount = 0; }, 1000);
+if (infoClickCount >= 3) {
+infoClickCount = 0;
+mapMode = (mapMode === 0) ? 2 : 0;
+setMapMode(mapMode);
+}
+}
+function openZoneModal() { document.getElementById('zoneModalOverlay').style.display = 'flex'; }
+function closeZoneModal() { document.getElementById('zoneModalOverlay').style.display = 'none'; }
+function loadDeparturesFromServer() {
+safeFetch(API_URL + '/get_departures').then(function(data) {
+if (!Array.isArray(data)) return;
+departures = {};
+data.forEach(function(d) { departures[d.point_id] = { title: d.point_title, name: d.person_name }; });
+renderBottomPanel();
+});
+}
+function renderBottomPanel() {
+var panel = document.getElementById('bottomPanel');
+var list = document.getElementById('bottomDeparturesList');
+var keys = Object.keys(departures);
+var html = '';
+for (var i = 0; i < keys.length; i++) { var d = departures[keys[i]]; html += '<div class="departure-item">За ' + d.title + ' ым выехал ' + d.name + '</div>'; }
+list.innerHTML = html; panel.style.display = 'block';
+}
+function closeBottomPanel() { document.getElementById('bottomPanel').style.display = 'none'; }
+function openCustomInputModal(pointId, pointTitle) { currentModalPointId = pointId; currentModalPointTitle = pointTitle; var modal = document.getElementById('modalOverlay'); var input = document.getElementById('modalInput'); input.value = ''; modal.style.display = 'flex'; setTimeout(function() { input.focus(); }, 100); }
+function closeCustomInputModal() { document.getElementById('modalOverlay').style.display = 'none'; currentModalPointId = null; currentModalPointTitle = null; }
+function confirmModalInput() { var input = document.getElementById('modalInput'); var name = input.value.trim(); if (!name) { input.style.borderColor = '#f44336'; setTimeout(function() { input.style.borderColor = '#ddd'; }, 1000); return; } closeCustomInputModal(); selectName(currentModalPointId, currentModalPointTitle, name); }
+function openCommentModal(pointId) { currentCommentPointId = pointId; currentCommentType = 'scooter'; var modal = document.getElementById('commentModalOverlay'); var input = document.getElementById('commentModalInput'); input.value = ''; modal.style.display = 'flex'; setTimeout(function() { input.focus(); }, 100); }
+function closeCommentModal() { document.getElementById('commentModalOverlay').style.display = 'none'; currentCommentPointId = null; currentCommentType = null; }
+function confirmCommentModal() {
+var input = document.getElementById('commentModalInput');
+var commentText = input.value.trim();
+if (!currentCommentPointId) return;
+fetch(API_URL + '/update_comment', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ point_id: currentCommentPointId, comment: commentText }) })
+.then(function(r) { return r.json(); }).then(function(data) { if (data.success) { loadPoints(); closeCommentModal(); } });
+}
+function openCreateScooterModal() { closeContextMenu(); document.getElementById('createScooterModal').style.display = 'flex'; setTimeout(function() { document.getElementById('scooterNumber').focus(); }, 100); }
+function closeCreateScooterModal() { document.getElementById('createScooterModal').style.display = 'none'; document.getElementById('scooterNumber').value = ''; document.getElementById('scooterComment').value = ''; document.getElementById('scooterRed').value = ''; document.getElementById('scooterTgk').value = ''; }
+function confirmCreateScooter() {
+var number = document.getElementById('scooterNumber').value.trim();
+var comment = document.getElementById('scooterComment').value.trim();
+var redInput = document.getElementById('scooterRed').value.trim().toLowerCase();
+var tgkUrl = document.getElementById('scooterTgk').value.trim();
+if (!number) { alert('Заполните номер!'); return; }
+if (!rightClickCoords) { alert('Координаты не захвачены!'); return; }
+var status = 'active';
+if (redInput === 'red') status = 'red'; else if (redInput === 'sev') status = 'sev';
+fetch(API_URL + '/create_scooter', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ number: number, address: rightClickCoords.join(', '), lat: rightClickCoords[0], lon: rightClickCoords[1], status: status, comment: comment, tgk_url: tgkUrl }) })
+.then(function(r) { return r.json(); }).then(function(data) { if (data.success) { closeCreateScooterModal(); loadPoints(); } });
+}
+function openCreateParkingModal() { closeContextMenu(); document.getElementById('createParkingModal').style.display = 'flex'; setTimeout(function() { document.getElementById('parkingName').focus(); }, 100); }
+function closeCreateParkingModal() { document.getElementById('createParkingModal').style.display = 'none'; document.getElementById('parkingName').value = ''; }
+function confirmCreateParking() {
+var name = document.getElementById('parkingName').value.trim();
+if (!name) { alert('Заполните название!'); return; }
+if (!rightClickCoords) { alert('Координаты не захвачены!'); return; }
+fetch(API_URL + '/create_parking', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: name, address: rightClickCoords.join(', '), lat: rightClickCoords[0], lon: rightClickCoords[1] }) })
+.then(function(r) { return r.json(); }).then(function(data) { if (data.success) { closeCreateParkingModal(); loadParkings(); } });
+}
+function openCreateInfoModal() { closeContextMenu(); document.getElementById('createInfoModal').style.display = 'flex'; setTimeout(function() { document.getElementById('infoComment').focus(); }, 100); }
+function closeCreateInfoModal() { document.getElementById('createInfoModal').style.display = 'none'; document.getElementById('infoComment').value = ''; }
+function confirmCreateInfo() {
+var comment = document.getElementById('infoComment').value.trim();
+if (!comment) { alert('Заполните комментарий!'); return; }
+if (!rightClickCoords) { alert('Координаты не захвачены!'); return; }
+fetch(API_URL + '/create_scooter', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ number: 'ДОП ИНФА', address: rightClickCoords.join(', '), lat: rightClickCoords[0], lon: rightClickCoords[1], status: 'info', comment: comment }) })
+.then(function(r) { return r.json(); }).then(function(data) { if (data.success) { closeCreateInfoModal(); loadPoints(); } });
+}
+function openNameSelectModal(mode) {
+var container = document.getElementById('nameSelectButtons');
+container.innerHTML = '';
+ALL_NAMES.forEach(function(name) {
+var btn = document.createElement('button');
+btn.textContent = name;
+btn.style.cssText = 'background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 100%; padding: 10px;';
+btn.onclick = function() {
+if (mode === 'view') { currentUserFilter = name; document.getElementById('userFilterText').textContent = 'Вы смотрите Задачи для ' + name; document.getElementById('userFilterText').style.display = 'block'; closeNameSelectModal(); loadPoints(); loadZones(); loadRoutes(); }
+else if (mode === 'assign') {
+assigningUser = name;
+selectedForAssignment = [];
+updateSelectedList();
+document.getElementById('orangeModalTitle').textContent = 'Выберите Актуальные задачи на сегодня для ' + name;
+document.getElementById('orangeModal').style.display = 'flex';
+closeNameSelectModal();
+}
+};
+container.appendChild(btn);
+});
+document.getElementById('nameSelectTitle').textContent = mode === 'view' ? 'Выберите имя для просмотра' : 'Выберите имя для назначения';
+document.getElementById('nameSelectModal').style.display = 'flex';
+}
+function closeNameSelectModal() { document.getElementById('nameSelectModal').style.display = 'none'; }
+function closeOrangeModal() {
+document.getElementById('orangeModal').style.display = 'none';
+assigningUser = null;
+selectedForAssignment = [];
+}
+function openAssignModal(taskId, taskType) {
+if (!assigningUser) return;
+var point = null;
+markers.forEach(function(m) { var d = m.properties.get('pointData'); if (d && d.id === taskId) point = d; });
+if (!point) osmMarkers.forEach(function(m) { if (m.pointData && m.pointData.id === taskId) point = m.pointData; });
+if (point) {
+if (point.status === 'info') toggleAssignInfo(point);
+else toggleAssignPoint(point);
+}
+}
+function confirmOrangeModal() {
+if (!assigningUser) return;
+fetch(API_URL + '/clear_assignments', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user: assigningUser }) }).then(function() {
+var promises = selectedForAssignment.map(function(task) {
+if (task.type === 'route') {
+return fetch(API_URL + '/assign_route', {
+method: 'POST',
+headers: { 'Content-Type': 'application/json' },
+body: JSON.stringify({ id: task.id, user: assigningUser })
+});
+} else {
+return fetch(API_URL + '/assign_task', {
+method: 'POST',
+headers: { 'Content-Type': 'application/json' },
+body: JSON.stringify({ id: task.id, type: task.type, user: assigningUser })
+});
+}
+});
+return Promise.all(promises);
+}).then(function() {
+currentUserFilter = assigningUser;
+document.getElementById('userFilterText').textContent = 'Вы смотрите Задачи для ' + assigningUser;
+document.getElementById('userFilterText').style.display = 'block';
+document.getElementById('confirmAssignModal').style.display = 'none';
+document.getElementById('orangeModal').style.display = 'none';
+assigningUser = null;
+selectedForAssignment = [];
+loadPoints();
+loadZones();
+loadRoutes();
+});
+}
+document.addEventListener('DOMContentLoaded', function() {
+var controlsPanel = document.getElementById('controlsPanel');
+var bottomPanel = document.getElementById('bottomPanel');
+var controlsClickCount = 0, controlsClickTimer = null;
+var bottomClickCount = 0, bottomClickTimer = null;
+controlsPanel.addEventListener('click', function(e) {
+if (e.target.tagName === 'H3' || e.target.classList.contains('info')) return;
+controlsClickCount++;
+if (controlsClickTimer) clearTimeout(controlsClickTimer);
+controlsClickTimer = setTimeout(function() { controlsClickCount = 0; }, 600);
+if (controlsClickCount >= 3) { controlsClickCount = 0; openNameSelectModal('view'); }
+});
+bottomPanel.addEventListener('click', function(e) {
+if (e.target.classList.contains('dead-info') || e.target.classList.contains('close-btn')) return;
+bottomClickCount++;
+if (bottomClickTimer) clearTimeout(bottomClickTimer);
+bottomClickTimer = setTimeout(function() { bottomClickCount = 0; }, 600);
+if (bottomClickCount >= 3) { bottomClickCount = 0; currentUserFilter = null; document.getElementById('userFilterText').style.display = 'none'; loadPoints(); loadZones(); loadRoutes(); openNameSelectModal('assign'); }
+});
+document.getElementById('modalInput').addEventListener('keypress', function(e) { if (e.key === 'Enter') { e.preventDefault(); confirmModalInput(); } });
+document.getElementById('commentModalInput').addEventListener('keypress', function(e) { if (e.key === 'Enter') { e.preventDefault(); confirmCommentModal(); } });
+});
+document.addEventListener('click', function(e) {
+if (e.target.id === 'modalOverlay') closeCustomInputModal();
+if (e.target.id === 'commentModalOverlay') closeCommentModal();
+if (e.target.id === 'movePointModal') closeMovePointModal();
+if (e.target.id === 'parkingMoveModal') closeParkingMoveModal();
+if (e.target.id === 'scooterMoveModal') closeScooterMoveModal();
+if (e.target.id === 'deleteZoneModal') cancelDeleteZone();
+if (e.target.id === 'deleteScooterModal') cancelDeleteScooter();
+if (e.target.id === 'deleteParkingModal') cancelDeleteParking();
+if (e.target.id === 'deleteInfoModal') cancelDeleteInfo();
+if (e.target.id === 'deleteRouteModal') cancelDeleteRoute();
+if (e.target.id === 'maxDeadModal') closeMaxDeadModal();
+if (e.target.id === 'nameSelectModal') closeNameSelectModal();
+if (e.target.id === 'orangeModal') closeOrangeModal();
+});
+document.addEventListener('keydown', function(e) {
+if (e.key === 'Escape') {
+if (document.getElementById('confirmAssignModal').style.display === 'flex') {
+closeConfirmAssignModal();
+}
+if (movingZoneId) {
+var currentZones = (mapMode === 2) ? zones2 : zones1;
+var zone = currentZones.find(function(z) { return z.id === movingZoneId; });
+if (zone && zone.polygon) { zone.polygon.options.set('draggable', false); zone.polygon.options.set('zIndex', 100); myMap.behaviors.enable('drag'); myMap.behaviors.enable('multiTouch'); myMap.behaviors.enable('scrollZoom'); myMap.behaviors.enable('dblClickZoom'); }
+movingZoneId = null; loadZones();
+}
+}
+});
+function selectName(pointId, pointTitle, name) {
+fetch(API_URL + '/add_departure', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ point_id: pointId, point_title: pointTitle, person_name: name }) })
+.then(function(r) { return r.json(); }).then(function(data) { if (data.success) { departures[pointId] = { title: pointTitle, name: name }; renderBottomPanel(); loadPoints(); } });
+}
+function resetDeparture(pointId) {
+fetch(API_URL + '/remove_departure', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ point_id: pointId }) })
+.then(function(r) { return r.json(); }).then(function(data) { if (data.success) { delete departures[pointId]; renderBottomPanel(); loadPoints(); } });
+}
+</script>
+</body>
+</html>
