@@ -1913,7 +1913,7 @@ function onInfoClick() {
         infoClickCount = 0;
         // Переключаем между 0 (всё) и 2 (только зоны)
         mapMode = (mapMode === 2) ? 0 : 2;
-        updateMapVisibility(); // <-- Вызываем новую функцию
+        updateZoneVisibility();
     }
 }
 function openZoneModal() { document.getElementById('zoneModalOverlay').style.display = 'flex'; }
