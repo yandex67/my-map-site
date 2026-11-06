@@ -105,8 +105,8 @@ body, html { margin: 0; padding: 0; height: 100%; font-family: Arial, sans-serif
 <button class="mode-switch-btn levo-btn" onclick="setMapMode(0)" title="Обычный режим">
     <img src="https://yandex67.github.io/my-map-site/levo.png" alt="Обычный">
 </button>
-<button class="mode-switch-btn pravo-btn" onclick="setMapMode(2)" title="Режим зон">
-    <img src="https://yandex67.github.io/my-map-site/pravo.png" alt="Зоны">
+<button class="mode-switch-btn pravo-btn" onclick="cycleModeRight()" title="Следующий режим">
+    <img src="https://yandex67.github.io/my-map-site/pravo.png" alt="Следующий режим">
 </button>
 
 <div class="restart-btn" onclick="location.reload();" title="Обновить карту">
@@ -327,12 +327,10 @@ var isRouteConfirmMode = false;
 function setMapMode(mode) {
     mapMode = mode;
     var headerText = document.getElementById('modeHeaderText');
-    
     document.getElementById('map').style.display = 'block';
     document.getElementById('osmMap').style.display = 'none';
     
     if (mode === 2) {
-        // Режим 2: чистая карта для зон
         if (headerText) headerText.innerHTML = "Зоны которые<br>были прочёсаны";
         document.getElementById('bottomPanel').style.display = 'none';
         var infoEl = document.querySelector('.controls .info');
@@ -351,7 +349,6 @@ function setMapMode(mode) {
         
         loadZones();
     } else if (mode === 3) {
-        // Режим 3: чистая карта для меток находок
         if (headerText) headerText.innerHTML = "Места в которых<br>находили самокат";
         document.getElementById('bottomPanel').style.display = 'none';
         var infoEl = document.querySelector('.controls .info');
@@ -370,7 +367,6 @@ function setMapMode(mode) {
         
         loadZones();
     } else {
-        // Режим 0: обычная карта
         if (headerText) headerText.innerText = "Задачи на сегодня";
         document.getElementById('bottomPanel').style.display = 'block';
         var infoEl = document.querySelector('.controls .info');
@@ -383,6 +379,16 @@ function setMapMode(mode) {
         loadParkings();
         loadZones();
         loadRoutes();
+    }
+}
+
+function cycleModeRight() {
+    if (mapMode === 0) {
+        setMapMode(2);
+    } else if (mapMode === 2) {
+        setMapMode(3);
+    } else {
+        setMapMode(0);
     }
 }
 
@@ -458,7 +464,7 @@ function isPointInPolygon(point, polygon) {
     return inside;
 }
 function isPointInAnyZone(coords) {
-    var currentZones = (mapMode === 2) ? zones2 : zones1;
+    var currentZones = (mapMode === 2) ? zones2 : (mapMode === 3) ? zones3 : zones1;
     for (var i = 0; i < currentZones.length; i++) {
         if (!currentZones[i].polygon) continue;
         var polygonCoords = currentZones[i].polygon.geometry.getCoordinates()[0];
@@ -479,11 +485,11 @@ function getRouteCenter(coords) {
     return coords[midIndex];
 }
 function disableZoneInteraction() {
-    var currentZones = (mapMode === 2) ? zones2 : zones1;
+    var currentZones = (mapMode === 2) ? zones2 : (mapMode === 3) ? zones3 : zones1;
     currentZones.forEach(function(z) { if (z.polygon) z.polygon.options.set('interactive', false); });
 }
 function enableZoneInteraction() {
-    var currentZones = (mapMode === 2) ? zones2 : zones1;
+    var currentZones = (mapMode === 2) ? zones2 : (mapMode === 3) ? zones3 : zones1;
     currentZones.forEach(function(z) { if (z.polygon) z.polygon.options.set('interactive', true); });
 }
 
@@ -892,7 +898,7 @@ function loadSettings() {
 }
 function updateZoneTextVisibility() {
     var currentZoom = myMap.getZoom();
-    var currentZones = (mapMode === 2) ? zones2 : zones1;
+    var currentZones = (mapMode === 2) ? zones2 : (mapMode === 3) ? zones3 : zones1;
     currentZones.forEach(function(z) { if (z.text) z.text.options.set('visible', currentZoom >= ZOOM_THRESHOLD); });
 }
 
@@ -906,21 +912,21 @@ function loadZones() {
     zones2 = [];
     osmZones2.forEach(function(z) { osmMap.removeLayer(z.layer); if (z.text) osmMap.removeLayer(z.text); });
     osmZones2 = [];
-    
+
     zones3.forEach(function(z) { if (z.polygon) myMap.geoObjects.remove(z.polygon); if (z.text) myMap.geoObjects.remove(z.text); });
     zones3 = [];
     osmZones3.forEach(function(z) { osmMap.removeLayer(z.layer); if (z.text) osmMap.removeLayer(z.text); });
     osmZones3 = [];
-    
+
     var url1 = currentUserFilter ? API_URL + '/get_zones?user=' + encodeURIComponent(currentUserFilter) + '&mode=1' : API_URL + '/get_zones?mode=1';
     var url2 = currentUserFilter ? API_URL + '/get_zones?user=' + encodeURIComponent(currentUserFilter) + '&mode=2' : API_URL + '/get_zones?mode=2';
     var url3 = currentUserFilter ? API_URL + '/get_zones?user=' + encodeURIComponent(currentUserFilter) + '&mode=3' : API_URL + '/get_zones?mode=3';
-    
+
     Promise.all([safeFetch(url1), safeFetch(url2), safeFetch(url3)]).then(function(results) {
         var data1 = results[0];
         var data2 = results[1];
         var data3 = results[2];
-        
+
         if (Array.isArray(data1)) {
             data1.forEach(function(z) {
                 if (!z.coords || !Array.isArray(z.coords) || z.coords.length === 0) return;
@@ -929,7 +935,6 @@ function loadZones() {
                 osmZones1.push(zoneObj.osm);
             });
         }
-        
         if (Array.isArray(data2)) {
             data2.forEach(function(z) {
                 if (!z.coords || !Array.isArray(z.coords) || z.coords.length === 0) return;
@@ -938,7 +943,6 @@ function loadZones() {
                 osmZones2.push(zoneObj.osm);
             });
         }
-        
         if (Array.isArray(data3)) {
             data3.forEach(function(z) {
                 if (!z.coords || !Array.isArray(z.coords) || z.coords.length === 0) return;
@@ -947,7 +951,7 @@ function loadZones() {
                 osmZones3.push(zoneObj.osm);
             });
         }
-        
+
         zones = (mapMode === 2) ? zones2 : (mapMode === 3) ? zones3 : zones1;
         osmZones = (mapMode === 2) ? osmZones2 : (mapMode === 3) ? osmZones3 : osmZones1;
         
@@ -2193,7 +2197,7 @@ document.addEventListener('keydown', function(e) {
             closeConfirmAssignModal();
         }
         if (movingZoneId) {
-            var currentZones = (mapMode === 2) ? zones2 : zones1;
+            var currentZones = (mapMode === 2) ? zones2 : (mapMode === 3) ? zones3 : zones1;
             var zone = currentZones.find(function(z) { return z.id === movingZoneId; });
             if (zone && zone.polygon) { zone.polygon.options.set('draggable', false); zone.polygon.options.set('zIndex', 100); myMap.behaviors.enable('drag'); myMap.behaviors.enable('multiTouch'); myMap.behaviors.enable('scrollZoom'); myMap.behaviors.enable('dblClickZoom'); }
             movingZoneId = null; loadZones();
