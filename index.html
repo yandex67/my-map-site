@@ -1848,7 +1848,7 @@ function createOsmParkingLabels(available, dead, broken) {
 }
 function loadParkings() {
     // В режиме 2 не загружаем парковки
-    if (mapMode === 2) return;
+    if (mapMode === 2 || mapMode === 3) return;
     
     parkingMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); parkingMarkers = [];
     parkingLabelMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); parkingLabelMarkers = [];
