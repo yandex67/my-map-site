@@ -285,6 +285,7 @@ def init_db():
         print("✅ Таблицы созданы")
         print("🔧 Проверяю колонки...")
         if not column_exists(c, 'zones', 'mode'): c.execute("ALTER TABLE zones ADD COLUMN mode INTEGER DEFAULT 1"); conn.commit()
+        if not column_exists(c, 'points', 'icon'): c.execute("ALTER TABLE points ADD COLUMN icon TEXT DEFAULT 'info.png'"); conn.commit()
         if not column_exists(c, 'points', 'comment'): c.execute("ALTER TABLE points ADD COLUMN comment TEXT"); conn.commit()
         if not column_exists(c, 'points', 'url'): c.execute("ALTER TABLE points ADD COLUMN url TEXT"); conn.commit()
         if not column_exists(c, 'points', 'assigned_to'): c.execute("ALTER TABLE points ADD COLUMN assigned_to TEXT"); conn.commit()
@@ -1331,10 +1332,10 @@ def get_points():
         if not conn: return jsonify([]), 200
         c = conn.cursor()
         if user:
-            c.execute("SELECT id, title, address, lat, lon, status, comment, url, assigned_to, tgk_url FROM points WHERE status != 'found' AND assigned_to = %s", (user,))
+            c.execute("SELECT id, title, address, lat, lon, status, comment, url, assigned_to, tgk_url, icon FROM points WHERE status != 'found' AND assigned_to = %s", (user,))
         else:
-            c.execute("SELECT id, title, address, lat, lon, status, comment, url, assigned_to, tgk_url FROM points WHERE status != 'found'")
-        points = [{"id": r[0], "title": r[1], "address": r[2], "lat": float(r[3]) if r[3] else 0, "lon": float(r[4]) if r[4] else 0, "status": r[5], "comment": r[6] or "", "url": r[7] or "", "assigned_to": r[8], "tgk_url": r[9] or ""} for r in c.fetchall()]
+            c.execute("SELECT id, title, address, lat, lon, status, comment, url, assigned_to, tgk_url, icon FROM points WHERE status != 'found'")
+        points = [{"id": r[0], "title": r[1], "address": r[2], "lat": float(r[3]) if r[3] else 0, "lon": float(r[4]) if r[4] else 0, "status": r[5], "comment": r[6] or "", "url": r[7] or "", "assigned_to": r[8], "tgk_url": r[9] or "", "icon": r[10] or "info.png"} for r in c.fetchall()]
         conn.close()
         return jsonify(points)
     except Exception as e:
@@ -1347,8 +1348,8 @@ def create_scooter():
         conn = get_db_connection()
         if not conn: return jsonify({"error": "DB connection failed"}), 500
         c = conn.cursor()
-        c.execute("INSERT INTO points (title, address, lat, lon, status, comment, url, tgk_url) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)", 
-                 (data.get('number', ''), data.get('address', ''), data.get('lat'), data.get('lon'), data.get('status', 'active'), data.get('comment', ''), data.get('url', ''), data.get('tgk_url', '')))
+        c.execute("INSERT INTO points (title, address, lat, lon, status, comment, url, tgk_url, icon) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)", 
+                 (data.get('number', ''), data.get('address', ''), data.get('lat'), data.get('lon'), data.get('status', 'active'), data.get('comment', ''), data.get('url', ''), data.get('tgk_url', ''), data.get('icon', 'info.png')))
         conn.commit(); conn.close()
         return jsonify({"success": True})
     except Exception as e:
