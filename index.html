@@ -327,15 +327,19 @@ var isRouteConfirmMode = false;
 function setMapMode(mode) {
     mapMode = mode;
     var headerText = document.getElementById('modeHeaderText');
+    
+    // ✅ ВАЖНО: всегда используем Yandex карту (myMap), чтобы рисование работало
     document.getElementById('map').style.display = 'block';
     document.getElementById('osmMap').style.display = 'none';
     
     if (mode === 2) {
+        // Режим 2: чистая карта для зон
         if (headerText) headerText.innerHTML = "Зоны которые<br>были прочёсаны";
         document.getElementById('bottomPanel').style.display = 'none';
         var infoEl = document.querySelector('.controls .info');
         if (infoEl) infoEl.style.display = 'none';
         
+        // Скрываем все маркеры, парковки, маршруты
         markers.forEach(function(m) { myMap.geoObjects.remove(m); }); markers = [];
         labelMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); labelMarkers = [];
         parkingMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); parkingMarkers = [];
@@ -344,17 +348,22 @@ function setMapMode(mode) {
         routes.forEach(function(r) { myMap.geoObjects.remove(r.polyline); if(r.arrow) myMap.geoObjects.remove(r.arrow); if(r.textMarker) myMap.geoObjects.remove(r.textMarker); }); routes = [];
         tempRoutes.forEach(function(r) { myMap.geoObjects.remove(r.polyline); if(r.arrow) myMap.geoObjects.remove(r.arrow); if(r.textMarker) myMap.geoObjects.remove(r.textMarker); }); tempRoutes = [];
         
+        // Скрываем зоны режима 1
         zones1.forEach(function(z) { myMap.geoObjects.remove(z.polygon); if(z.text) myMap.geoObjects.remove(z.text); });
         
+        // ✅ НОВОЕ: Загружаем зоны режима 2 из БД!
         loadZones();
     } else {
+        // Режим 0: обычная карта
         if (headerText) headerText.innerText = "Задачи на сегодня";
         document.getElementById('bottomPanel').style.display = 'block';
         var infoEl = document.querySelector('.controls .info');
         if (infoEl) infoEl.style.display = 'inline-block';
         
+        // Скрываем зоны режима 2
         zones2.forEach(function(z) { myMap.geoObjects.remove(z.polygon); if(z.text) myMap.geoObjects.remove(z.text); });
         
+        // Перезагружаем всё
         loadPoints();
         loadParkings();
         loadZones();
@@ -364,39 +373,17 @@ function setMapMode(mode) {
 
 function updateZoneVisibility() {
     if (mapMode === 2) {
-        // Режим 2: Скрываем всё, кроме зон (зоны остаются на карте)
-        markers.forEach(m => myMap.geoObjects.remove(m));
-        labelMarkers.forEach(m => myMap.geoObjects.remove(m));
-        parkingMarkers.forEach(m => myMap.geoObjects.remove(m));
-        parkingLabelMarkers.forEach(m => myMap.geoObjects.remove(m));
-        infoMarkers.forEach(m => myMap.geoObjects.remove(m));
-        routes.forEach(r => { myMap.geoObjects.remove(r.polyline); if(r.arrow) myMap.geoObjects.remove(r.arrow); if(r.textMarker) myMap.geoObjects.remove(r.textMarker); });
-        tempRoutes.forEach(r => { myMap.geoObjects.remove(r.polyline); if(r.arrow) myMap.geoObjects.remove(r.arrow); if(r.textMarker) myMap.geoObjects.remove(r.textMarker); });
-
-        osmMarkers.forEach(m => osmMap.removeLayer(m));
-        osmLabelMarkers.forEach(m => osmMap.removeLayer(m));
-        osmParkingMarkers.forEach(m => osmMap.removeLayer(m));
-        osmParkingLabelMarkers.forEach(m => osmMap.removeLayer(m));
-        osmInfoMarkers.forEach(m => osmMap.removeLayer(m));
-        osmRoutes.forEach(r => osmMap.removeLayer(r.layer));
-        osmTempRoutes.forEach(r => osmMap.removeLayer(r.layer));
+        // Показываем только зоны режима 2 на Yandex карте
+        zones2.forEach(function(z) {
+            myMap.geoObjects.add(z.polygon);
+            if (z.text) myMap.geoObjects.add(z.text);
+        });
     } else {
-        // Режим 0 или 1: Показываем все слои обратно
-        markers.forEach(m => myMap.geoObjects.add(m));
-        labelMarkers.forEach(m => myMap.geoObjects.add(m));
-        parkingMarkers.forEach(m => myMap.geoObjects.add(m));
-        parkingLabelMarkers.forEach(m => myMap.geoObjects.add(m));
-        infoMarkers.forEach(m => myMap.geoObjects.add(m));
-        routes.forEach(r => { myMap.geoObjects.add(r.polyline); if(r.arrow) myMap.geoObjects.add(r.arrow); if(r.textMarker) myMap.geoObjects.add(r.textMarker); });
-        tempRoutes.forEach(r => { myMap.geoObjects.add(r.polyline); if(r.arrow) myMap.geoObjects.add(r.arrow); if(r.textMarker) myMap.geoObjects.add(r.textMarker); });
-
-        osmMarkers.forEach(m => osmMap.addLayer(m));
-        osmLabelMarkers.forEach(m => osmMap.addLayer(m));
-        osmParkingMarkers.forEach(m => osmMap.addLayer(m));
-        osmParkingLabelMarkers.forEach(m => osmMap.addLayer(m));
-        osmInfoMarkers.forEach(m => osmMap.addLayer(m));
-        osmRoutes.forEach(r => osmMap.addLayer(r.layer));
-        osmTempRoutes.forEach(r => osmMap.addLayer(r.layer));
+        // Показываем только зоны режима 1 на Yandex карте
+        zones1.forEach(function(z) {
+            myMap.geoObjects.add(z.polygon);
+            if (z.text) myMap.geoObjects.add(z.text);
+        });
     }
 }
 
@@ -848,9 +835,8 @@ function updateZoneTextVisibility() {
     currentZones.forEach(function(z) { if (z.text) z.text.options.set('visible', currentZoom >= ZOOM_THRESHOLD); });
 }
 
-// ✅ ОБНОВЛЕННАЯ ФУНКЦИЯ: загружает зоны в зависимости от режима
 function loadZones() {
-    // Очищаем оба массива
+    // ✅ Очищаем оба массива
     zones1.forEach(function(z) { if (z.polygon) myMap.geoObjects.remove(z.polygon); if (z.text) myMap.geoObjects.remove(z.text); });
     zones1 = [];
     osmZones1.forEach(function(z) { osmMap.removeLayer(z.layer); if (z.text) osmMap.removeLayer(z.text); });
@@ -860,20 +846,22 @@ function loadZones() {
     osmZones2.forEach(function(z) { osmMap.removeLayer(z.layer); if (z.text) osmMap.removeLayer(z.text); });
     osmZones2 = [];
     
-    // Загружаем зоны режима 1
-    var url1 = currentUserFilter 
-        ? API_URL + '/get_zones?user=' + encodeURIComponent(currentUserFilter) + '&mode=1' 
+    // ✅ Загружаем зоны режима 1
+    var url1 = currentUserFilter
+        ? API_URL + '/get_zones?user=' + encodeURIComponent(currentUserFilter) + '&mode=1'
         : API_URL + '/get_zones?mode=1';
     
-    // Загружаем зоны режима 2
-    var url2 = currentUserFilter 
-        ? API_URL + '/get_zones?user=' + encodeURIComponent(currentUserFilter) + '&mode=2' 
+    // ✅ Загружаем зоны режима 2
+    var url2 = currentUserFilter
+        ? API_URL + '/get_zones?user=' + encodeURIComponent(currentUserFilter) + '&mode=2'
         : API_URL + '/get_zones?mode=2';
     
+    // Загружаем оба набора параллельно
     Promise.all([safeFetch(url1), safeFetch(url2)]).then(function(results) {
-        var data1 = results[0];
-        var data2 = results[1];
+        var data1 = results[0]; // зоны режима 1
+        var data2 = results[1]; // зоны режима 2
         
+        // ✅ Обрабатываем зоны режима 1
         if (Array.isArray(data1)) {
             data1.forEach(function(z) {
                 if (!z.coords || !Array.isArray(z.coords) || z.coords.length === 0) return;
@@ -883,6 +871,7 @@ function loadZones() {
             });
         }
         
+        // ✅ Обрабатываем зоны режима 2
         if (Array.isArray(data2)) {
             data2.forEach(function(z) {
                 if (!z.coords || !Array.isArray(z.coords) || z.coords.length === 0) return;
@@ -892,12 +881,14 @@ function loadZones() {
             });
         }
         
+        // ✅ Синхронизируем глобальные переменные с текущим режимом
         zones = (mapMode === 2) ? zones2 : zones1;
         osmZones = (mapMode === 2) ? osmZones2 : osmZones1;
+        
+        // ✅ Применяем видимость
         updateZoneVisibility();
     });
 }
-// ✅ НОВАЯ вспомогательная функция: создаёт объекты зоны для обеих карт
 function createZoneObjects(z) {
     // Yandex карта
     var polygon = new ymaps.Polygon([z.coords], {}, {
@@ -1278,27 +1269,27 @@ function resetDrawingState() {
 }
 function cancelZoneDrawing() { resetDrawingState(); }
 
-// ✅ ОБНОВЛЕННАЯ ФУНКЦИЯ: сохраняет зону в нужный массив в зависимости от режима
 function saveZoneToServer() {
     var finalCoords = zonePolygon ? zonePolygon.geometry.getCoordinates()[0] : zonePoints;
+    // ✅ Передаём mode в зависимости от текущего режима карты
     var currentMode = (mapMode === 2) ? 2 : 1;
     
-    fetch(API_URL + '/add_zone', { 
-        method: 'POST', 
-        headers: { 'Content-Type': 'application/json' }, 
-        body: JSON.stringify({ 
-            coords: finalCoords, 
+    fetch(API_URL + '/add_zone', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            coords: finalCoords,
             comment: zoneComment,
-            mode: currentMode
-        }) 
+            mode: currentMode  // ✅ НОВОЕ
+        })
     })
     .then(function(r) { return r.json(); })
-    .then(function(data) { 
-        if (data.success) { 
-            resetDrawingState(); 
+    .then(function(data) {
+        if (data.success) {
+            resetDrawingState();
             // ✅ Просто перезагружаем зоны — теперь они отобразятся корректно
             loadZones();
-        } 
+        }
     });
 }
 
@@ -1913,7 +1904,7 @@ function onInfoClick() {
         infoClickCount = 0;
         // Переключаем между 0 (всё) и 2 (только зоны)
         mapMode = (mapMode === 2) ? 0 : 2;
-        updateZoneVisibility();
+        setMapMode(mapMode);
     }
 }
 function openZoneModal() { document.getElementById('zoneModalOverlay').style.display = 'flex'; }
