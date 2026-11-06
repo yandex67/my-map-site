@@ -329,13 +329,15 @@ function setMapMode(mode) {
     var headerText = document.getElementById('modeHeaderText');
     document.getElementById('map').style.display = 'block';
     document.getElementById('osmMap').style.display = 'none';
-    
+
     if (mode === 2) {
+        // Режим 2: чистая карта для зон
         if (headerText) headerText.innerHTML = "Зоны которые<br>были прочёсаны";
         document.getElementById('bottomPanel').style.display = 'none';
         var infoEl = document.querySelector('.controls .info');
         if (infoEl) infoEl.style.display = 'none';
         
+        // Очищаем всё с карты
         markers.forEach(function(m) { myMap.geoObjects.remove(m); }); markers = [];
         labelMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); labelMarkers = [];
         parkingMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); parkingMarkers = [];
@@ -347,37 +349,44 @@ function setMapMode(mode) {
         zones1.forEach(function(z) { myMap.geoObjects.remove(z.polygon); if(z.text) myMap.geoObjects.remove(z.text); });
         zones3.forEach(function(z) { myMap.geoObjects.remove(z.polygon); if(z.text) myMap.geoObjects.remove(z.text); });
         
+        // Загружаем данные (внутри loadZones отрисуются только зоны режима 2)
         loadZones();
+        
     } else if (mode === 3) {
-    // Режим 3: чистая карта для меток находок
-    if (headerText) headerText.innerHTML = "Места в которых<br>находили самокат";
-    document.getElementById('bottomPanel').style.display = 'none';
-    var infoEl = document.querySelector('.controls .info');
-    if (infoEl) infoEl.style.display = 'none';
-    
-    markers.forEach(function(m) { myMap.geoObjects.remove(m); }); markers = [];
-    labelMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); labelMarkers = [];
-    parkingMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); parkingMarkers = [];
-    parkingLabelMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); parkingLabelMarkers = [];
-    infoMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); infoMarkers = [];
-    routes.forEach(function(r) { myMap.geoObjects.remove(r.polyline); if(r.arrow) myMap.geoObjects.remove(r.arrow); if(r.textMarker) myMap.geoObjects.remove(r.textMarker); }); routes = [];
-    tempRoutes.forEach(function(r) { myMap.geoObjects.remove(r.polyline); if(r.arrow) myMap.geoObjects.remove(r.arrow); if(r.textMarker) myMap.geoObjects.remove(r.textMarker); }); tempRoutes = [];
-    
-    zones1.forEach(function(z) { myMap.geoObjects.remove(z.polygon); if(z.text) myMap.geoObjects.remove(z.text); });
-    zones2.forEach(function(z) { myMap.geoObjects.remove(z.polygon); if(z.text) myMap.geoObjects.remove(z.text); });
-    
-    // ✅ НОВОЕ: Загружаем точки (метки) и зоны режима 3
-    loadPoints();
-    loadZones();
+        // Режим 3: чистая карта для меток находок
+        if (headerText) headerText.innerHTML = "Места в которых<br>находили самокат";
+        document.getElementById('bottomPanel').style.display = 'none';
+        var infoEl = document.querySelector('.controls .info');
+        if (infoEl) infoEl.style.display = 'none';
+        
+        // Очищаем всё с карты
+        markers.forEach(function(m) { myMap.geoObjects.remove(m); }); markers = [];
+        labelMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); labelMarkers = [];
+        parkingMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); parkingMarkers = [];
+        parkingLabelMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); parkingLabelMarkers = [];
+        infoMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); infoMarkers = [];
+        routes.forEach(function(r) { myMap.geoObjects.remove(r.polyline); if(r.arrow) myMap.geoObjects.remove(r.arrow); if(r.textMarker) myMap.geoObjects.remove(r.textMarker); }); routes = [];
+        tempRoutes.forEach(function(r) { myMap.geoObjects.remove(r.polyline); if(r.arrow) myMap.geoObjects.remove(r.arrow); if(r.textMarker) myMap.geoObjects.remove(r.textMarker); }); tempRoutes = [];
+        
+        zones1.forEach(function(z) { myMap.geoObjects.remove(z.polygon); if(z.text) myMap.geoObjects.remove(z.text); });
+        zones2.forEach(function(z) { myMap.geoObjects.remove(z.polygon); if(z.text) myMap.geoObjects.remove(z.text); });
+        
+        // Загружаем точки (внутри loadPoints отфильтруются и останутся только tyt.png) и зоны режима 3
+        loadPoints();
+        loadZones();
+        
     } else {
+        // Режим 0: обычная карта (ЭТО НЕ ЛИШНЕЕ, ЭТО РЕЖИМ 0!)
         if (headerText) headerText.innerText = "Задачи на сегодня";
         document.getElementById('bottomPanel').style.display = 'block';
         var infoEl = document.querySelector('.controls .info');
         if (infoEl) infoEl.style.display = 'inline-block';
         
+        // Скрываем зоны режимов 2 и 3
         zones2.forEach(function(z) { myMap.geoObjects.remove(z.polygon); if(z.text) myMap.geoObjects.remove(z.text); });
         zones3.forEach(function(z) { myMap.geoObjects.remove(z.polygon); if(z.text) myMap.geoObjects.remove(z.text); });
         
+        // Загружаем всё для обычного режима
         loadPoints();
         loadParkings();
         loadZones();
