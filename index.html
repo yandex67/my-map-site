@@ -1515,7 +1515,7 @@ function confirmFromModal() {
 }
 function loadPoints() {
     // В режиме 2 не загружаем самокаты
-    if (mapMode === 2) return;
+    if (mapMode === 2 || mapMode === 3) return;
     
     labelMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); labelMarkers = [];
     osmLabelMarkers.forEach(function(m) { osmMap.removeLayer(m); }); osmLabelMarkers = [];
@@ -1627,7 +1627,7 @@ function loadPoints() {
 }
 function loadRoutes() {
     // В режиме 2 не загружаем маршруты
-    if (mapMode === 2) return;
+    if (mapMode === 2 || mapMode === 3) return;
     
     routes.forEach(function(r) {
         myMap.geoObjects.remove(r.polyline);
