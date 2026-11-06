@@ -164,7 +164,7 @@ body, html { margin: 0; padding: 0; height: 100%; font-family: Arial, sans-serif
 </div>
 <div class="modal-overlay" id="createInfoModal">
     <div class="modal-box">
-        <h4>Создать доп инфу</h4>
+        <h4 id="createInfoModalTitle">Создать доп инфу</h4>
         <input type="text" id="infoComment" placeholder="Комментарий" autocomplete="off">
         <div class="btn-row"><button class="btn-secondary" onclick="closeCreateInfoModal()">Отмена</button><button class="btn-ok" onclick="confirmCreateInfo()">Ок</button></div>
     </div>
@@ -283,10 +283,10 @@ var myMap, osmMap;
 var markers = [], labelMarkers = [], parkingMarkers = [], parkingLabelMarkers = [];
 var osmMarkers = [], osmLabelMarkers = [], osmParkingMarkers = [], osmParkingLabelMarkers = [];
 var infoMarkers = [], osmInfoMarkers = [];
-
-// ✅ РАЗДЕЛЕНИЕ ЗОН: zones1 (режим 1) и zones2 (режим 2)
+// ✅ РАЗДЕЛЕНИЕ ЗОН: zones1 (режим 1), zones2 (режим 2), zones3 (режим 3)
 var zones1 = [], zoneTextMarkers1 = [], osmZones1 = [];
 var zones2 = [], zoneTextMarkers2 = [], osmZones2 = [];
+var zones3 = [], zoneTextMarkers3 = [], osmZones3 = [];
 // Для обратной совместимости
 var zones = zones1;
 var zoneTextMarkers = zoneTextMarkers1;
@@ -328,7 +328,6 @@ function setMapMode(mode) {
     mapMode = mode;
     var headerText = document.getElementById('modeHeaderText');
     
-    // ✅ ВАЖНО: всегда используем Yandex карту (myMap), чтобы рисование работало
     document.getElementById('map').style.display = 'block';
     document.getElementById('osmMap').style.display = 'none';
     
@@ -339,7 +338,6 @@ function setMapMode(mode) {
         var infoEl = document.querySelector('.controls .info');
         if (infoEl) infoEl.style.display = 'none';
         
-        // Скрываем все маркеры, парковки, маршруты
         markers.forEach(function(m) { myMap.geoObjects.remove(m); }); markers = [];
         labelMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); labelMarkers = [];
         parkingMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); parkingMarkers = [];
@@ -348,10 +346,28 @@ function setMapMode(mode) {
         routes.forEach(function(r) { myMap.geoObjects.remove(r.polyline); if(r.arrow) myMap.geoObjects.remove(r.arrow); if(r.textMarker) myMap.geoObjects.remove(r.textMarker); }); routes = [];
         tempRoutes.forEach(function(r) { myMap.geoObjects.remove(r.polyline); if(r.arrow) myMap.geoObjects.remove(r.arrow); if(r.textMarker) myMap.geoObjects.remove(r.textMarker); }); tempRoutes = [];
         
-        // Скрываем зоны режима 1
         zones1.forEach(function(z) { myMap.geoObjects.remove(z.polygon); if(z.text) myMap.geoObjects.remove(z.text); });
+        zones3.forEach(function(z) { myMap.geoObjects.remove(z.polygon); if(z.text) myMap.geoObjects.remove(z.text); });
         
-        // ✅ НОВОЕ: Загружаем зоны режима 2 из БД!
+        loadZones();
+    } else if (mode === 3) {
+        // Режим 3: чистая карта для меток находок
+        if (headerText) headerText.innerHTML = "Места в которых<br>находили самокат";
+        document.getElementById('bottomPanel').style.display = 'none';
+        var infoEl = document.querySelector('.controls .info');
+        if (infoEl) infoEl.style.display = 'none';
+        
+        markers.forEach(function(m) { myMap.geoObjects.remove(m); }); markers = [];
+        labelMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); labelMarkers = [];
+        parkingMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); parkingMarkers = [];
+        parkingLabelMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); parkingLabelMarkers = [];
+        infoMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); infoMarkers = [];
+        routes.forEach(function(r) { myMap.geoObjects.remove(r.polyline); if(r.arrow) myMap.geoObjects.remove(r.arrow); if(r.textMarker) myMap.geoObjects.remove(r.textMarker); }); routes = [];
+        tempRoutes.forEach(function(r) { myMap.geoObjects.remove(r.polyline); if(r.arrow) myMap.geoObjects.remove(r.arrow); if(r.textMarker) myMap.geoObjects.remove(r.textMarker); }); tempRoutes = [];
+        
+        zones1.forEach(function(z) { myMap.geoObjects.remove(z.polygon); if(z.text) myMap.geoObjects.remove(z.text); });
+        zones2.forEach(function(z) { myMap.geoObjects.remove(z.polygon); if(z.text) myMap.geoObjects.remove(z.text); });
+        
         loadZones();
     } else {
         // Режим 0: обычная карта
@@ -360,10 +376,9 @@ function setMapMode(mode) {
         var infoEl = document.querySelector('.controls .info');
         if (infoEl) infoEl.style.display = 'inline-block';
         
-        // Скрываем зоны режима 2
         zones2.forEach(function(z) { myMap.geoObjects.remove(z.polygon); if(z.text) myMap.geoObjects.remove(z.text); });
+        zones3.forEach(function(z) { myMap.geoObjects.remove(z.polygon); if(z.text) myMap.geoObjects.remove(z.text); });
         
-        // Перезагружаем всё
         loadPoints();
         loadParkings();
         loadZones();
@@ -372,26 +387,24 @@ function setMapMode(mode) {
 }
 
 function updateZoneVisibility() {
-    // ✅ Просто скрываем/показываем зоны в зависимости от режима
+    zones1.forEach(function(z) { myMap.geoObjects.remove(z.polygon); if(z.text) myMap.geoObjects.remove(z.text); });
+    zones2.forEach(function(z) { myMap.geoObjects.remove(z.polygon); if(z.text) myMap.geoObjects.remove(z.text); });
+    zones3.forEach(function(z) { myMap.geoObjects.remove(z.polygon); if(z.text) myMap.geoObjects.remove(z.text); });
+    
     if (mapMode === 2) {
-        // Режим 2: скрываем зоны режима 1, показываем зоны режима 2
-        zones1.forEach(function(z) {
-            if (z.polygon) z.polygon.options.set('visible', false);
-            if (z.text) z.text.options.set('visible', false);
-        });
         zones2.forEach(function(z) {
-            if (z.polygon) z.polygon.options.set('visible', true);
-            if (z.text) z.text.options.set('visible', true);
+            myMap.geoObjects.add(z.polygon);
+            if (z.text) myMap.geoObjects.add(z.text);
+        });
+    } else if (mapMode === 3) {
+        zones3.forEach(function(z) {
+            myMap.geoObjects.add(z.polygon);
+            if (z.text) myMap.geoObjects.add(z.text);
         });
     } else {
-        // Режим 1: скрываем зоны режима 2, показываем зоны режима 1
-        zones2.forEach(function(z) {
-            if (z.polygon) z.polygon.options.set('visible', false);
-            if (z.text) z.text.options.set('visible', false);
-        });
         zones1.forEach(function(z) {
-            if (z.polygon) z.polygon.options.set('visible', true);
-            if (z.text) z.text.options.set('visible', true);
+            myMap.geoObjects.add(z.polygon);
+            if (z.text) myMap.geoObjects.add(z.text);
         });
     }
 }
@@ -844,12 +857,14 @@ function showContextMenu() {
     menu.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); z-index: 3000; min-width: 250px;';
     
     if (mapMode === 2) {
-        // В режиме 2 показываем ТОЛЬКО "Создать доп инфу"
         menu.innerHTML = '<h4 style="margin: 0 0 15px 0; text-align: center; font-size: 16px;">Создать</h4>' +
             '<button onclick="openCreateInfoModal()" style="width: 100%; padding: 10px; background: #0140ff; color: white; border: none; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; margin-bottom: 8px;">Создать доп инфу</button>' +
             '<button onclick="closeContextMenu()" style="width: 100%; padding: 10px; background: #9E9E9E; color: white; border: none; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer;">Отмена</button>';
+    } else if (mapMode === 3) {
+        menu.innerHTML = '<h4 style="margin: 0 0 15px 0; text-align: center; font-size: 16px;">Создать</h4>' +
+            '<button onclick="openCreateInfoModal()" style="width: 100%; padding: 10px; background: #0140ff; color: white; border: none; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; margin-bottom: 8px;">Создать метку</button>' +
+            '<button onclick="closeContextMenu()" style="width: 100%; padding: 10px; background: #9E9E9E; color: white; border: none; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer;">Отмена</button>';
     } else {
-        // В обычном режиме всё как раньше
         menu.innerHTML = '<h4 style="margin: 0 0 15px 0; text-align: center; font-size: 16px;">Создать</h4>' +
             '<button onclick="openCreateScooterModal()" style="width: 100%; padding: 10px; background: #0140ff; color: white; border: none; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; margin-bottom: 8px;">Создать самокат</button>' +
             '<button onclick="openCreateParkingModal()" style="width: 100%; padding: 10px; background: #0140ff; color: white; border: none; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; margin-bottom: 8px;">Создать парковку</button>' +
@@ -882,25 +897,29 @@ function updateZoneTextVisibility() {
 }
 
 function loadZones() {
-    // ✅ Очищаем массивы, но НЕ удаляем объекты с карты (они удалятся автоматически при перезагрузке)
+    zones1.forEach(function(z) { if (z.polygon) myMap.geoObjects.remove(z.polygon); if (z.text) myMap.geoObjects.remove(z.text); });
     zones1 = [];
+    osmZones1.forEach(function(z) { osmMap.removeLayer(z.layer); if (z.text) osmMap.removeLayer(z.text); });
     osmZones1 = [];
+    
+    zones2.forEach(function(z) { if (z.polygon) myMap.geoObjects.remove(z.polygon); if (z.text) myMap.geoObjects.remove(z.text); });
     zones2 = [];
+    osmZones2.forEach(function(z) { osmMap.removeLayer(z.layer); if (z.text) osmMap.removeLayer(z.text); });
     osmZones2 = [];
     
-    // Загружаем зоны режима 1
-    var url1 = currentUserFilter 
-        ? API_URL + '/get_zones?user=' + encodeURIComponent(currentUserFilter) + '&mode=1' 
-        : API_URL + '/get_zones?mode=1';
+    zones3.forEach(function(z) { if (z.polygon) myMap.geoObjects.remove(z.polygon); if (z.text) myMap.geoObjects.remove(z.text); });
+    zones3 = [];
+    osmZones3.forEach(function(z) { osmMap.removeLayer(z.layer); if (z.text) osmMap.removeLayer(z.text); });
+    osmZones3 = [];
     
-    // Загружаем зоны режима 2
-    var url2 = currentUserFilter 
-        ? API_URL + '/get_zones?user=' + encodeURIComponent(currentUserFilter) + '&mode=2' 
-        : API_URL + '/get_zones?mode=2';
+    var url1 = currentUserFilter ? API_URL + '/get_zones?user=' + encodeURIComponent(currentUserFilter) + '&mode=1' : API_URL + '/get_zones?mode=1';
+    var url2 = currentUserFilter ? API_URL + '/get_zones?user=' + encodeURIComponent(currentUserFilter) + '&mode=2' : API_URL + '/get_zones?mode=2';
+    var url3 = currentUserFilter ? API_URL + '/get_zones?user=' + encodeURIComponent(currentUserFilter) + '&mode=3' : API_URL + '/get_zones?mode=3';
     
-    Promise.all([safeFetch(url1), safeFetch(url2)]).then(function(results) {
+    Promise.all([safeFetch(url1), safeFetch(url2), safeFetch(url3)]).then(function(results) {
         var data1 = results[0];
         var data2 = results[1];
+        var data3 = results[2];
         
         if (Array.isArray(data1)) {
             data1.forEach(function(z) {
@@ -920,10 +939,18 @@ function loadZones() {
             });
         }
         
-        zones = (mapMode === 2) ? zones2 : zones1;
-        osmZones = (mapMode === 2) ? osmZones2 : osmZones1;
+        if (Array.isArray(data3)) {
+            data3.forEach(function(z) {
+                if (!z.coords || !Array.isArray(z.coords) || z.coords.length === 0) return;
+                var zoneObj = createZoneObjects(z);
+                zones3.push(zoneObj.yandex);
+                osmZones3.push(zoneObj.osm);
+            });
+        }
         
-        // ✅ Применяем видимость
+        zones = (mapMode === 2) ? zones2 : (mapMode === 3) ? zones3 : zones1;
+        osmZones = (mapMode === 2) ? osmZones2 : (mapMode === 3) ? osmZones3 : osmZones1;
+        
         updateZoneVisibility();
     });
 }
@@ -1317,23 +1344,20 @@ function cancelZoneDrawing() { resetDrawingState(); }
 
 function saveZoneToServer() {
     var finalCoords = zonePolygon ? zonePolygon.geometry.getCoordinates()[0] : zonePoints;
-    // ✅ Передаём mode в зависимости от текущего режима карты
-    var currentMode = (mapMode === 2) ? 2 : 1;
-    
+    var currentMode = (mapMode === 2) ? 2 : (mapMode === 3) ? 3 : 1;
     fetch(API_URL + '/add_zone', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
             coords: finalCoords,
             comment: zoneComment,
-            mode: currentMode  // ✅ НОВОЕ
+            mode: currentMode
         })
     })
     .then(function(r) { return r.json(); })
     .then(function(data) {
         if (data.success) {
             resetDrawingState();
-            // ✅ Просто перезагружаем зоны — теперь они отобразятся корректно
             loadZones();
         }
     });
@@ -1498,7 +1522,10 @@ function loadPoints() {
         var scooterCount = 0;
         data.forEach(function(point) {
             if (point.status === 'info') {
-                var infoIcon = { iconLayout: ymaps.templateLayoutFactory.createClass('<div style="width: 18px; height: 18px; text-align: center; line-height: 18px;"><img src="' + BASE_URL + 'info.png" style="width: 18px; height: 18px; display: block;"></div>'), iconShape: { type: 'Circle', coordinates: [9, 9], radius: 9 } };
+                var infoIcon = {
+    iconLayout: ymaps.templateLayoutFactory.createClass('<div style="width: 18px; height: 18px; text-align: center; line-height: 18px;"><img src="' + BASE_URL + (point.icon || 'info.png') + '" style="width: 18px; height: 18px; display: block;"></div>'),
+    iconShape: { type: 'Circle', coordinates: [9, 9], radius: 9 }
+};
                 var pm = new ymaps.Placemark([point.lat, point.lon], { balloonContent: buildInfoBalloonContent(point) }, infoIcon);
                 pm.properties.set('infoData', point);
                 pm.events.add('click', function(e) {
@@ -1515,7 +1542,12 @@ function loadPoints() {
                     document.getElementById('deleteInfoModal').style.display = 'flex';
                 });
                 myMap.geoObjects.add(pm); infoMarkers.push(pm);
-                var osmInfoIcon = L.divIcon({ className: 'custom-div-icon', html: '<img src="' + BASE_URL + 'info.png" style="width: 18px; height: 18px; display: block;">', iconSize: [18, 18], iconAnchor: [9, 9] });
+                var osmInfoIcon = L.divIcon({
+    className: 'custom-div-icon',
+    html: '<img src="' + BASE_URL + (point.icon || 'info.png') + '" style="width: 18px; height: 18px; display: block;">',
+    iconSize: [18, 18],
+    iconAnchor: [9, 9]
+});
                 var osmPm = L.marker([point.lat, point.lon], { icon: osmInfoIcon }).addTo(osmMap);
                 var popup = L.popup({ closeOnClick: false, autoClose: false }).setContent(buildInfoBalloonContent(point));
                 osmPm.bindPopup(popup); osmPm.infoData = point;
@@ -1948,8 +1980,7 @@ function onInfoClick() {
     infoClickTimer = setTimeout(function() { infoClickCount = 0; }, 1000);
     if (infoClickCount >= 3) {
         infoClickCount = 0;
-        // Переключаем между 0 (всё) и 2 (только зоны)
-        mapMode = (mapMode === 2) ? 0 : 2;
+        mapMode = (mapMode === 0) ? 2 : (mapMode === 2) ? 3 : 0;
         setMapMode(mapMode);
     }
 }
@@ -2007,14 +2038,46 @@ function confirmCreateParking() {
     fetch(API_URL + '/create_parking', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: name, address: rightClickCoords.join(', '), lat: rightClickCoords[0], lon: rightClickCoords[1] }) })
         .then(function(r) { return r.json(); }).then(function(data) { if (data.success) { closeCreateParkingModal(); loadParkings(); } });
 }
-function openCreateInfoModal() { closeContextMenu(); document.getElementById('createInfoModal').style.display = 'flex'; setTimeout(function() { document.getElementById('infoComment').focus(); }, 100); }
+function openCreateInfoModal() {
+    closeContextMenu();
+    var modalTitle = document.getElementById('createInfoModalTitle');
+    if (mapMode === 3) {
+        modalTitle.textContent = 'Напишите комментарий';
+    } else {
+        modalTitle.textContent = 'Создать доп инфу';
+    }
+    document.getElementById('createInfoModal').style.display = 'flex';
+    setTimeout(function() { document.getElementById('infoComment').focus(); }, 100);
+}
 function closeCreateInfoModal() { document.getElementById('createInfoModal').style.display = 'none'; document.getElementById('infoComment').value = ''; }
 function confirmCreateInfo() {
     var comment = document.getElementById('infoComment').value.trim();
     if (!comment) { alert('Заполните комментарий!'); return; }
     if (!rightClickCoords) { alert('Координаты не захвачены!'); return; }
-    fetch(API_URL + '/create_scooter', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ number: 'ДОП ИНФА', address: rightClickCoords.join(', '), lat: rightClickCoords[0], lon: rightClickCoords[1], status: 'info', comment: comment }) })
-        .then(function(r) { return r.json(); }).then(function(data) { if (data.success) { closeCreateInfoModal(); loadPoints(); } });
+    
+    var status = 'info';
+    var iconFile = (mapMode === 3) ? 'tyt.png' : 'info.png';
+    
+    fetch(API_URL + '/create_scooter', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            number: 'ДОП ИНФА',
+            address: rightClickCoords.join(', '),
+            lat: rightClickCoords[0],
+            lon: rightClickCoords[1],
+            status: status,
+            comment: comment,
+            icon: iconFile
+        })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) {
+            closeCreateInfoModal();
+            loadPoints();
+        }
+    });
 }
 function openNameSelectModal(mode) {
     var container = document.getElementById('nameSelectButtons');
