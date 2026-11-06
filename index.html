@@ -372,6 +372,9 @@ function setMapMode(mode) {
 }
 
 function updateZoneVisibility() {
+    zones1.forEach(function(z) { myMap.geoObjects.remove(z.polygon); if(z.text) myMap.geoObjects.remove(z.text); });
+    zones2.forEach(function(z) { myMap.geoObjects.remove(z.polygon); if(z.text) myMap.geoObjects.remove(z.text); });
+    
     if (mapMode === 2) {
         // Показываем только зоны режима 2 на Yandex карте
         zones2.forEach(function(z) {
@@ -384,6 +387,43 @@ function updateZoneVisibility() {
             myMap.geoObjects.add(z.polygon);
             if (z.text) myMap.geoObjects.add(z.text);
         });
+    }
+}
+function updateMapVisibility() {
+    if (mapMode === 2) {
+        // Режим 2: Скрываем всё, кроме зон
+        markers.forEach(m => myMap.geoObjects.remove(m));
+        labelMarkers.forEach(m => myMap.geoObjects.remove(m));
+        parkingMarkers.forEach(m => myMap.geoObjects.remove(m));
+        parkingLabelMarkers.forEach(m => myMap.geoObjects.remove(m));
+        infoMarkers.forEach(m => myMap.geoObjects.remove(m));
+        routes.forEach(r => { myMap.geoObjects.remove(r.polyline); if(r.arrow) myMap.geoObjects.remove(r.arrow); if(r.textMarker) myMap.geoObjects.remove(r.textMarker); });
+        tempRoutes.forEach(r => { myMap.geoObjects.remove(r.polyline); if(r.arrow) myMap.geoObjects.remove(r.arrow); if(r.textMarker) myMap.geoObjects.remove(r.textMarker); });
+        
+        osmMarkers.forEach(m => osmMap.removeLayer(m));
+        osmLabelMarkers.forEach(m => osmMap.removeLayer(m));
+        osmParkingMarkers.forEach(m => osmMap.removeLayer(m));
+        osmParkingLabelMarkers.forEach(m => osmMap.removeLayer(m));
+        osmInfoMarkers.forEach(m => osmMap.removeLayer(m));
+        osmRoutes.forEach(r => osmMap.removeLayer(r.layer));
+        osmTempRoutes.forEach(r => osmMap.removeLayer(r.layer));
+    } else {
+        // Режим 0: Показываем все слои обратно
+        markers.forEach(m => myMap.geoObjects.add(m));
+        labelMarkers.forEach(m => myMap.geoObjects.add(m));
+        parkingMarkers.forEach(m => myMap.geoObjects.add(m));
+        parkingLabelMarkers.forEach(m => myMap.geoObjects.add(m));
+        infoMarkers.forEach(m => myMap.geoObjects.add(m));
+        routes.forEach(r => { myMap.geoObjects.add(r.polyline); if(r.arrow) myMap.geoObjects.add(r.arrow); if(r.textMarker) myMap.geoObjects.add(r.textMarker); });
+        tempRoutes.forEach(r => { myMap.geoObjects.add(r.polyline); if(r.arrow) myMap.geoObjects.add(r.arrow); if(r.textMarker) myMap.geoObjects.add(r.textMarker); });
+        
+        osmMarkers.forEach(m => osmMap.addLayer(m));
+        osmLabelMarkers.forEach(m => osmMap.addLayer(m));
+        osmParkingMarkers.forEach(m => osmMap.addLayer(m));
+        osmParkingLabelMarkers.forEach(m => osmMap.addLayer(m));
+        osmInfoMarkers.forEach(m => osmMap.addLayer(m));
+        osmRoutes.forEach(r => osmMap.addLayer(r.layer));
+        osmTempRoutes.forEach(r => osmMap.addLayer(r.layer));
     }
 }
 
