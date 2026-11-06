@@ -1529,48 +1529,53 @@ function loadPoints() {
         data.forEach(function(point) {
             // ✅ ФИЛЬТРАЦИЯ ПО РЕЖИМУ
             if (point.status === 'info') {
-                // В режиме 3 показываем ТОЛЬКО метки с иконкой tyt.png
-                if (mapMode === 3 && point.icon !== 'tyt.png') return;
-                // В обычном режиме показываем все доп инфы КРОМЕ tyt.png
-                if (mapMode === 0 && point.icon === 'tyt.png') return;
-                
-                var infoIcon = {
-                    iconLayout: ymaps.templateLayoutFactory.createClass('<div style="width: 18px; height: 18px; text-align: center; line-height: 18px;"><img src="' + BASE_URL + (point.icon || 'info.png') + '" style="width: 18px; height: 18px; display: block;"></div>'),
-                    iconShape: { type: 'Circle', coordinates: [9, 9], radius: 9 }
-                };
-                var pm = new ymaps.Placemark([point.lat, point.lon], { balloonContent: buildInfoBalloonContent(point) }, infoIcon);
-                pm.properties.set('infoData', point);
-                pm.events.add('click', function(e) {
-                    if (assigningUser) { e.get('domEvent').stopPropagation(); toggleAssignInfo(point); myMap.balloon.close(); }
-                });
-                pm.events.add('dblclick', function(e) {
-                    if (assigningUser) { e.get('domEvent').stopPropagation(); toggleAssignInfo(point); myMap.balloon.close(); }
-                    else { e.get('domEvent').stopPropagation(); pm.balloon.open(); }
-                });
-                pm.events.add('contextmenu', function(e) {
-                    e.get('domEvent').preventDefault(); e.get('domEvent').stopPropagation();
-                    contextMenuHandled = true;
-                    deleteInfoId = point.id;
-                    document.getElementById('deleteInfoModal').style.display = 'flex';
-                });
-                myMap.geoObjects.add(pm); infoMarkers.push(pm);
-                
-                var osmInfoIcon = L.divIcon({
-                    className: 'custom-div-icon',
-                    html: '<img src="' + BASE_URL + (point.icon || 'info.png') + '" style="width: 18px; height: 18px; display: block;">',
-                    iconSize: [18, 18],
-                    iconAnchor: [9, 9]
-                });
-                var osmPm = L.marker([point.lat, point.lon], { icon: osmInfoIcon }).addTo(osmMap);
-                var popup = L.popup({ closeOnClick: false, autoClose: false }).setContent(buildInfoBalloonContent(point));
-                osmPm.bindPopup(popup); osmPm.infoData = point;
-                osmPm.on('click', function(e) {
-                    if (assigningUser) { L.DomEvent.stopPropagation(e); toggleAssignInfo(point); }
-                    else { osmPm.openPopup(); }
-                });
-                osmPm.on('contextmenu', function(e) { L.DomEvent.preventDefault(e); L.DomEvent.stopPropagation(e); contextMenuHandled = true; deleteInfoId = point.id; document.getElementById('deleteInfoModal').style.display = 'flex'; });
-                osmInfoMarkers.push(osmPm);
-            } else {
+    // ✅ ФИЛЬТРАЦИЯ ПО РЕЖИМУ
+    // В режиме 3 показываем ТОЛЬКО метки с иконкой tyt.png
+    if (mapMode === 3 && point.icon !== 'tyt.png') return;
+    // В обычном режиме показываем все доп инфы КРОМЕ tyt.png
+    if (mapMode === 0 && point.icon === 'tyt.png') return;
+    
+    // ✅ РАЗМЕР ИКОНКИ: tyt.png больше в 1.5 раза (27x27 вместо 18x18)
+    var iconSize = (point.icon === 'tyt.png') ? 27 : 18;
+    var iconRadius = Math.floor(iconSize / 2);
+    
+    var infoIcon = {
+        iconLayout: ymaps.templateLayoutFactory.createClass('<div style="width: ' + iconSize + 'px; height: ' + iconSize + 'px; text-align: center; line-height: ' + iconSize + 'px;"><img src="' + BASE_URL + (point.icon || 'info.png') + '" style="width: ' + iconSize + 'px; height: ' + iconSize + 'px; display: block;"></div>'),
+        iconShape: { type: 'Circle', coordinates: [iconRadius, iconRadius], radius: iconRadius }
+    };
+    var pm = new ymaps.Placemark([point.lat, point.lon], { balloonContent: buildInfoBalloonContent(point) }, infoIcon);
+    pm.properties.set('infoData', point);
+    pm.events.add('click', function(e) {
+        if (assigningUser) { e.get('domEvent').stopPropagation(); toggleAssignInfo(point); myMap.balloon.close(); }
+    });
+    pm.events.add('dblclick', function(e) {
+        if (assigningUser) { e.get('domEvent').stopPropagation(); toggleAssignInfo(point); myMap.balloon.close(); }
+        else { e.get('domEvent').stopPropagation(); pm.balloon.open(); }
+    });
+    pm.events.add('contextmenu', function(e) {
+        e.get('domEvent').preventDefault(); e.get('domEvent').stopPropagation();
+        contextMenuHandled = true;
+        deleteInfoId = point.id;
+        document.getElementById('deleteInfoModal').style.display = 'flex';
+    });
+    myMap.geoObjects.add(pm); infoMarkers.push(pm);
+    
+    var osmInfoIcon = L.divIcon({
+        className: 'custom-div-icon',
+        html: '<img src="' + BASE_URL + (point.icon || 'info.png') + '" style="width: ' + iconSize + 'px; height: ' + iconSize + 'px; display: block;">',
+        iconSize: [iconSize, iconSize],
+        iconAnchor: [iconRadius, iconRadius]
+    });
+    var osmPm = L.marker([point.lat, point.lon], { icon: osmInfoIcon }).addTo(osmMap);
+    var popup = L.popup({ closeOnClick: false, autoClose: false }).setContent(buildInfoBalloonContent(point));
+    osmPm.bindPopup(popup); osmPm.infoData = point;
+    osmPm.on('click', function(e) {
+        if (assigningUser) { L.DomEvent.stopPropagation(e); toggleAssignInfo(point); }
+        else { osmPm.openPopup(); }
+    });
+    osmPm.on('contextmenu', function(e) { L.DomEvent.preventDefault(e); L.DomEvent.stopPropagation(e); contextMenuHandled = true; deleteInfoId = point.id; document.getElementById('deleteInfoModal').style.display = 'flex'; });
+    osmInfoMarkers.push(osmPm);
+} else {
                 // Самокаты показываем только в обычном режиме
                 if (mapMode === 3) return;
                 
