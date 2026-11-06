@@ -372,20 +372,26 @@ function setMapMode(mode) {
 }
 
 function updateZoneVisibility() {
-    zones1.forEach(function(z) { myMap.geoObjects.remove(z.polygon); if(z.text) myMap.geoObjects.remove(z.text); });
-    zones2.forEach(function(z) { myMap.geoObjects.remove(z.polygon); if(z.text) myMap.geoObjects.remove(z.text); });
-    
+    // ✅ Просто скрываем/показываем зоны в зависимости от режима
     if (mapMode === 2) {
-        // Показываем только зоны режима 2 на Yandex карте
+        // Режим 2: скрываем зоны режима 1, показываем зоны режима 2
+        zones1.forEach(function(z) {
+            if (z.polygon) z.polygon.options.set('visible', false);
+            if (z.text) z.text.options.set('visible', false);
+        });
         zones2.forEach(function(z) {
-            myMap.geoObjects.add(z.polygon);
-            if (z.text) myMap.geoObjects.add(z.text);
+            if (z.polygon) z.polygon.options.set('visible', true);
+            if (z.text) z.text.options.set('visible', true);
         });
     } else {
-        // Показываем только зоны режима 1 на Yandex карте
+        // Режим 1: скрываем зоны режима 2, показываем зоны режима 1
+        zones2.forEach(function(z) {
+            if (z.polygon) z.polygon.options.set('visible', false);
+            if (z.text) z.text.options.set('visible', false);
+        });
         zones1.forEach(function(z) {
-            myMap.geoObjects.add(z.polygon);
-            if (z.text) myMap.geoObjects.add(z.text);
+            if (z.polygon) z.polygon.options.set('visible', true);
+            if (z.text) z.text.options.set('visible', true);
         });
     }
 }
@@ -876,32 +882,26 @@ function updateZoneTextVisibility() {
 }
 
 function loadZones() {
-    // ✅ Очищаем оба массива
-    zones1.forEach(function(z) { if (z.polygon) myMap.geoObjects.remove(z.polygon); if (z.text) myMap.geoObjects.remove(z.text); });
+    // ✅ Очищаем массивы, но НЕ удаляем объекты с карты (они удалятся автоматически при перезагрузке)
     zones1 = [];
-    osmZones1.forEach(function(z) { osmMap.removeLayer(z.layer); if (z.text) osmMap.removeLayer(z.text); });
     osmZones1 = [];
-    zones2.forEach(function(z) { if (z.polygon) myMap.geoObjects.remove(z.polygon); if (z.text) myMap.geoObjects.remove(z.text); });
     zones2 = [];
-    osmZones2.forEach(function(z) { osmMap.removeLayer(z.layer); if (z.text) osmMap.removeLayer(z.text); });
     osmZones2 = [];
     
-    // ✅ Загружаем зоны режима 1
-    var url1 = currentUserFilter
-        ? API_URL + '/get_zones?user=' + encodeURIComponent(currentUserFilter) + '&mode=1'
+    // Загружаем зоны режима 1
+    var url1 = currentUserFilter 
+        ? API_URL + '/get_zones?user=' + encodeURIComponent(currentUserFilter) + '&mode=1' 
         : API_URL + '/get_zones?mode=1';
     
-    // ✅ Загружаем зоны режима 2
-    var url2 = currentUserFilter
-        ? API_URL + '/get_zones?user=' + encodeURIComponent(currentUserFilter) + '&mode=2'
+    // Загружаем зоны режима 2
+    var url2 = currentUserFilter 
+        ? API_URL + '/get_zones?user=' + encodeURIComponent(currentUserFilter) + '&mode=2' 
         : API_URL + '/get_zones?mode=2';
     
-    // Загружаем оба набора параллельно
     Promise.all([safeFetch(url1), safeFetch(url2)]).then(function(results) {
-        var data1 = results[0]; // зоны режима 1
-        var data2 = results[1]; // зоны режима 2
+        var data1 = results[0];
+        var data2 = results[1];
         
-        // ✅ Обрабатываем зоны режима 1
         if (Array.isArray(data1)) {
             data1.forEach(function(z) {
                 if (!z.coords || !Array.isArray(z.coords) || z.coords.length === 0) return;
@@ -911,7 +911,6 @@ function loadZones() {
             });
         }
         
-        // ✅ Обрабатываем зоны режима 2
         if (Array.isArray(data2)) {
             data2.forEach(function(z) {
                 if (!z.coords || !Array.isArray(z.coords) || z.coords.length === 0) return;
@@ -921,7 +920,6 @@ function loadZones() {
             });
         }
         
-        // ✅ Синхронизируем глобальные переменные с текущим режимом
         zones = (mapMode === 2) ? zones2 : zones1;
         osmZones = (mapMode === 2) ? osmZones2 : osmZones1;
         
@@ -951,6 +949,9 @@ function createZoneObjects(z) {
         else { openZoneMoveModal(z.id, z); }
     });
     
+    // ✅ ДОБАВЛЯЕМ ПОЛИГОН НА КАРТУ СРАЗУ
+    myMap.geoObjects.add(polygon);
+    
     if (z.comment && z.comment.trim() !== '') {
         var bounds = polygon.geometry.getBounds();
         var center = [(bounds[0][0] + bounds[1][0]) / 2, (bounds[0][1] + bounds[1][1]) / 2];
@@ -959,7 +960,8 @@ function createZoneObjects(z) {
             iconOffset: [-100, -10], iconShape: { type: 'Rectangle', coordinates: [[0, 0], [200, 20]] },
             visible: myMap.getZoom() >= ZOOM_THRESHOLD
         });
-        // ✅ УБРАНО: myMap.geoObjects.add(textPlacemark); — добавим позже в updateZoneVisibility
+        // ✅ ДОБАВЛЯЕМ ТЕКСТ НА КАРТУ СРАЗУ
+        myMap.geoObjects.add(textPlacemark);
         yandexZone.text = textPlacemark;
     }
     
@@ -974,6 +976,9 @@ function createZoneObjects(z) {
         else { openZoneMoveModal(z.id, z); }
     });
     
+    // ✅ ДОБАВЛЯЕМ ПОЛИГОН НА OSM КАРТУ СРАЗУ
+    osmPolygon.addTo(osmMap);
+    
     if (z.comment && z.comment.trim() !== '') {
         var osmBounds = osmPolygon.getBounds();
         var osmCenter = osmBounds.getCenter();
@@ -981,7 +986,8 @@ function createZoneObjects(z) {
             icon: L.divIcon({ className: 'custom-div-icon', html: '<div style="color: #640000; font-weight: bold; font-size: 12px; text-align: center; white-space: nowrap; pointer-events: none; padding-left: 30px;">' + z.comment + '</div>', iconSize: [200, 20], iconAnchor: [100, 10] }),
             interactive: false
         });
-        // ✅ УБРАНО: osmZone.text.addTo(osmMap); — добавим позже в updateZoneVisibility
+        // ✅ ДОБАВЛЯЕМ ТЕКСТ НА OSM КАРТУ СРАЗУ
+        osmText.addTo(osmMap);
         osmZone.text = osmText;
     }
     
