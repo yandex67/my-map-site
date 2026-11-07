@@ -331,6 +331,7 @@ tempRoutes.forEach(function(r) { myMap.geoObjects.remove(r.polyline); if(r.arrow
 zones1.forEach(function(z) { myMap.geoObjects.remove(z.polygon); if(z.text) myMap.geoObjects.remove(z.text); });
 zones3.forEach(function(z) { myMap.geoObjects.remove(z.polygon); if(z.text) myMap.geoObjects.remove(z.text); });
 loadZones();
+loadPoints();
 } else if (mode === 3) {
 if (headerText) headerText.innerHTML = "Места в которых<br>находили самокат";
 document.getElementById('bottomPanel').style.display = 'none';
@@ -1521,101 +1522,118 @@ confirmOrangeModal();
 }
 
 function loadPoints() {
-if (mapMode === 2 || mapMode === 3) return;
-labelMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); labelMarkers = [];
-osmLabelMarkers.forEach(function(m) { osmMap.removeLayer(m); }); osmLabelMarkers = [];
-infoMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); infoMarkers = [];
-osmInfoMarkers.forEach(function(m) { osmMap.removeLayer(m); }); osmInfoMarkers = [];
-var url = currentUserFilter ? API_URL + '/get_points?user=' + encodeURIComponent(currentUserFilter) : API_URL + '/get_points';
-safeFetch(url).then(function(data) {
-if (!Array.isArray(data)) return;
-markers.forEach(function(m) { myMap.geoObjects.remove(m); }); markers = [];
-osmMarkers.forEach(function(m) { osmMap.removeLayer(m); }); osmMarkers = [];
-var scooterCount = 0;
-data.forEach(function(point) {
-if (point.status === 'info') {
-var iconSize = (point.icon === 'tyt.png') ? 27 : 18;
-var iconRadius = Math.floor(iconSize / 2);
-var infoIcon = {
-iconLayout: ymaps.templateLayoutFactory.createClass('<div style="width: ' + iconSize + 'px; height: ' + iconSize + 'px; text-align: center; line-height: ' + iconSize + 'px;"><img src="' + BASE_URL + (point.icon || 'info.png') + '" style="width: ' + iconSize + 'px; height: ' + iconSize + 'px; display: block;"></div>'),
-iconShape: { type: 'Circle', coordinates: [iconRadius, iconRadius], radius: iconRadius }
-};
-var pm = new ymaps.Placemark([point.lat, point.lon], { balloonContent: buildInfoBalloonContent(point) }, infoIcon);
-pm.properties.set('infoData', point);
-pm.events.add('click', function(e) {
-if (assigningUser) { e.get('domEvent').stopPropagation(); toggleAssignInfo(point); myMap.balloon.close(); }
-});
-pm.events.add('dblclick', function(e) {
-if (assigningUser) { e.get('domEvent').stopPropagation(); toggleAssignInfo(point); myMap.balloon.close(); }
-else { e.get('domEvent').stopPropagation(); pm.balloon.open(); }
-});
-pm.events.add('contextmenu', function(e) {
-e.get('domEvent').preventDefault(); e.get('domEvent').stopPropagation();
-contextMenuHandled = true;
-deleteInfoId = point.id;
-document.getElementById('deleteInfoModal').style.display = 'flex';
-});
-myMap.geoObjects.add(pm); infoMarkers.push(pm);
-var osmInfoIcon = L.divIcon({
-className: 'custom-div-icon',
-html: '<img src="' + BASE_URL + (point.icon || 'info.png') + '" style="width: ' + iconSize + 'px; height: ' + iconSize + 'px; display: block;">',
-iconSize: [iconSize, iconSize],
-iconAnchor: [iconRadius, iconRadius]
-});
-var osmPm = L.marker([point.lat, point.lon], { icon: osmInfoIcon }).addTo(osmMap);
-var popup = L.popup({ closeOnClick: false, autoClose: false }).setContent(buildInfoBalloonContent(point));
-osmPm.bindPopup(popup); osmPm.infoData = point;
-osmPm.on('click', function(e) {
-if (assigningUser) { L.DomEvent.stopPropagation(e); toggleAssignInfo(point); }
-else { osmPm.openPopup(); }
-});
-osmPm.on('contextmenu', function(e) { L.DomEvent.preventDefault(e); L.DomEvent.stopPropagation(e); contextMenuHandled = true; deleteInfoId = point.id; document.getElementById('deleteInfoModal').style.display = 'flex'; });
-osmInfoMarkers.push(osmPm);
-} else {
-if (mapMode === 3) return;
-scooterCount++;
-var isBooked = departures[point.id] !== undefined;
-var iconOptions = createScooterIcon(point.status, point.title.trim());
-if (isBooked) {
-var labelLayout = ymaps.templateLayoutFactory.createClass('<div style="background: black; color: white; font-size: 8px; font-weight: bold; padding: 3px 4px; border-radius: 3px; text-align: center; width: 44px; box-sizing: border-box; line-height: 1.2;">Выехали</div>');
-var lp = new ymaps.Placemark([point.lat, point.lon], {}, { iconLayout: labelLayout, iconOffset: [-4, -18], iconShape: { type: 'Rectangle', coordinates: [[0, 0], [44, 16]] } });
-myMap.geoObjects.add(lp); labelMarkers.push(lp);
+    // ✅ ВАЖНО: убираем return для режимов 2 и 3 — они тоже должны загружать точки
+    
+    labelMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); labelMarkers = [];
+    osmLabelMarkers.forEach(function(m) { osmMap.removeLayer(m); }); osmLabelMarkers = [];
+    infoMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); infoMarkers = [];
+    osmInfoMarkers.forEach(function(m) { osmMap.removeLayer(m); }); osmInfoMarkers = [];
+    
+    var url = currentUserFilter ? API_URL + '/get_points?user=' + encodeURIComponent(currentUserFilter) : API_URL + '/get_points';
+    safeFetch(url).then(function(data) {
+        if (!Array.isArray(data)) return;
+        
+        markers.forEach(function(m) { myMap.geoObjects.remove(m); }); markers = [];
+        osmMarkers.forEach(function(m) { osmMap.removeLayer(m); }); osmMarkers = [];
+        var scooterCount = 0;
+        
+        data.forEach(function(point) {
+            var icon = point.icon || 'info.png'; // если иконки нет — считаем info.png
+            
+            if (point.status === 'info') {
+                // ✅ ЖЁСТКАЯ ФИЛЬТРАЦИЯ ДОП ИНФ ПО РЕЖИМАМ
+                // В режиме 3 показываем ТОЛЬКО tyt.png
+                if (mapMode === 3 && icon !== 'tyt.png') return;
+                // В режимах 0 и 2 НЕ показываем tyt.png
+                if (mapMode !== 3 && icon === 'tyt.png') return;
+                
+                // ✅ РАЗМЕР ИКОНКИ: tyt.png больше в 1.5 раза (27x27)
+                var iconSize = (icon === 'tyt.png') ? 27 : 18;
+                var iconRadius = Math.floor(iconSize / 2);
+                
+                var infoIcon = {
+                    iconLayout: ymaps.templateLayoutFactory.createClass('<div style="width: ' + iconSize + 'px; height: ' + iconSize + 'px; text-align: center; line-height: ' + iconSize + 'px;"><img src="' + BASE_URL + icon + '" style="width: ' + iconSize + 'px; height: ' + iconSize + 'px; display: block;"></div>'),
+                    iconShape: { type: 'Circle', coordinates: [iconRadius, iconRadius], radius: iconRadius }
+                };
+                var pm = new ymaps.Placemark([point.lat, point.lon], { balloonContent: buildInfoBalloonContent(point) }, infoIcon);
+                pm.properties.set('infoData', point);
+                pm.events.add('click', function(e) {
+                    if (assigningUser) { e.get('domEvent').stopPropagation(); toggleAssignInfo(point); myMap.balloon.close(); }
+                });
+                pm.events.add('dblclick', function(e) {
+                    if (assigningUser) { e.get('domEvent').stopPropagation(); toggleAssignInfo(point); myMap.balloon.close(); }
+                    else { e.get('domEvent').stopPropagation(); pm.balloon.open(); }
+                });
+                pm.events.add('contextmenu', function(e) {
+                    e.get('domEvent').preventDefault(); e.get('domEvent').stopPropagation();
+                    contextMenuHandled = true;
+                    deleteInfoId = point.id;
+                    document.getElementById('deleteInfoModal').style.display = 'flex';
+                });
+                myMap.geoObjects.add(pm); infoMarkers.push(pm);
+                
+                var osmInfoIcon = L.divIcon({
+                    className: 'custom-div-icon',
+                    html: '<img src="' + BASE_URL + icon + '" style="width: ' + iconSize + 'px; height: ' + iconSize + 'px; display: block;">',
+                    iconSize: [iconSize, iconSize],
+                    iconAnchor: [iconRadius, iconRadius]
+                });
+                var osmPm = L.marker([point.lat, point.lon], { icon: osmInfoIcon }).addTo(osmMap);
+                var popup = L.popup({ closeOnClick: false, autoClose: false }).setContent(buildInfoBalloonContent(point));
+                osmPm.bindPopup(popup); osmPm.infoData = point;
+                osmPm.on('click', function(e) {
+                    if (assigningUser) { L.DomEvent.stopPropagation(e); toggleAssignInfo(point); }
+                    else { osmPm.openPopup(); }
+                });
+                osmPm.on('contextmenu', function(e) { L.DomEvent.preventDefault(e); L.DomEvent.stopPropagation(e); contextMenuHandled = true; deleteInfoId = point.id; document.getElementById('deleteInfoModal').style.display = 'flex'; });
+                osmInfoMarkers.push(osmPm);
+            } else {
+                // ✅ САМОКАТЫ ПОКАЗЫВАЕМ ТОЛЬКО В РЕЖИМЕ 0
+                if (mapMode !== 0) return;
+                
+                scooterCount++;
+                var isBooked = departures[point.id] !== undefined;
+                var iconOptions = createScooterIcon(point.status, point.title.trim());
+                if (isBooked) {
+                    var labelLayout = ymaps.templateLayoutFactory.createClass('<div style="background: black; color: white; font-size: 8px; font-weight: bold; padding: 3px 4px; border-radius: 3px; text-align: center; width: 44px; box-sizing: border-box; line-height: 1.2;">Выехали</div>');
+                    var lp = new ymaps.Placemark([point.lat, point.lon], {}, { iconLayout: labelLayout, iconOffset: [-4, -18], iconShape: { type: 'Rectangle', coordinates: [[0, 0], [44, 16]] } });
+                    myMap.geoObjects.add(lp); labelMarkers.push(lp);
+                }
+                var pm = new ymaps.Placemark([point.lat, point.lon], { balloonContent: buildBalloonContent(point, isBooked) }, iconOptions);
+                pm.properties.set('pointData', point);
+                pm.events.add('click', function(e) {
+                    if (assigningUser) { e.get('domEvent').stopPropagation(); toggleAssignPoint(point); myMap.balloon.close(); }
+                });
+                pm.events.add('dblclick', function(e) {
+                    if (assigningUser) { e.get('domEvent').stopPropagation(); toggleAssignPoint(point); myMap.balloon.close(); }
+                    else { e.get('domEvent').stopPropagation(); pm.balloon.open(); }
+                });
+                myMap.geoObjects.add(pm); markers.push(pm);
+                attachScooterContextMenu(pm, point);
+                
+                var osmIcon = createOsmScooterIcon(point.status, point.title.trim());
+                if (isBooked) {
+                    var osmLabel = L.marker([point.lat, point.lon], { icon: L.divIcon({ className: 'custom-div-icon', html: '<div style="background: black; color: white; font-size: 8px; font-weight: bold; padding: 3px 4px; border-radius: 3px; text-align: center; width: 44px; box-sizing: border-box; line-height: 1.2;">Выехали</div>', iconSize: [44, 16], iconAnchor: [22, 92] }), interactive: false }).addTo(osmMap);
+                    osmLabelMarkers.push(osmLabel);
+                }
+                var osmPm = L.marker([point.lat, point.lon], { icon: osmIcon }).addTo(osmMap);
+                var popup = L.popup({ closeOnClick: false, autoClose: false }).setContent(buildBalloonContent(point, isBooked));
+                osmPm.bindPopup(popup); osmPm.pointData = point;
+                osmPm.on('click', function(e) {
+                    if (assigningUser) { L.DomEvent.stopPropagation(e); toggleAssignPoint(point); }
+                    else { osmPm.openPopup(); }
+                });
+                osmPm.on('dblclick', function(e) {
+                    if (assigningUser) { L.DomEvent.stopPropagation(e); toggleAssignPoint(point); }
+                    else { L.DomEvent.stopPropagation(e); openAssignModal(point.id, 'point'); }
+                });
+                osmMarkers.push(osmPm);
+                attachOsmScooterContextMenu(osmPm, point);
+            }
+        });
+        document.getElementById('pointCount').textContent = scooterCount;
+    });
 }
-var pm = new ymaps.Placemark([point.lat, point.lon], { balloonContent: buildBalloonContent(point, isBooked) }, iconOptions);
-pm.properties.set('pointData', point);
-pm.events.add('click', function(e) {
-if (assigningUser) { e.get('domEvent').stopPropagation(); toggleAssignPoint(point); myMap.balloon.close(); }
-});
-pm.events.add('dblclick', function(e) {
-if (assigningUser) { e.get('domEvent').stopPropagation(); toggleAssignPoint(point); myMap.balloon.close(); }
-else { e.get('domEvent').stopPropagation(); pm.balloon.open(); }
-});
-myMap.geoObjects.add(pm); markers.push(pm);
-attachScooterContextMenu(pm, point);
-var osmIcon = createOsmScooterIcon(point.status, point.title.trim());
-if (isBooked) {
-var osmLabel = L.marker([point.lat, point.lon], { icon: L.divIcon({ className: 'custom-div-icon', html: '<div style="background: black; color: white; font-size: 8px; font-weight: bold; padding: 3px 4px; border-radius: 3px; text-align: center; width: 44px; box-sizing: border-box; line-height: 1.2;">Выехали</div>', iconSize: [44, 16], iconAnchor: [22, 92] }), interactive: false }).addTo(osmMap);
-osmLabelMarkers.push(osmLabel);
-}
-var osmPm = L.marker([point.lat, point.lon], { icon: osmIcon }).addTo(osmMap);
-var popup = L.popup({ closeOnClick: false, autoClose: false }).setContent(buildBalloonContent(point, isBooked));
-osmPm.bindPopup(popup); osmPm.pointData = point;
-osmPm.on('click', function(e) {
-if (assigningUser) { L.DomEvent.stopPropagation(e); toggleAssignPoint(point); }
-else { osmPm.openPopup(); }
-});
-osmPm.on('dblclick', function(e) {
-if (assigningUser) { L.DomEvent.stopPropagation(e); toggleAssignPoint(point); }
-else { L.DomEvent.stopPropagation(e); openAssignModal(point.id, 'point'); }
-});
-osmMarkers.push(osmPm);
-attachOsmScooterContextMenu(osmPm, point);
-}
-});
-document.getElementById('pointCount').textContent = scooterCount;
-});
-}
-
 function loadRoutes() {
 if (mapMode === 2 || mapMode === 3) return;
 routes.forEach(function(r) {
