@@ -312,53 +312,72 @@ var lastMoveCoords = null;
 var isRouteConfirmMode = false;
 
 function setMapMode(mode) {
-mapMode = mode;
-var headerText = document.getElementById('modeHeaderText');
-document.getElementById('map').style.display = 'block';
-document.getElementById('osmMap').style.display = 'none';
-if (mode === 2) {
-if (headerText) headerText.innerHTML = "Зоны которые<br>были прочёсаны";
-document.getElementById('bottomPanel').style.display = 'none';
-var infoEl = document.querySelector('.controls .info');
-if (infoEl) infoEl.style.display = 'none';
-markers.forEach(function(m) { myMap.geoObjects.remove(m); }); markers = [];
-labelMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); labelMarkers = [];
-parkingMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); parkingMarkers = [];
-parkingLabelMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); parkingLabelMarkers = [];
-infoMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); infoMarkers = [];
-routes.forEach(function(r) { myMap.geoObjects.remove(r.polyline); if(r.arrow) myMap.geoObjects.remove(r.arrow); if(r.textMarker) myMap.geoObjects.remove(r.textMarker); }); routes = [];
-tempRoutes.forEach(function(r) { myMap.geoObjects.remove(r.polyline); if(r.arrow) myMap.geoObjects.remove(r.arrow); if(r.textMarker) myMap.geoObjects.remove(r.textMarker); }); tempRoutes = [];
-zones1.forEach(function(z) { myMap.geoObjects.remove(z.polygon); if(z.text) myMap.geoObjects.remove(z.text); });
-zones3.forEach(function(z) { myMap.geoObjects.remove(z.polygon); if(z.text) myMap.geoObjects.remove(z.text); });
-loadZones();
-loadPoints();
-} else if (mode === 3) {
-if (headerText) headerText.innerHTML = "Места в которых<br>находили самокат";
-document.getElementById('bottomPanel').style.display = 'none';
-var infoEl = document.querySelector('.controls .info');
-if (infoEl) infoEl.style.display = 'none';
-markers.forEach(function(m) { myMap.geoObjects.remove(m); }); markers = [];
-labelMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); labelMarkers = [];
-parkingMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); parkingMarkers = [];
-parkingLabelMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); parkingLabelMarkers = [];
-infoMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); infoMarkers = [];
-routes.forEach(function(r) { myMap.geoObjects.remove(r.polyline); if(r.arrow) myMap.geoObjects.remove(r.arrow); if(r.textMarker) myMap.geoObjects.remove(r.textMarker); }); routes = [];
-tempRoutes.forEach(function(r) { myMap.geoObjects.remove(r.polyline); if(r.arrow) myMap.geoObjects.remove(r.arrow); if(r.textMarker) myMap.geoObjects.remove(r.textMarker); }); tempRoutes = [];
-zones1.forEach(function(z) { myMap.geoObjects.remove(z.polygon); if(z.text) myMap.geoObjects.remove(z.text); });
-zones2.forEach(function(z) { myMap.geoObjects.remove(z.polygon); if(z.text) myMap.geoObjects.remove(z.text); });
-loadZones();
-} else {
-if (headerText) headerText.innerText = "Задачи на сегодня";
-document.getElementById('bottomPanel').style.display = 'block';
-var infoEl = document.querySelector('.controls .info');
-if (infoEl) infoEl.style.display = 'inline-block';
-zones2.forEach(function(z) { myMap.geoObjects.remove(z.polygon); if(z.text) myMap.geoObjects.remove(z.text); });
-zones3.forEach(function(z) { myMap.geoObjects.remove(z.polygon); if(z.text) myMap.geoObjects.remove(z.text); });
-loadPoints();
-loadParkings();
-loadZones();
-loadRoutes();
-}
+    mapMode = mode;
+    var headerText = document.getElementById('modeHeaderText');
+    document.getElementById('map').style.display = 'block';
+    document.getElementById('osmMap').style.display = 'none';
+    
+    if (mode === 2) {
+        // Режим 2: чистая карта для зон
+        if (headerText) headerText.innerHTML = "Зоны которые<br>были прочёсаны";
+        document.getElementById('bottomPanel').style.display = 'none';
+        var infoEl = document.querySelector('.controls .info');
+        if (infoEl) infoEl.style.display = 'none';
+        
+        // Очищаем всё с карты
+        markers.forEach(function(m) { myMap.geoObjects.remove(m); }); markers = [];
+        labelMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); labelMarkers = [];
+        parkingMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); parkingMarkers = [];
+        parkingLabelMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); parkingLabelMarkers = [];
+        infoMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); infoMarkers = [];
+        routes.forEach(function(r) { myMap.geoObjects.remove(r.polyline); if(r.arrow) myMap.geoObjects.remove(r.arrow); if(r.textMarker) myMap.geoObjects.remove(r.textMarker); }); routes = [];
+        tempRoutes.forEach(function(r) { myMap.geoObjects.remove(r.polyline); if(r.arrow) myMap.geoObjects.remove(r.arrow); if(r.textMarker) myMap.geoObjects.remove(r.textMarker); }); tempRoutes = [];
+        zones1.forEach(function(z) { myMap.geoObjects.remove(z.polygon); if(z.text) myMap.geoObjects.remove(z.text); });
+        zones3.forEach(function(z) { myMap.geoObjects.remove(z.polygon); if(z.text) myMap.geoObjects.remove(z.text); });
+        
+        // Загружаем зоны режима 2 и доп инфы режима 2 (внутри loadPoints отфильтруются по mode)
+        loadZones();
+        loadPoints();
+        
+    } else if (mode === 3) {
+        // Режим 3: чистая карта для меток находок
+        if (headerText) headerText.innerHTML = "Места в которых<br>находили самокат";
+        document.getElementById('bottomPanel').style.display = 'none';
+        var infoEl = document.querySelector('.controls .info');
+        if (infoEl) infoEl.style.display = 'none';
+        
+        // Очищаем всё с карты
+        markers.forEach(function(m) { myMap.geoObjects.remove(m); }); markers = [];
+        labelMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); labelMarkers = [];
+        parkingMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); parkingMarkers = [];
+        parkingLabelMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); parkingLabelMarkers = [];
+        infoMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); infoMarkers = [];
+        routes.forEach(function(r) { myMap.geoObjects.remove(r.polyline); if(r.arrow) myMap.geoObjects.remove(r.arrow); if(r.textMarker) myMap.geoObjects.remove(r.textMarker); }); routes = [];
+        tempRoutes.forEach(function(r) { myMap.geoObjects.remove(r.polyline); if(r.arrow) myMap.geoObjects.remove(r.arrow); if(r.textMarker) myMap.geoObjects.remove(r.textMarker); }); tempRoutes = [];
+        zones1.forEach(function(z) { myMap.geoObjects.remove(z.polygon); if(z.text) myMap.geoObjects.remove(z.text); });
+        zones2.forEach(function(z) { myMap.geoObjects.remove(z.polygon); if(z.text) myMap.geoObjects.remove(z.text); });
+        
+        // ✅ ИСПРАВЛЕНИЕ: Загружаем точки (внутри loadPoints отфильтруются и останутся только tyt.png) и зоны режима 3
+        loadPoints();
+        loadZones();
+        
+    } else {
+        // Режим 0: обычная карта
+        if (headerText) headerText.innerText = "Задачи на сегодня";
+        document.getElementById('bottomPanel').style.display = 'block';
+        var infoEl = document.querySelector('.controls .info');
+        if (infoEl) infoEl.style.display = 'inline-block';
+        
+        // Скрываем зоны режимов 2 и 3
+        zones2.forEach(function(z) { myMap.geoObjects.remove(z.polygon); if(z.text) myMap.geoObjects.remove(z.text); });
+        zones3.forEach(function(z) { myMap.geoObjects.remove(z.polygon); if(z.text) myMap.geoObjects.remove(z.text); });
+        
+        // Загружаем всё для обычного режима
+        loadPoints();
+        loadParkings();
+        loadZones();
+        loadRoutes();
+    }
 }
 
 function cycleModeRight() {
@@ -1522,6 +1541,9 @@ confirmOrangeModal();
 }
 
 function loadPoints() {
+    // УБРАНО: if (mapMode === 2 || mapMode === 3) return; 
+    // Теперь функция работает для всех режимов, но фильтрует точки внутри
+    
     labelMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); labelMarkers = [];
     osmLabelMarkers.forEach(function(m) { osmMap.removeLayer(m); }); osmLabelMarkers = [];
     infoMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); infoMarkers = [];
@@ -1530,31 +1552,24 @@ function loadPoints() {
     var url = currentUserFilter ? API_URL + '/get_points?user=' + encodeURIComponent(currentUserFilter) : API_URL + '/get_points';
     safeFetch(url).then(function(data) {
         if (!Array.isArray(data)) return;
-        
         markers.forEach(function(m) { myMap.geoObjects.remove(m); }); markers = [];
         osmMarkers.forEach(function(m) { osmMap.removeLayer(m); }); osmMarkers = [];
         var scooterCount = 0;
         
         data.forEach(function(point) {
-            var icon = point.icon || 'info.png'; // если иконки нет — считаем info.png
-            
             if (point.status === 'info') {
-    var icon = point.icon || 'info.png';
-    var pointMode = point.mode || 0;
-    
-    // ✅ ФИЛЬТРАЦИЯ ПО РЕЖИМАМ
-    if (mapMode === 0 && (icon === 'tyt.png' || pointMode === 2)) return;  // В режиме 0 не показываем tyt.png и доп инфы режима 2
-    if (mapMode === 2 && (icon === 'tyt.png' || pointMode === 0)) return;  // В режиме 2 не показываем tyt.png и доп инфы режима 0
-    if (mapMode === 3 && icon !== 'tyt.png') return;  // В режиме 3 показываем только tyt.png
-    
-    // ✅ РАЗМЕР ИКОНКИ
-    var iconSize = (icon === 'tyt.png') ? 27 : 18;
-    var iconRadius = Math.floor(iconSize / 2);
-    
-    var infoIcon = {
-        iconLayout: ymaps.templateLayoutFactory.createClass('<div style="width: ' + iconSize + 'px; height: ' + iconSize + 'px; text-align: center; line-height: ' + iconSize + 'px;"><img src="' + BASE_URL + icon + '" style="width: ' + iconSize + 'px; height: ' + iconSize + 'px; display: block;"></div>'),
-        iconShape: { type: 'Circle', coordinates: [iconRadius, iconRadius], radius: iconRadius }
-    };
+                // ✅ ЖЁСТКАЯ ФИЛЬТРАЦИЯ ПО РЕЖИМУ СОЗДАНИЯ (mode) И ИКОНКЕ
+                if (mapMode === 3 && (point.mode !== 3 || point.icon !== 'tyt.png')) return;
+                if (mapMode === 2 && point.mode !== 2) return;
+                if (mapMode === 0 && (point.mode !== 0 && point.mode !== undefined)) return;
+                if (mapMode !== 3 && point.icon === 'tyt.png') return; // Доп. защита
+                
+                var iconSize = (point.icon === 'tyt.png') ? 27 : 18;
+                var iconRadius = Math.floor(iconSize / 2);
+                var infoIcon = {
+                    iconLayout: ymaps.templateLayoutFactory.createClass('<div style="width: ' + iconSize + 'px; height: ' + iconSize + 'px; text-align: center; line-height: ' + iconSize + 'px;"><img src="' + BASE_URL + (point.icon || 'info.png') + '" style="width: ' + iconSize + 'px; height: ' + iconSize + 'px; display: block;"></div>'),
+                    iconShape: { type: 'Circle', coordinates: [iconRadius, iconRadius], radius: iconRadius }
+                };
                 var pm = new ymaps.Placemark([point.lat, point.lon], { balloonContent: buildInfoBalloonContent(point) }, infoIcon);
                 pm.properties.set('infoData', point);
                 pm.events.add('click', function(e) {
@@ -1571,10 +1586,9 @@ function loadPoints() {
                     document.getElementById('deleteInfoModal').style.display = 'flex';
                 });
                 myMap.geoObjects.add(pm); infoMarkers.push(pm);
-                
                 var osmInfoIcon = L.divIcon({
                     className: 'custom-div-icon',
-                    html: '<img src="' + BASE_URL + icon + '" style="width: ' + iconSize + 'px; height: ' + iconSize + 'px; display: block;">',
+                    html: '<img src="' + BASE_URL + (point.icon || 'info.png') + '" style="width: ' + iconSize + 'px; height: ' + iconSize + 'px; display: block;">',
                     iconSize: [iconSize, iconSize],
                     iconAnchor: [iconRadius, iconRadius]
                 });
@@ -1588,9 +1602,8 @@ function loadPoints() {
                 osmPm.on('contextmenu', function(e) { L.DomEvent.preventDefault(e); L.DomEvent.stopPropagation(e); contextMenuHandled = true; deleteInfoId = point.id; document.getElementById('deleteInfoModal').style.display = 'flex'; });
                 osmInfoMarkers.push(osmPm);
             } else {
-                // ✅ САМОКАТЫ ПОКАЗЫВАЕМ ТОЛЬКО В РЕЖИМЕ 0
+                // Самокаты показываем только в обычном режиме
                 if (mapMode !== 0) return;
-                
                 scooterCount++;
                 var isBooked = departures[point.id] !== undefined;
                 var iconOptions = createScooterIcon(point.status, point.title.trim());
@@ -1610,7 +1623,6 @@ function loadPoints() {
                 });
                 myMap.geoObjects.add(pm); markers.push(pm);
                 attachScooterContextMenu(pm, point);
-                
                 var osmIcon = createOsmScooterIcon(point.status, point.title.trim());
                 if (isBooked) {
                     var osmLabel = L.marker([point.lat, point.lon], { icon: L.divIcon({ className: 'custom-div-icon', html: '<div style="background: black; color: white; font-size: 8px; font-weight: bold; padding: 3px 4px; border-radius: 3px; text-align: center; width: 44px; box-sizing: border-box; line-height: 1.2;">Выехали</div>', iconSize: [44, 16], iconAnchor: [22, 92] }), interactive: false }).addTo(osmMap);
