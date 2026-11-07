@@ -1793,15 +1793,15 @@ osmTempRoutes.push({ id: route.id, layer: osmPolyline });
 }
 
 function buildInfoBalloonContent(info) {
-var tgkHtml = info.tgk_url ? '<a href="' + info.tgk_url + '" target="_blank" style="color: #1976D2; text-decoration: underline; font-weight: bold; display: block; margin: 5px 0; font-size: 14px;">КАРТОЧКА В ТГ</a>' : '';
-// ✅ Форматируем координаты
-var coordsText = (info.lat && info.lon) ? (parseFloat(info.lat).toFixed(6) + ', ' + parseFloat(info.lon).toFixed(6)) : '';
-var addressEscaped = (info.address || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
-var addressHtml = '<div class="copyable-text" onclick="event.stopPropagation(); copyToClipboard(\'' + addressEscaped + '\')" style="color: #555; font-size: 14px; margin: 8px 0; text-align: center;" title="Нажми, чтобы скопировать адрес">📋 ' + (info.address || '?') + '</div>';
 var h = '<div style="min-width: 200px; padding: 12px; box-sizing: border-box; text-align: center;" onclick="event.stopPropagation()">';
 h += '<b style="font-size: 16px; display: block; font-weight: bold;">ДОП ИНФА</b>';
-h += addressHtml;
-h += coordsHtml;
+// ✅ Только координаты, без адреса
+var coordsText = (info.lat && info.lon) ? (parseFloat(info.lat).toFixed(6) + ', ' + parseFloat(info.lon).toFixed(6)) : '';
+if (coordsText) {
+var coordsEscaped = coordsText.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+h += '<div class="copyable-text" onclick="event.stopPropagation(); copyToClipboard(\'' + coordsEscaped + '\')" style="color: #1976D2; font-size: 14px; margin: 8px 0; text-align: center; cursor: pointer;" title="Нажми, чтобы скопировать">📍 ' + coordsText + '</div>';
+}
+var tgkHtml = info.tgk_url ? '<a href="' + info.tgk_url + '" target="_blank" style="color: #1976D2; text-decoration: underline; font-weight: bold; display: block; margin: 5px 0; font-size: 14px;">КАРТОЧКА В ТГ</a>' : '';
 h += tgkHtml;
 if (info.comment) h += '<div style="color: #000; font-size: 14px; display: block; margin: 5px 0;">' + info.comment + '</div>';
 h += '<div style="display: flex; flex-direction: column; align-items: center; gap: 4px; margin-top: 10px;">';
@@ -1823,15 +1823,14 @@ function buildBalloonContent(point, isBooked) {
 var esc = point.title.replace(/'/g, "\\'").replace(/"/g, '&quot;');
 var tgkLink = point.tgk_url ? '<a href="' + point.tgk_url + '" target="_blank" style="color: #1976D2; text-decoration: underline; font-weight: bold; display: block; margin: 5px 0; font-size: 14px;">КАРТОЧКА В ТГ</a>' : '';
 var commentHtml = point.comment ? '<div style="color: #000; font-size: 14px; display: block; margin: 5px 0;">' + point.comment + '</div>' : '';
-// ✅ Форматируем координаты
-var coordsText = (point.lat && point.lon) ? (parseFloat(point.lat).toFixed(6) + ', ' + parseFloat(point.lon).toFixed(6)) : '';
-// ✅ Адрес делаем кликабельным
-var addressEscaped = (point.address || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
-var addressHtml = '<div class="copyable-text" onclick="event.stopPropagation(); copyToClipboard(\'' + addressEscaped + '\')" style="color: #555; font-size: 14px; margin: 8px 0; text-align: center;" title="Нажми, чтобы скопировать адрес">📋 ' + (point.address || '?') + '</div>';
 var h = '<div style="min-width: 200px; padding: 12px; box-sizing: border-box; text-align: center;" onclick="event.stopPropagation()">';
 h += '<b style="font-size: 16px; display: block;">' + point.title + '</b>';
-h += addressHtml;
-h += coordsHtml;
+// ✅ Только координаты, без адреса
+var coordsText = (point.lat && point.lon) ? (parseFloat(point.lat).toFixed(6) + ', ' + parseFloat(point.lon).toFixed(6)) : '';
+if (coordsText) {
+var coordsEscaped = coordsText.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+h += '<div class="copyable-text" onclick="event.stopPropagation(); copyToClipboard(\'' + coordsEscaped + '\')" style="color: #1976D2; font-size: 14px; margin: 8px 0; text-align: center; cursor: pointer;" title="Нажми, чтобы скопировать">📍 ' + coordsText + '</div>';
+}
 h += tgkLink + commentHtml;
 h += '<div style="display: flex; flex-direction: column; align-items: center; gap: 4px; margin-top: 10px;">';
 h += '<button onclick="event.stopPropagation(); updateStatus(' + point.id + ', \'found\')" style="background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Нашёл</button>';
