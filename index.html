@@ -91,9 +91,32 @@ body, html { margin: 0; padding: 0; height: 100%; font-family: Arial, sans-serif
 .zone-modal-buttons .btn-zone-cancel:active { background: #757575; }
 .hide-cursor { cursor: none !important; }
 .hide-cursor * { cursor: none !important; }
+
+.copyable-text { cursor: pointer; transition: background 0.2s; padding: 2px 4px; border-radius: 4px; }
+.copyable-text:hover { background: rgba(25, 118, 210, 0.1); }
+.copyable-text:active { background: rgba(25, 118, 210, 0.2); }
+.copy-notification {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #4CAF50;
+    color: white;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: bold;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    z-index: 9999;
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+}
+.copy-notification.show { opacity: 1; }
 </style>
 </head>
 <body>
+<div class="copy-notification" id="copyNotification">Данные о метке скопированы!</div>
 <div id="map"></div>
 <div id="osmMap"></div>
 <button class="mode-switch-btn levo-btn" onclick="setMapMode(0)" title="Обычный режим">
@@ -883,6 +906,44 @@ menu.innerHTML = '<h4 style="margin: 0 0 15px 0; text-align: center; font-size: 
 '<button onclick="closeContextMenu()" style="width: 100%; padding: 10px; background: #9E9E9E; color: white; border: none; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer;">Отмена</button>';
 }
 document.body.appendChild(menu); menu.id = 'contextMenu';
+}
+
+function copyToClipboard(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function() {
+            showCopyNotification('Данные о точке скопированы!');
+        }).catch(function() {
+            fallbackCopy(text);
+        });
+    } else {
+        fallbackCopy(text);
+    }
+}
+
+function fallbackCopy(text) {
+    var textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
+    try {
+        document.execCommand('copy');
+        showCopyNotification('Данные о точке скопированы!');
+    } catch (err) {
+        showCopyNotification('Ошибка копирования');
+    }
+    document.body.removeChild(textarea);
+}
+
+function showCopyNotification(message) {
+    var notif = document.getElementById('copyNotification');
+    if (!notif) return;
+    notif.textContent = message;
+    notif.classList.add('show');
+    setTimeout(function() {
+        notif.classList.remove('show');
+    }, 2000);
 }
 
 function closeContextMenu() { var menu = document.getElementById('contextMenu'); if (menu) menu.remove(); }
@@ -1732,10 +1793,17 @@ osmTempRoutes.push({ id: route.id, layer: osmPolyline });
 }
 
 function buildInfoBalloonContent(info) {
+var tgkHtml = info.tgk_url ? '<a href="' + info.tgk_url + '" target="_blank" style="color: #1976D2; text-decoration: underline; font-weight: bold; display: block; margin: 5px 0; font-size: 14px;">КАРТОЧКА В ТГ</a>' : '';
+// ✅ Форматируем координаты
+var coordsText = (info.lat && info.lon) ? (parseFloat(info.lat).toFixed(6) + ', ' + parseFloat(info.lon).toFixed(6)) : '';
+var coordsHtml = coordsText ? '<div class="copyable-text" onclick="event.stopPropagation(); copyToClipboard(\'' + coordsText + '\')" style="color: #1976D2; font-size: 12px; margin: 4px 0; text-align: center;" title="Нажми, чтобы скопировать координаты">📍 ' + coordsText + '</div>' : '';
+// ✅ Адрес делаем кликабельным
+var addressEscaped = (info.address || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+var addressHtml = '<div class="copyable-text" onclick="event.stopPropagation(); copyToClipboard(\'' + addressEscaped + '\')" style="color: #555; font-size: 14px; margin: 8px 0; text-align: center;" title="Нажми, чтобы скопировать адрес">📋 ' + (info.address || '?') + '</div>';
 var h = '<div style="min-width: 200px; padding: 12px; box-sizing: border-box; text-align: center;" onclick="event.stopPropagation()">';
 h += '<b style="font-size: 16px; display: block; font-weight: bold;">ДОП ИНФА</b>';
-h += '<div style="color: #555; font-size: 14px; margin: 8px 0;">' + info.address + '</div>';
-var tgkHtml = info.tgk_url ? '<a href="' + info.tgk_url + '" target="_blank" style="color: #1976D2; text-decoration: underline; font-weight: bold; display: block; margin: 5px 0; font-size: 14px;">КАРТОЧКА В ТГ</a>' : '';
+h += addressHtml;
+h += coordsHtml;
 h += tgkHtml;
 if (info.comment) h += '<div style="color: #000; font-size: 14px; display: block; margin: 5px 0;">' + info.comment + '</div>';
 h += '<div style="display: flex; flex-direction: column; align-items: center; gap: 4px; margin-top: 10px;">';
@@ -1757,9 +1825,16 @@ function buildBalloonContent(point, isBooked) {
 var esc = point.title.replace(/'/g, "\\'").replace(/"/g, '&quot;');
 var tgkLink = point.tgk_url ? '<a href="' + point.tgk_url + '" target="_blank" style="color: #1976D2; text-decoration: underline; font-weight: bold; display: block; margin: 5px 0; font-size: 14px;">КАРТОЧКА В ТГ</a>' : '';
 var commentHtml = point.comment ? '<div style="color: #000; font-size: 14px; display: block; margin: 5px 0;">' + point.comment + '</div>' : '';
+// ✅ Форматируем координаты
+var coordsText = (point.lat && point.lon) ? (parseFloat(point.lat).toFixed(6) + ', ' + parseFloat(point.lon).toFixed(6)) : '';
+var coordsHtml = coordsText ? '<div class="copyable-text" onclick="event.stopPropagation(); copyToClipboard(\'' + coordsText + '\')" style="color: #1976D2; font-size: 12px; margin: 4px 0; text-align: center;" title="Нажми, чтобы скопировать координаты">📍 ' + coordsText + '</div>' : '';
+// ✅ Адрес делаем кликабельным
+var addressEscaped = (point.address || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+var addressHtml = '<div class="copyable-text" onclick="event.stopPropagation(); copyToClipboard(\'' + addressEscaped + '\')" style="color: #555; font-size: 14px; margin: 8px 0; text-align: center;" title="Нажми, чтобы скопировать адрес">📋 ' + (point.address || '?') + '</div>';
 var h = '<div style="min-width: 200px; padding: 12px; box-sizing: border-box; text-align: center;" onclick="event.stopPropagation()">';
 h += '<b style="font-size: 16px; display: block;">' + point.title + '</b>';
-h += '<div style="color: #555; font-size: 14px; margin: 8px 0;">' + point.address + '</div>';
+h += addressHtml;
+h += coordsHtml;
 h += tgkLink + commentHtml;
 h += '<div style="display: flex; flex-direction: column; align-items: center; gap: 4px; margin-top: 10px;">';
 h += '<button onclick="event.stopPropagation(); updateStatus(' + point.id + ', \'found\')" style="background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 80%; text-align: center; padding: 8px 12px;">Нашёл</button>';
