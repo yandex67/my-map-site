@@ -1522,8 +1522,6 @@ confirmOrangeModal();
 }
 
 function loadPoints() {
-    // ✅ ВАЖНО: убираем return для режимов 2 и 3 — они тоже должны загружать точки
-    
     labelMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); labelMarkers = [];
     osmLabelMarkers.forEach(function(m) { osmMap.removeLayer(m); }); osmLabelMarkers = [];
     infoMarkers.forEach(function(m) { myMap.geoObjects.remove(m); }); infoMarkers = [];
@@ -1541,20 +1539,22 @@ function loadPoints() {
             var icon = point.icon || 'info.png'; // если иконки нет — считаем info.png
             
             if (point.status === 'info') {
-                // ✅ ЖЁСТКАЯ ФИЛЬТРАЦИЯ ДОП ИНФ ПО РЕЖИМАМ
-                // В режиме 3 показываем ТОЛЬКО tyt.png
-                if (mapMode === 3 && icon !== 'tyt.png') return;
-                // В режимах 0 и 2 НЕ показываем tyt.png
-                if (mapMode !== 3 && icon === 'tyt.png') return;
-                
-                // ✅ РАЗМЕР ИКОНКИ: tyt.png больше в 1.5 раза (27x27)
-                var iconSize = (icon === 'tyt.png') ? 27 : 18;
-                var iconRadius = Math.floor(iconSize / 2);
-                
-                var infoIcon = {
-                    iconLayout: ymaps.templateLayoutFactory.createClass('<div style="width: ' + iconSize + 'px; height: ' + iconSize + 'px; text-align: center; line-height: ' + iconSize + 'px;"><img src="' + BASE_URL + icon + '" style="width: ' + iconSize + 'px; height: ' + iconSize + 'px; display: block;"></div>'),
-                    iconShape: { type: 'Circle', coordinates: [iconRadius, iconRadius], radius: iconRadius }
-                };
+    var icon = point.icon || 'info.png';
+    var pointMode = point.mode || 0;
+    
+    // ✅ ФИЛЬТРАЦИЯ ПО РЕЖИМАМ
+    if (mapMode === 0 && (icon === 'tyt.png' || pointMode === 2)) return;  // В режиме 0 не показываем tyt.png и доп инфы режима 2
+    if (mapMode === 2 && (icon === 'tyt.png' || pointMode === 0)) return;  // В режиме 2 не показываем tyt.png и доп инфы режима 0
+    if (mapMode === 3 && icon !== 'tyt.png') return;  // В режиме 3 показываем только tyt.png
+    
+    // ✅ РАЗМЕР ИКОНКИ
+    var iconSize = (icon === 'tyt.png') ? 27 : 18;
+    var iconRadius = Math.floor(iconSize / 2);
+    
+    var infoIcon = {
+        iconLayout: ymaps.templateLayoutFactory.createClass('<div style="width: ' + iconSize + 'px; height: ' + iconSize + 'px; text-align: center; line-height: ' + iconSize + 'px;"><img src="' + BASE_URL + icon + '" style="width: ' + iconSize + 'px; height: ' + iconSize + 'px; display: block;"></div>'),
+        iconShape: { type: 'Circle', coordinates: [iconRadius, iconRadius], radius: iconRadius }
+    };
                 var pm = new ymaps.Placemark([point.lat, point.lon], { balloonContent: buildInfoBalloonContent(point) }, infoIcon);
                 pm.properties.set('infoData', point);
                 pm.events.add('click', function(e) {
@@ -2114,17 +2114,18 @@ if (!rightClickCoords) { alert('Координаты не захвачены!');
 var status = 'info';
 var iconFile = (mapMode === 3) ? 'tyt.png' : 'info.png';
 fetch(API_URL + '/create_scooter', {
-method: 'POST',
-headers: { 'Content-Type': 'application/json' },
-body: JSON.stringify({
-number: 'ДОП ИНФА',
-address: rightClickCoords.join(', '),
-lat: rightClickCoords[0],
-lon: rightClickCoords[1],
-status: status,
-comment: comment,
-icon: iconFile
-})
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+        number: 'ДОП ИНФА',
+        address: rightClickCoords.join(', '),
+        lat: rightClickCoords[0],
+        lon: rightClickCoords[1],
+        status: status,
+        comment: comment,
+        icon: iconFile,
+        mode: mapMode  // ✅ Передаем текущий режим
+    })
 })
 .then(function(r) { return r.json(); })
 .then(function(data) {
