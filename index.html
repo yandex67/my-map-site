@@ -1545,24 +1545,19 @@ function loadPoints() {
         var scooterCount = 0;
         
         data.forEach(function(point) {
-            if (point.status === 'info') {
-                console.log('📍 Обработка info точки:', point.title, '| icon:', point.icon, '| mapMode:', mapMode);
+                if (point.status === 'info') {
+                // ✅ ИСПРАВЛЕНИЕ: явно проверяем, что icon существует и равен 'tyt.png'
+                var icon = point.icon || 'info.png'; // Если icon нет, считаем его 'info.png'
                 
-                if (mapMode === 3 && point.icon !== 'tyt.png') {
-                    console.log('⏭️ Пропущено: режим 3, но иконка не tyt.png (получена:', point.icon, ')');
-                    return;
-                }
-                if (mapMode === 0 && point.icon === 'tyt.png') {
-                    console.log('⏭️ Пропущено: режим 0, но иконка tyt.png');
-                    return;
-                }
+                if (mapMode === 3 && icon !== 'tyt.png') return;
+                if (mapMode === 0 && icon === 'tyt.png') return;
                 
-                console.log('✅ Точка ДОБАВЛЯЕТСЯ на карту:', point.title, 'с иконкой:', point.icon);
-                
-                var iconSize = (point.icon === 'tyt.png') ? 27 : 18;
+                // ✅ РАЗМЕР ИКОНКИ: tyt.png больше в 1.5 раза (27x27 вместо 18x18)
+                var iconSize = (icon === 'tyt.png') ? 27 : 18;
                 var iconRadius = Math.floor(iconSize / 2);
+                
                 var infoIcon = {
-                    iconLayout: ymaps.templateLayoutFactory.createClass('<div style="width: ' + iconSize + 'px; height: ' + iconSize + 'px; text-align: center; line-height: ' + iconSize + 'px;"><img src="' + BASE_URL + (point.icon || 'info.png') + '" style="width: ' + iconSize + 'px; height: ' + iconSize + 'px; display: block;"></div>'),
+                    iconLayout: ymaps.templateLayoutFactory.createClass('<div style="width: ' + iconSize + 'px; height: ' + iconSize + 'px; text-align: center; line-height: ' + iconSize + 'px;"><img src="' + BASE_URL + icon + '" style="width: ' + iconSize + 'px; height: ' + iconSize + 'px; display: block;"></div>'),
                     iconShape: { type: 'Circle', coordinates: [iconRadius, iconRadius], radius: iconRadius }
                 };
 function loadRoutes() {
