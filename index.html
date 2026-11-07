@@ -1796,9 +1796,10 @@ function buildInfoBalloonContent(info) {
 var tgkHtml = info.tgk_url ? '<a href="' + info.tgk_url + '" target="_blank" style="color: #1976D2; text-decoration: underline; font-weight: bold; display: block; margin: 5px 0; font-size: 14px;">КАРТОЧКА В ТГ</a>' : '';
 // ✅ Форматируем координаты
 var coordsText = (info.lat && info.lon) ? (parseFloat(info.lat).toFixed(6) + ', ' + parseFloat(info.lon).toFixed(6)) : '';
+var coordsHtml = coordsText ? '<div class="copyable-text" onclick="event.stopPropagation(); copyToClipboard(\'' + coordsText + '\')" style="color: #1976D2; font-size: 12px; margin: 4px 0; text-align: center;" title="Нажми, чтобы скопировать координаты">📍 ' + coordsText + '</div>' : '';
 // ✅ Адрес делаем кликабельным
 var addressEscaped = (info.address || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
-var addressHtml = '<div class="copyable-text" onclick="event.stopPropagation(); copyToClipboard(\'' + addressEscaped + '\')" style="color: #555; font-size: 14px; margin: 8px 0; text-align: center;" title="Нажми, чтобы скопировать адрес">'(info.address || '?') + '</div>';
+var addressHtml = '<div class="copyable-text" onclick="event.stopPropagation(); copyToClipboard(\'' + addressEscaped + '\')" style="color: #555; font-size: 14px; margin: 8px 0; text-align: center;" title="Нажми, чтобы скопировать адрес">📋 ' + (info.address || '?') + '</div>';
 var h = '<div style="min-width: 200px; padding: 12px; box-sizing: border-box; text-align: center;" onclick="event.stopPropagation()">';
 h += '<b style="font-size: 16px; display: block; font-weight: bold;">ДОП ИНФА</b>';
 h += addressHtml;
@@ -1826,9 +1827,10 @@ var tgkLink = point.tgk_url ? '<a href="' + point.tgk_url + '" target="_blank" s
 var commentHtml = point.comment ? '<div style="color: #000; font-size: 14px; display: block; margin: 5px 0;">' + point.comment + '</div>' : '';
 // ✅ Форматируем координаты
 var coordsText = (point.lat && point.lon) ? (parseFloat(point.lat).toFixed(6) + ', ' + parseFloat(point.lon).toFixed(6)) : '';
+var coordsHtml = coordsText ? '<div class="copyable-text" onclick="event.stopPropagation(); copyToClipboard(\'' + coordsText + '\')" style="color: #1976D2; font-size: 12px; margin: 4px 0; text-align: center;" title="Нажми, чтобы скопировать координаты">📍 ' + coordsText + '</div>' : '';
 // ✅ Адрес делаем кликабельным
 var addressEscaped = (point.address || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
-var addressHtml = '<div class="copyable-text" onclick="event.stopPropagation(); copyToClipboard(\'' + addressEscaped + '\')" style="color: #555; font-size: 14px; margin: 8px 0; text-align: center;" title="Нажми, чтобы скопировать адрес">'(point.address || '?') + '</div>';
+var addressHtml = '<div class="copyable-text" onclick="event.stopPropagation(); copyToClipboard(\'' + addressEscaped + '\')" style="color: #555; font-size: 14px; margin: 8px 0; text-align: center;" title="Нажми, чтобы скопировать адрес">📋 ' + (point.address || '?') + '</div>';
 var h = '<div style="min-width: 200px; padding: 12px; box-sizing: border-box; text-align: center;" onclick="event.stopPropagation()">';
 h += '<b style="font-size: 16px; display: block;">' + point.title + '</b>';
 h += addressHtml;
