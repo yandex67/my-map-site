@@ -284,17 +284,42 @@ def init_db():
         conn.commit()
         print("✅ Таблицы созданы")
         print("🔧 Проверяю колонки...")
-        if not column_exists(c, 'points', 'mode'): c.execute("ALTER TABLE points ADD COLUMN mode INTEGER DEFAULT 0") conn.commit()
-        if not column_exists(c, 'zones', 'mode'): c.execute("ALTER TABLE zones ADD COLUMN mode INTEGER DEFAULT 1"); conn.commit()
-        if not column_exists(c, 'points', 'icon'): c.execute("ALTER TABLE points ADD COLUMN icon TEXT DEFAULT 'info.png'"); conn.commit()
-        if not column_exists(c, 'points', 'comment'): c.execute("ALTER TABLE points ADD COLUMN comment TEXT"); conn.commit()
-        if not column_exists(c, 'points', 'url'): c.execute("ALTER TABLE points ADD COLUMN url TEXT"); conn.commit()
-        if not column_exists(c, 'points', 'assigned_to'): c.execute("ALTER TABLE points ADD COLUMN assigned_to TEXT"); conn.commit()
-        if not column_exists(c, 'points', 'tgk_url'): c.execute("ALTER TABLE points ADD COLUMN tgk_url TEXT"); conn.commit()
-        if not column_exists(c, 'parkings', 'photo_url'): c.execute("ALTER TABLE parkings ADD COLUMN photo_url TEXT"); conn.commit()
-        if not column_exists(c, 'zones', 'assigned_to'): c.execute("ALTER TABLE zones ADD COLUMN assigned_to TEXT"); conn.commit()
-        if not column_exists(c, 'routes', 'temporary'): c.execute("ALTER TABLE routes ADD COLUMN temporary BOOLEAN DEFAULT FALSE"); conn.commit()
-        if not column_exists(c, 'routes', 'assigned_to'): c.execute("ALTER TABLE routes ADD COLUMN assigned_to TEXT"); conn.commit()
+        
+        # ✅ ИСПРАВЛЕНО: добавлены переносы строк для корректного синтаксиса Python
+        if not column_exists(c, 'points', 'mode'): 
+            c.execute("ALTER TABLE points ADD COLUMN mode INTEGER DEFAULT 0")
+            conn.commit()
+        if not column_exists(c, 'zones', 'mode'): 
+            c.execute("ALTER TABLE zones ADD COLUMN mode INTEGER DEFAULT 1")
+            conn.commit()
+        if not column_exists(c, 'points', 'icon'): 
+            c.execute("ALTER TABLE points ADD COLUMN icon TEXT DEFAULT 'info.png'")
+            conn.commit()
+        if not column_exists(c, 'points', 'comment'): 
+            c.execute("ALTER TABLE points ADD COLUMN comment TEXT")
+            conn.commit()
+        if not column_exists(c, 'points', 'url'): 
+            c.execute("ALTER TABLE points ADD COLUMN url TEXT")
+            conn.commit()
+        if not column_exists(c, 'points', 'assigned_to'): 
+            c.execute("ALTER TABLE points ADD COLUMN assigned_to TEXT")
+            conn.commit()
+        if not column_exists(c, 'points', 'tgk_url'): 
+            c.execute("ALTER TABLE points ADD COLUMN tgk_url TEXT")
+            conn.commit()
+        if not column_exists(c, 'parkings', 'photo_url'): 
+            c.execute("ALTER TABLE parkings ADD COLUMN photo_url TEXT")
+            conn.commit()
+        if not column_exists(c, 'zones', 'assigned_to'): 
+            c.execute("ALTER TABLE zones ADD COLUMN assigned_to TEXT")
+            conn.commit()
+        if not column_exists(c, 'routes', 'temporary'): 
+            c.execute("ALTER TABLE routes ADD COLUMN temporary BOOLEAN DEFAULT FALSE")
+            conn.commit()
+        if not column_exists(c, 'routes', 'assigned_to'): 
+            c.execute("ALTER TABLE routes ADD COLUMN assigned_to TEXT")
+            conn.commit()
+            
         for key, value in [('hide_empty_labels', 'false'), ('show_parkings', 'true'), ('show_labels', 'true')]:
             c.execute("INSERT INTO settings (key, value) VALUES (%s, %s) ON CONFLICT (key) DO NOTHING", (key, value))
         conn.commit()
@@ -338,13 +363,12 @@ def restore_from_trash():
         trash_id, obj_type, data = row
         data = json.loads(data) if isinstance(data, str) else data
         if obj_type in ('point', 'info'):
-            c.execute("""INSERT INTO points (title, address, lat, lon, status, comment, url, assigned_to, tgk_url)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id""",
+            c.execute("""INSERT INTO points (title, address, lat, lon, status, comment, url, assigned_to, tgk_url, mode)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id""",
                      (data.get('title'), data.get('address'), data.get('lat'), data.get('lon'),
                       data.get('status', 'active'), data.get('comment', ''), data.get('url', ''),
-                      data.get('assigned_to'), data.get('tgk_url', '')))
+                      data.get('assigned_to'), data.get('tgk_url', ''), data.get('mode', 0)))
         elif obj_type == 'zone':
-            # Берем mode из сохраненных данных, если его нет — ставим 1 по умолчанию
             mode = data.get('mode', 1)
             c.execute("""INSERT INTO zones (coords, comment, assigned_to, mode)
                         VALUES (%s, %s, %s, %s) RETURNING id""",
@@ -512,8 +536,8 @@ def create_scooter_only(address, last_three, status, tgk_url):
             conn.close()
             return True, "Самокат уже существовал (карточка обновлена или была)"
         
-        c.execute("""INSERT INTO points (title, address, lat, lon, status, comment, url, tgk_url) 
-                    VALUES (%s, %s, NULL, NULL, %s, '', '', %s)""", 
+        c.execute("""INSERT INTO points (title, address, lat, lon, status, comment, url, tgk_url, mode) 
+                    VALUES (%s, %s, NULL, NULL, %s, '', '', %s, 0)""", 
                  (last_three, address, status, tgk_url))
         conn.commit()
         
@@ -672,16 +696,16 @@ def list_monitors(message):
     else:
         text += "  (нет активных)\n"
     
-    text += "\n Обзвоны:\n"
+    text += "\n📞 Обзвоны:\n"
     text += f"  ✅ {'Активен' if call_monitor_active else 'НЕ АКТИВЕН'} (топик {call_thread_id})\n"
     
-    text += "\n Авто-создание самокатов + карточки ТГ:\n"
+    text += "\n🛴 Авто-создание самокатов + карточки ТГ:\n"
     text += f"  ✅ Активен (топик {TGK_THREAD_ID})\n"
     
-    text += "\n Авто-удаление самокатов:\n"
+    text += "\n🗑️ Авто-удаление самокатов:\n"
     text += f"  ✅ Активен (топик {call_thread_id})\n"
     
-    text += "\n Авто-уведомление об аренде:\n"
+    text += "\n🔔 Авто-уведомление об аренде:\n"
     text += f"  ✅ Активен (топик {call_thread_id})\n"
     
     bot.reply_to(message, text)
@@ -808,11 +832,7 @@ def handle_message(message):
                     except Exception as e:
                         print(f"❌ Ошибка пересылки обзвона: {e}")
 
-        # ==============================================================================
-        # ⚠️⚠️⚠️ НЕЗАБУДЬКОД: АВТО-УДАЛЕНИЕ САМОКАТОВ ИЗ ПОИСКОВ ⚠️⚠️⚠️
-        # Ищет: 'удален из Поисков' / 'удалён из Поиска'
-        # Действие: удаляет самокат 7703*** из БД и пишет в ЛС
-        # ==============================================================================
+        # 3. Авто-удаление самокатов из Поисков
         msg_text_lower = message.text.lower()
         is_poisk_deleted = (
             msg_thread_id == call_thread_id and 
@@ -852,11 +872,7 @@ def handle_message(message):
                     print(f"❌ Ошибка удаления самоката: {e}")
                     traceback.print_exc()
 
-        # ==============================================================================
-        # ⚠️⚠️⚠️ НЕЗАБУДЬКОД: АВТО-УВЕДОМЛЕНИЕ ОБ АРЕНДЕ (БЕЗ АРЕНДЫ) ⚠️⚠️⚠️
-        # Ищет: 'удален из Без аренды'
-        # Действие: уведомление в ЛС '*** арендовал спустя 48+ часов'
-        # ==============================================================================
+        # 4. Авто-уведомление об аренде
         if msg_thread_id == call_thread_id and 'удален из без аренды' in msg_text_lower:
             match = re.search(r'7703(\d{3})', message.text)
             if match:
@@ -868,7 +884,7 @@ def handle_message(message):
                 except Exception as e:
                     print(f"❌ Ошибка уведомления об аренде: {e}")
 
-        # 3. Авто-создание самокатов из Топика 8694
+        # 5. Авто-создание самокатов из Топика 8694
         if msg_thread_id == TGK_THREAD_ID:
             log_to_owner(f"📥 Получено сообщение в топике {TGK_THREAD_ID}:\n'{message.text}'")
             parsed = parse_scooter_message_8694(message.text)
@@ -978,7 +994,6 @@ def handle_message(message):
             bot.reply_to(message, f"❌ Ошибка: {e}")
         return
 
-        # ✅ НОВОЕ: Удаление последней зоны режима 2
     if text_lower == 'off last zona2':
         try:
             conn = get_db_connection()
@@ -996,7 +1011,6 @@ def handle_message(message):
             bot.reply_to(message, f"❌ Ошибка: {e}")
         return
 
-    # ✅ НОВОЕ: Удаление всех зон режима 2
     if text_lower == 'off all zona2':
         try:
             conn = get_db_connection()
@@ -1177,8 +1191,8 @@ def handle_message(message):
                 bot.reply_to(message, "❌ Нет подключения к БД")
                 return
             c = conn.cursor()
-            c.execute("""INSERT INTO points (title, address, lat, lon, status, comment, url, tgk_url) 
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
+            c.execute("""INSERT INTO points (title, address, lat, lon, status, comment, url, tgk_url, mode) 
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 0)""",
                      (last_three, location_part, lat, lon, status, comment, '', tgk_url))
             conn.commit()
             conn.close()
@@ -1255,7 +1269,7 @@ def handle_message(message):
             lat, lon = get_coordinates(location_part)
         if lat and lon:
             conn = get_db_connection(); c = conn.cursor()
-            c.execute("INSERT INTO points (title, address, lat, lon, status, comment, url, tgk_url) VALUES (%s, %s, %s, %s, 'info', %s, '', '')", 
+            c.execute("INSERT INTO points (title, address, lat, lon, status, comment, url, tgk_url, mode) VALUES (%s, %s, %s, %s, 'info', %s, '', '', 0)", 
                      ("ДОП ИНФА", location_part, lat, lon, comment))
             conn.commit(); conn.close()
             bot.reply_to(message, f"✅ Доп инфа добавлена!")
@@ -1332,9 +1346,14 @@ def get_points():
         conn = get_db_connection()
         if not conn: return jsonify([]), 200
         c = conn.cursor()
+        
+        # ✅ ИСПРАВЛЕНО: корректная индентация и добавлена ветка else
         if user:
-        c.execute("SELECT id, title, address, lat, lon, status, comment, url, assigned_to, tgk_url, icon, mode FROM points WHERE status != 'found'")
-points = [{"id": r[0], "title": r[1], "address": r[2], "lat": float(r[3]) if r[3] else 0, "lon": float(r[4]) if r[4] else 0, "status": r[5], "comment": r[6] or "", "url": r[7] or "", "assigned_to": r[8], "tgk_url": r[9] or "", "icon": r[10] or "info.png", "mode": r[11] if len(r) > 11 else 0} for r in c.fetchall()]
+            c.execute("SELECT id, title, address, lat, lon, status, comment, url, assigned_to, tgk_url, icon, mode FROM points WHERE assigned_to = %s AND status != 'found'", (user,))
+        else:
+            c.execute("SELECT id, title, address, lat, lon, status, comment, url, assigned_to, tgk_url, icon, mode FROM points WHERE status != 'found'")
+        
+        points = [{"id": r[0], "title": r[1], "address": r[2], "lat": float(r[3]) if r[3] else 0, "lon": float(r[4]) if r[4] else 0, "status": r[5], "comment": r[6] or "", "url": r[7] or "", "assigned_to": r[8], "tgk_url": r[9] or "", "icon": r[10] or "info.png", "mode": r[11] if len(r) > 11 else 0} for r in c.fetchall()]
         conn.close()
         return jsonify(points)
     except Exception as e:
@@ -1496,7 +1515,6 @@ def delete_parking():
 def get_zones():
     try:
         user = request.args.get('user', '')
-        # ✅ Принимаем параметр mode из запроса (по умолчанию 1)
         mode = request.args.get('mode', '1')
         try:
             mode = int(mode)
@@ -1507,7 +1525,6 @@ def get_zones():
         if not conn: return jsonify([]), 200
         c = conn.cursor()
         
-        # ✅ Фильтруем зоны по режиму
         if user:
             c.execute("SELECT id, coords, comment, assigned_to, mode FROM zones WHERE assigned_to = %s AND mode = %s", (user, mode))
         else:
@@ -1538,7 +1555,6 @@ def add_zone():
         conn = get_db_connection()
         if not conn: return jsonify({"error": "DB connection failed"}), 500
         c = conn.cursor()
-        # ✅ Принимаем параметр mode из запроса (по умолчанию 1)
         mode = data.get('mode', 1)
         if not isinstance(mode, int):
             mode = 1
